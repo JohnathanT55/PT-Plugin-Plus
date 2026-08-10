@@ -1,15 +1,36 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2023",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM"],
-    "types": ["chrome"],
     "strict": true,
-    "noEmit": true,
+    "jsx": "preserve",
+    "importHelpers": true,
+    "moduleResolution": "bundler",
+    "allowJs": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "types": ["node", "chrome"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "paths": {
+      "~/../package.json": ["./package.json"],
+      "~/*": ["./app/src/*"],
+      "@/*": ["./app/src/entries/*"],
+      "@ptd/*": ["./app/src/packages/*"]
+    }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["dist", "dist-mv3", "legacy-mv2", "node_modules"]
+  "include": ["app/src/**/*.ts", "app/src/**/*.d.ts", "app/src/**/*.tsx", "app/src/**/*.vue"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

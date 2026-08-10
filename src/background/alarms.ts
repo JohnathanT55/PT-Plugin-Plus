@@ -16,14 +16,11 @@ function setPeriodicAlarm(
     chrome.alarms.clear(name);
     return;
   }
-  const alarmInfo: chrome.alarms.AlarmCreateInfo = {
-    periodInMinutes: Math.max(1, intervalMinutes)
-  };
-  if (nextRunAt && nextRunAt > Date.now()) {
-    alarmInfo.when = nextRunAt;
-  } else {
-    alarmInfo.delayInMinutes = 1;
-  }
+  const periodInMinutes = Math.max(1, intervalMinutes);
+  const alarmInfo: chrome.alarms.AlarmCreateInfo =
+    nextRunAt && nextRunAt > Date.now()
+      ? { periodInMinutes, when: nextRunAt }
+      : { periodInMinutes, delayInMinutes: 1 };
   chrome.alarms.create(name, alarmInfo);
 }
 

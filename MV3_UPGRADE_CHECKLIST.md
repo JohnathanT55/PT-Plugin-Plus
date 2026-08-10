@@ -40,6 +40,19 @@
 
 本阶段不冒充“可替代旧 PTPP”的完整扩展：旧 UI/content/search/download 业务接线、凭据迁移提示、跨扩展 ID 的 ZIP/JSON 导入器和浏览器实机回归仍属于后续阶段。
 
+### PTD 应用框架导入阶段（已完成）
+
+- [x] 以 PT-depiler 提交 `9dd9ee1e10f4f2633c886f265a7aad0e1c52cab6` 为基线，将 Vue 3、Vite、Vuetify、Pinia 应用导入 `app/`。
+- [x] 接入 options UI、content script、Chrome service worker、offscreen document 和类型化消息入口。
+- [x] 导入 PTD 的站点、搜索、下载器、备份、社交/影片信息等静态 TypeScript 包。
+- [x] 10 个指定站点定义和 qBittorrent、Transmission 下载器均进入生产 bundle。
+- [x] Chrome 生产输出切换为 `dist-chrome/`，CI 使用 Node.js 24 并上传该目录。
+- [x] 修补依赖中的 `new Function`，完整产物扫描不含 `unsafe-eval`、`eval()`、`new Function()` 或远程脚本。
+- [x] 自动验证覆盖 753 个构建文件的 manifest、入口、资源和所需站点 bundle。
+- [ ] 在 Chrome/Edge 中加载 `dist-chrome/`，验证设置页、内容工具栏和 service worker 启动。
+
+本阶段完成的是应用框架和静态模块接入；下列 P0 条目只有在真实账号、站点和下载器环境中通过后才会勾选。
+
 ## 2. P0：首个可用 MV3 版本必须保留
 
 ### 2.1 实际使用的 10 个站点
@@ -246,19 +259,19 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 
 这些功能没有出现在实际使用清单中，不应阻塞 MV3：
 
-| 功能 | 建议 |
-|---|---|
-| 自定义语言包导入/替换 | 首版移除；以后可作为纯数据功能恢复。 |
-| Chrome storage.sync 旧式直接备份 | 移除；由本地备份和 WebDAV 取代。 |
-| GoodMoviesList 页面增强 | 移除。 |
-| 封面模式 | 移除；以后有明确需求再以卡片视图重做。 |
-| `reseed.tongyifan.me` 页面增强 | 移除，除非确认仍在使用。 |
-| 任意自定义站点插件 JS/CSS | 移除；MV3 不允许延续任意动态代码执行。 |
-| 任意可执行搜索入口脚本 | 移除；保留 PTD #475 的数据化请求配置和内建 typed search entries。 |
-| 独立 schema 管理页 | 移除；schema 改为源码类型和构建期注册。 |
-| 独立权限设置页 | 可移除；改为功能触发时请求最小必要权限。 |
-| OWSS | 非必需；WebDAV 稳定后再决定。 |
-| 老版捐赠、团队、技术栈等静态页面 | 不阻塞首发，可简化。 |
+| 功能                             | 建议                                                              |
+| -------------------------------- | ----------------------------------------------------------------- |
+| 自定义语言包导入/替换            | 首版移除；以后可作为纯数据功能恢复。                              |
+| Chrome storage.sync 旧式直接备份 | 移除；由本地备份和 WebDAV 取代。                                  |
+| GoodMoviesList 页面增强          | 移除。                                                            |
+| 封面模式                         | 移除；以后有明确需求再以卡片视图重做。                            |
+| `reseed.tongyifan.me` 页面增强   | 移除，除非确认仍在使用。                                          |
+| 任意自定义站点插件 JS/CSS        | 移除；MV3 不允许延续任意动态代码执行。                            |
+| 任意可执行搜索入口脚本           | 移除；保留 PTD #475 的数据化请求配置和内建 typed search entries。 |
+| 独立 schema 管理页               | 移除；schema 改为源码类型和构建期注册。                           |
+| 独立权限设置页                   | 可移除；改为功能触发时请求最小必要权限。                          |
+| OWSS                             | 非必需；WebDAV 稳定后再决定。                                     |
+| 老版捐赠、团队、技术栈等静态页面 | 不阻塞首发，可简化。                                              |
 
 ## 5. 数据迁移清单
 
@@ -284,30 +297,30 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 
 ### 6.1 MV3 基础
 
-- [x] 新增独立 `manifest_version: 3` 构建（旧 MV2 构建继续保留）。
+- [x] 根项目采用 `manifest_version: 3` 构建，旧 MV2 源码保存在 `legacy-mv2/`。
 - [x] `browser_action` 改为 `action`。
 - [x] 新 MV3 Chrome background 使用 service worker。
 - [ ] Firefox 使用独立兼容 background 构建。
 - [x] 权限拆分为 `permissions`、`optional_permissions` 和 `host_permissions`。
-- [x] 当前基础 manifest 不暴露 Web Accessible Resources；接入内容脚本时按 MV3 对象格式逐项声明。
-- [x] 新 MV3 manifest 和 bundle 不含 `unsafe-eval`（旧 MV2 代码仍待逐模块替换）。
+- [x] Web Accessible Resources 使用 MV3 对象格式声明内容脚本所需图标、库和样式。
+- [x] 新 MV3 manifest 和完整生产 bundle 不含 `unsafe-eval`、`eval()` 或 `new Function()`。
 
 ### 6.2 后台与任务
 
 - [x] Chrome API 监听器在 service worker 顶层同步注册。
 - [x] 已建立 offscreen document 的幂等创建及 DOMParser/剪贴板消息入口；旧解析器迁移仍待完成。
-- [x] 已建立类型化消息协议和路由；旧 UI/内容脚本仍待切换。
+- [x] 已接入 PTD 类型化消息协议、options UI 和内容脚本；站点/下载业务的差异功能仍待接线。
 - [x] 新数据模型和迁移结果进入版本化 `chrome.storage.local`；大数据域是否转 IndexedDB 待容量测试决定。
 - [ ] 用户刷新、下载延迟/重试、自动备份全部使用 alarms/job scheduler。
 - [ ] 所有任务可在 service worker 被回收后恢复。
 
 ### 6.3 消灭动态代码
 
-- [ ] 下载器 `init.js` 变为静态 TypeScript 类。
-- [ ] 10 个站点使用 PT-depiler typed definitions。
-- [ ] 从完整产品代码移除所有 `eval` 和 `new Function`；当前新 MV3 bundle 已通过动态代码扫描。
-- [ ] 禁止下载并执行远端脚本。
-- [ ] 远端配置只能包含数据，不能包含可执行代码。
+- [x] 生产构建使用 PTD 静态 TypeScript 下载器类，不加载旧下载器 `init.js`。
+- [x] 10 个指定站点使用 PT-depiler typed definitions 并进入生产 bundle。
+- [x] 从 MV3 生产构建移除所有 `eval` 和 `new Function`，完整产物通过动态代码扫描。
+- [x] MV3 生产构建不下载并执行远端脚本。
+- [x] MV3 生产构建只接受静态模块与数据配置，不执行远端配置代码。
 
 ### 6.4 验证
 

@@ -1,0 +1,24 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -28,7 +28,7 @@
+   ],
+   "main": "./lib/index",
+   "browser": {
+-    "./lib/index": "./dist/jszip.min.js",
++    "./lib/index": "./dist/jszip.js",
+     "readable-stream": "./lib/readable-stream-browser.js"
+   },
+   "types": "./index.d.ts",
+diff --git a/dist/jszip.js b/dist/jszip.js
+--- a/dist/jszip.js
++++ b/dist/jszip.js
+@@ -11401,7 +11401,7 @@
+     function setImmediate(callback) {
+       // Callback can either be a function or a string
+       if (typeof callback !== "function") {
+-        callback = new Function("" + callback);
++        throw new TypeError("String callbacks are disabled by the extension Content Security Policy");
+       }
+       // Copy function arguments
+       var args = new Array(arguments.length - 1);

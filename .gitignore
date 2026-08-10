@@ -3,8 +3,11 @@ node_modules/
 .pnpm-store/
 dist/
 dist-mv3/
+dist-chrome/
+dist-firefox/
 _mv3_stage/
 usable_function/
+app/public/_locales/
 
 .env.local
 .env.*.local

@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: pnpm
 
       - name: Install dependencies
@@ -33,8 +33,8 @@ jobs:
       - name: Verify MV3 model, runtime, and build
         run: pnpm verify
 
-      - name: Upload MV3 foundation build
+      - name: Upload MV3 Chrome build
         uses: actions/upload-artifact@v4
         with:
-          name: ptpp-mv3-foundation
-          path: dist
+          name: pt-plugin-plus-mv3-chrome
+          path: dist-chrome

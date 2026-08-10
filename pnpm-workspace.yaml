@@ -1,2 +1,11 @@
+patchedDependencies:
+  git-rev-sync: patches/git-rev-sync.patch
+  jszip: patches/jszip.patch
+
+overrides:
+  "git-rev-sync>shelljs": "0.10.0"
+
 allowBuilds:
+  "@parcel/watcher": true
   esbuild: true
+  spawn-sync: false
