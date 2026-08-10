@@ -1,0 +1,13 @@
+# Preserve historical CRLF blobs in the archived MV2 tree byte-for-byte.
+legacy-mv2/public/_locales/en/messages.json -text
+legacy-mv2/public/_locales/zh_CN/messages.json -text
+legacy-mv2/public/libs/notice/notice.js -text
+legacy-mv2/public/manifest.json -text
+legacy-mv2/resource/libs/album/style.css -text
+legacy-mv2/resource/schemas/NexusPHP/getSearchResult.js -text
+legacy-mv2/resource/sites/beyond-hd.me/config.json -text
+legacy-mv2/resource/sites/beyond-hd.me/getSearchResult.js -text
+legacy-mv2/resource/sites/cyanbug.net/config.json -text
+legacy-mv2/resource/sites/passthepopcorn.me/getSearchResult.js -text
+legacy-mv2/resource/sites/www.hdarea.co/config.json -text
+legacy-mv2/resource/sites/www.icc2022.com/config.json -text

@@ -1,0 +1,40 @@
+name: Verify MV3 Foundation
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify MV3 model, runtime, and build
+        run: pnpm verify
+
+      - name: Upload MV3 foundation build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ptpp-mv3-foundation
+          path: dist

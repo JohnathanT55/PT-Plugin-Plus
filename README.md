@@ -1,79 +1,43 @@
-> [!WARNING]
-> PT-Plugin-Plus 项目已经进入停止维护期（具体说明见： https://github.com/pt-plugins/PT-Plugin-Plus/issues/2235 ）
-> 
-> 我们推荐您使用全新的替代方案：  **[PT-depiler](https://github.com/pt-plugins/PT-depiler)** 。
-> PT-depiler 是 PT-Plugin-Plus 的继任者，保留了绝大多数核心功能并进行了全面优化，包括更好的兼容性、更稳定的性能和更丰富的功能支持。建议所有用户迁移至新项目以获得持续的更新和支持。
+# PT-Plugin-Plus MV3
 
-> [!TIP]
-> 如果你浏览器中使用的PTPP已经被禁用，你可以尝试以下方法 **重新恢复使用** 或 **导出数据以迁移至PT-depiler**：
-> 
-> ① [使用浏览器 flags 临时启用](https://github.com/pt-plugins/PT-Plugin-Plus/wiki#%E6%88%91%E5%B7%B2%E7%BB%8F%E6%97%A0%E6%B3%95%E4%BD%BF%E7%94%A8%E4%BA%86%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E5%8A%9E) （需要 chrome < 139）
-> 
-> ② [使用临时插件 PTPP Exporter](https://github.com/pt-plugins/PT-Plugin-Plus/discussions/2241) （仅适用于通过 crx 或者 zip 方法安装）
-> 
-> ③ [使用低版本 chrome 抢救数据](https://github.com/pt-plugins/PT-Plugin-Plus/discussions/2242)  （推荐！也可用于其他基于 chromium 但未移除 MV2 支持的浏览器）
+这是 PT-Plugin-Plus 的 Manifest V3 延续版本。仓库根目录现在直接保存 MV3 代码；原项目归档时的 Manifest V2 源码完整保存在 [`legacy-mv2/`](./legacy-mv2/) 中，便于查阅、功能对照和后续迁移。
 
+## 当前阶段
 
-<p align="center">
-<img src="https://github.com/pt-plugins/PT-Plugin-Plus/raw/master/public/assets/icon-128.png"><br/>
-<a href="https://github.com/pt-plugins/PT-Plugin-Plus/releases?include_prereleases/latest" title="GitHub Pre-releases"><img src="https://img.shields.io/github/release/pt-plugins/PT-Plugin-Plus.svg?include_prereleases&label=pre-release"></a>
-<a href="https://github.com/pt-plugins/PT-Plugin-Plus/releases" title="GitHub All Releases"><img alt="Releases" src="https://img.shields.io/github/downloads/pt-plugins/PT-Plugin-Plus/total.svg?label=Downloads"></a>
-<img src="https://img.shields.io/badge/Used-TypeScript%20Vue-blue.svg">
-<a href="https://github.com/pt-plugins/PT-Plugin-Plus/LICENSE" title="GitHub license"><img src="https://img.shields.io/github/license/pt-plugins/PT-Plugin-Plus.svg?label=License" alt="GitHub license"/></a>
-<a href="https://t.me/joinchat/NZ9NCxPKXyby8f35rn_QTw"><img src="https://img.shields.io/badge/Telegram-Chat-blue.svg?logo=telegram" alt="Telegram"/></a>
-</p>
+当前提交建立了可构建、可测试的 MV3 基础架构，包括 Chrome service worker、offscreen document、类型化消息、alarms、版本化数据模型、不可变 storage revision，以及从旧 PTPP 配置迁移的基础能力。旧版 UI、搜索、站点适配和下载业务仍会按 [`MV3_UPGRADE_CHECKLIST.md`](./MV3_UPGRADE_CHECKLIST.md) 逐步接入，因此当前构建还不是旧版 PTPP 的完整替代品。
 
----
+站点设置和完整搜索计划优先采用 PT-depiler 的数据模型与交互，同时保留 PTPP 的差异功能。
 
-## 关于
+## 默认下载器与下载目录
 
-PT 助手 Plus，是一款浏览器插件（Web Extensions），一个可以提升 PT 站点使用效率的工具。
+本版本明确支持为站点设置默认下载器，并保留下载服务器地址、认证信息、目录和标签。数据模型支持：
 
-适用于各 PT 站，可使下载种子等各项操作变化更简单、快捷。配合下载服务器（如 Transmission、µTorrent 等），可一键下载指定的种子。
+- `站点 → 默认下载器` 绑定；
+- `站点 + 下载器 → 默认目录/多个候选目录/标签`；
+- 全局默认下载器与全局目录作为回退；
+- 目录唯一时直接推送，存在多个候选目录时要求用户选择。
 
-该版本是对原来的 [PT 助手](https://github.com/ronggang/PT-Plugin) 进行了重构，去掉了繁琐的配置，以获得更好的使用体验；
+PT-depiler 在 [issue #454](https://github.com/pt-plugins/PT-depiler/issues/454) 中说明不会实现“按站点绑定下载器及下载目录”的设计；本项目将该能力作为必须保留的核心功能继续维护。
 
-> ~~注意：`1.0.0` 以下的配置不能直接用于该版本，请勿将 `1.0.0` 以下的版本配置进行导入操作。~~
+## 开发与验证
 
-最新版本请登录后从[Pre-release](https://github.com/pt-plugins/PT-Plugin-Plus/releases?include_prereleases/latest)获取。如不会安装请参看Wiki
+需要 Node.js 20 或更高版本以及 pnpm：
 
-**提Issue前请务必检查Dev版本、Pull Request以及之前的Issue**
+```bash
+pnpm install
+pnpm verify
+```
 
-**M-Team 请于站点控制台 -> 实验室 获取 Token 填入后使用**
+`pnpm verify` 会依次执行类型检查、数据迁移与模型测试、构建产物校验，以及 service worker/offscreen 运行时测试。构建输出位于 `dist/`，可在 Chrome 的扩展程序页面启用开发者模式后，通过“加载已解压的扩展程序”载入。
 
-## 已支持的浏览器
-- <a href="https://chrome.google.com/webstore/detail/abkdiiddckphbigmakaojlnmakpllenb" title="已在 Chrome Web Store 市场上发布的版本">![Google Chrome](https://img.shields.io/chrome-web-store/v/abkdiiddckphbigmakaojlnmakpllenb.svg?label=Google%20Chrome)</a> （已下架，见[原因](https://github.com/pt-plugins/PT-Plugin-Plus/wiki#%E5%B7%B2%E8%A2%AB%E4%B8%8B%E6%9E%B6%E7%9A%84%E6%B5%8F%E8%A7%88%E5%99%A8)）
-- <a href="https://addons.mozilla.org/zh-CN/firefox/addon/pt-plugin-plus/" title="已在 Mozilla Add-on 上发布的版本">![Mozilla Firefox](https://img.shields.io/amo/v/pt-plugin-plus.svg?label=Mozilla%20Firefox)</a> （已下架，见[原因](https://github.com/pt-plugins/PT-Plugin-Plus/wiki#%E5%B7%B2%E8%A2%AB%E4%B8%8B%E6%9E%B6%E7%9A%84%E6%B5%8F%E8%A7%88%E5%99%A8)）
-- <a href="https://microsoftedge.microsoft.com/addons/detail/ekhingnlcjebipkdcgkkheigmljefepn" title="已在 Microsoft Edge 上发布的版本">![Microsoft Edge](https://img.shields.io/badge/dynamic/json?label=Edge%20Addons&prefix=v&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2FAddons%2Fgetproductdetailsbycrxid%2Fekhingnlcjebipkdcgkkheigmljefepn)</a>
-- 及其他基于 `Chromium` 内核的浏览器
+## 目录
 
-## 功能
+- `src/`：MV3 service worker、offscreen、消息、迁移、模型与存储代码；
+- `public/`：MV3 manifest、offscreen 页面、本地化和图标；
+- `tests/`：数据模型、迁移与扩展运行时测试；
+- `legacy-mv2/`：归档的原始 MV2 项目；
+- `MV3_UPGRADE_CHECKLIST.md`：功能范围、迁移策略和验收清单。
 
-- 一键发送指定的种子到下载服务器，目前已支持：
-  - Transmission
-  - Synology Download Station
-  - µTorrent
-  - Deluge
-  - qBittorrent `v4.1+`
-  - ruTorrent
-  - Flood
-- 比 RSS 更灵活的下载方式：
-  - 针对不同的站点发送到不同的下载服务器；
-  - 针对不同的站点、下载服务器设置不同的保存路径；
-- 批量下载当前页所有种子；
-- 批量复制当前页面所有种子的下载链接（`部分站点需要设置 passkey`）；
-- 显示默认下载服务器当前可用空间，目前已支持：
-  - Transmission
-- 多站聚合搜索相同关键字的种子；
-  - 查看 [已支持的站点列表](https://github.com/pt-plugins/PT-Plugin-Plus/wiki/supported-sites)
-- 根据当前站点显示专属功能，如：
-  - 封面模式浏览种子页面；
-- 保存下载历史记录（默认关闭）；
-- `豆瓣` 电影页面、[Top250](https://movie.douban.com/top250)、[选电影](https://movie.douban.com/explore) 一键搜索 PT 种子支持；
-- `IMDb` 电影页面、[Top250](https://www.imdb.com/chart/top?ref_=nv_mv_250) 一键搜索 PT 种子支持；
-- 更多功能请参考 [Wiki](https://github.com/pt-plugins/PT-Plugin-Plus/wiki) ；
+## License
 
-## 安装及使用
-
-- 如何安装和使用，请参考 [Wiki](https://github.com/pt-plugins/PT-Plugin-Plus/wiki) 的详细说明；
-- 常见问题可 [点这里](https://github.com/pt-plugins/PT-Plugin-Plus/wiki/frequently-asked-questions) 找到答案；
+[MIT](./LICENSE)
