@@ -28,6 +28,10 @@ import {
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import {
+  hasSiteDownloadDirectoryBinding,
+  normalizeSiteDownloadTarget,
+} from "@/shared/downloadTarget.ts";
 
 type TSimplePatchFieldKey = keyof Pick<
   IMetadataPiniaStorageSchema,
@@ -333,11 +337,6 @@ export const useMetadataStore = defineStore("metadata", {
         state.siteDownloadProfiles[siteId] ?? { siteId, byDownloader: {} };
     },
 
-    getSiteDefaultDownloaderId(state) {
-      return (siteId: string): string | undefined =>
-        state.siteDownloadProfiles[siteId]?.defaultDownloaderId || state.defaultDownloader?.id;
-    },
-
     getMediaServerIds(state) {
       return Object.keys(state.mediaServers);
     },
@@ -510,19 +509,27 @@ export const useMetadataStore = defineStore("metadata", {
 
     async setSiteDownloadProfile(siteId: TSiteID, profile: ISiteDownloadProfile) {
       const byDownloader = Object.fromEntries(
-        Object.entries(profile.byDownloader).filter(
-          ([, target]) =>
-            target.directories.length > 0 ||
-            target.tags.length > 0 ||
-            target.defaultDirectory !== undefined ||
-            target.defaultTag !== undefined ||
-            target.autoStart !== undefined,
-        ),
+        Object.entries(profile.byDownloader)
+          .map(([downloaderId, target]) => [downloaderId, normalizeSiteDownloadTarget(target)] as const)
+          .filter(
+            ([, target]) =>
+              target.directories.length > 0 || target.tags.length > 0 || target.autoStart !== undefined,
+          ),
       );
-      if (!profile.defaultDownloaderId && Object.keys(byDownloader).length === 0) {
+      const defaultDownloaderId =
+        profile.defaultDownloaderId && hasSiteDownloadDirectoryBinding(byDownloader[profile.defaultDownloaderId])
+          ? profile.defaultDownloaderId
+          : undefined;
+      if (!defaultDownloaderId && Object.keys(byDownloader).length === 0) {
         delete this.siteDownloadProfiles[siteId];
       } else {
-        this.siteDownloadProfiles[siteId] = { ...profile, siteId, byDownloader };
+        this.siteDownloadProfiles[siteId] = {
+          ...profile,
+          siteId,
+          byDownloader,
+          ...(defaultDownloaderId ? { defaultDownloaderId } : {}),
+        };
+        if (!defaultDownloaderId) delete this.siteDownloadProfiles[siteId].defaultDownloaderId;
       }
       await this.$save();
     },

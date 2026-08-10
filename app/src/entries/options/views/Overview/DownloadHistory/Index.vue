@@ -81,7 +81,24 @@ async function confirmDeleteDownloadHistory(downloadHistoryId: TTorrentDownloadK
 }
 
 const showDownloadDetailDialog = ref<boolean>(false);
-const downloadDetail = ref<any>({});
+const downloadDetail = ref<ITorrentDownloadMetadata | null>(null);
+
+const safeDownloadDetail = computed(() => {
+  const history = downloadDetail.value;
+  if (!history) return {};
+
+  return {
+    siteId: history.siteId,
+    torrentId: history.torrentId,
+    title: history.title || history.torrent?.title || "",
+    downloaderId: history.downloaderId,
+    downloadAt: formatDate(history.downloadAt ?? 0),
+    downloadStatus: history.downloadStatus,
+    savePath: history.addTorrentOptions?.savePath || "",
+    label: history.addTorrentOptions?.label || "",
+    addAtPaused: history.addTorrentOptions?.addAtPaused ?? false,
+  };
+});
 
 function viewDownloadDetail(history: ITorrentDownloadMetadata) {
   downloadDetail.value = history;
@@ -233,7 +250,9 @@ onUnmounted(() => {
   <v-dialog v-model="showDownloadDetailDialog" width="800">
     <v-card>
       <v-card-text>
-        <pre> {{ JSON.stringify(downloadDetail, null, 2) }}</pre>
+        <!-- Never render the raw request object here. Torrent URLs and request
+             headers may contain passkeys, cookies, or authorization tokens. -->
+        <pre>{{ JSON.stringify(safeDownloadDetail, null, 2) }}</pre>
       </v-card-text>
     </v-card>
   </v-dialog>

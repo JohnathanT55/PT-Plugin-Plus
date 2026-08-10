@@ -132,31 +132,7 @@ defineExpose({
             <v-label>{{ t("SetBase.ui.sidebarStyle") }}</v-label>
           </v-col>
           <v-col>
-            <v-switch
-              v-model="configStore.contentScript.applyTheme"
-              color="success"
-              hide-details
-              :label="`${t('SetBase.ui.respondDisplayMode')}` + t('SetBase.ui.displayMode.index')"
-            />
-
-            <v-switch
-              v-model="configStore.contentScript.defaultOpenSpeedDial"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.expandByDefault')"
-            />
-            <v-switch
-              v-model="configStore.contentScript.stackedButtons"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.useLargeIcon')"
-            />
-            <v-switch
-              v-model="configStore.contentScript.fadeEnterStyle"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.enableFadeEffect')"
-            />
+            <v-alert type="info" variant="tonal">{{ t("SetBase.ui.ptppToolbarStyleNote") }}</v-alert>
             <v-divider />
           </v-col>
         </v-row>

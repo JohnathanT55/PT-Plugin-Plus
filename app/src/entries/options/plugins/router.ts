@@ -3,40 +3,30 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-rou
 export const setBaseChildren: RouteRecordRaw[] = [
   {
     path: "",
-    alias: "ui",
-    name: "SetBaseUi",
-    meta: { icon: "mdi-palette" },
-    component: () => import("../views/Settings/SetBase/UiWindow.vue"),
+    alias: ["ui", "user-info"],
+    name: "SetBaseGeneral",
+    meta: { icon: "mdi-cog", tabKey: "general" },
+    component: () => import("../views/Settings/SetBase/GeneralWindow.vue"),
   },
   {
-    path: "search-entity",
-    name: "SetBaseSearchEntity",
-    meta: { icon: "mdi-magnify" },
+    path: "search",
+    alias: "search-entity",
+    name: "SetBaseSearch",
+    meta: { icon: "mdi-magnify", tabKey: "search" },
     component: () => import("../views/Settings/SetBase/SearchEntityWindow.vue"),
   },
   {
     path: "download",
     name: "SetBaseDownload",
-    meta: { icon: "mdi-download-network" },
+    meta: { icon: "mdi-cloud-download", tabKey: "download" },
     component: () => import("../views/Settings/SetBase/DownloadWindow.vue"),
   },
   {
-    path: "user-info",
-    name: "SetBaseUserInfo",
-    meta: { icon: "mdi-account" },
-    component: () => import("../views/Settings/SetBase/UserInfoWindow.vue"),
-  },
-  {
-    path: "backup",
-    name: "SetBaseBackup",
-    meta: { icon: "mdi-backup-restore" },
-    component: () => import("../views/Settings/SetBase/BackupWindow.vue"),
-  },
-  {
-    path: "social-information",
-    name: "SetBaseSocialInformation",
-    meta: { icon: "mdi-multimedia" },
-    component: () => import("../views/Settings/SetBase/SocialInformationWindow.vue"),
+    path: "advanced",
+    alias: "backup",
+    name: "SetBaseAdvanced",
+    meta: { icon: "mdi-memory", tabKey: "advanced" },
+    component: () => import("../views/Settings/SetBase/AdvancedWindow.vue"),
   },
 ] as const;
 
@@ -146,20 +136,6 @@ export const routes: RouteRecordRaw[] = [
         name: "Logger",
         meta: { icon: "mdi-text-box-search" },
         component: () => import("../views/About/Logger.vue"),
-      },
-    ],
-  },
-
-  {
-    path: "/devtools",
-    name: "Devtools",
-    meta: { isMainMenu: false },
-    children: [
-      {
-        path: "/debugger",
-        name: "Debugger",
-        meta: { icon: "mdi-bug" },
-        component: () => import("../views/Devtools/Debugger.vue"),
       },
     ],
   },

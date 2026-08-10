@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, inject } from "vue";
+import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useWindowSize } from "@vueuse/core";
 import { ETorrentStatus, ITorrent } from "@ptd/site";
@@ -10,10 +10,10 @@ import { sendMessage } from "@/messages.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
-
-import type { IRemoteDownloadDialogData } from "../types.ts";
+import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
 import NavButton from "@/options/components/NavButton.vue";
+import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 import TorrentTitleTd from "@/options/components/TorrentTitleTd.vue";
 
 const { t } = useI18n();
@@ -86,12 +86,40 @@ async function handleLinkCopyMulti() {
   }
 }
 
-const remoteDownloadDialogData = inject<IRemoteDownloadDialogData>("remoteDownloadDialogData")!;
+const remoteDownloadMultiStatus = ref(false);
 
-function handleRemoteDownloadMulti(isDefaultSend = false) {
-  remoteDownloadDialogData.torrents = selectedTorrents.value;
-  remoteDownloadDialogData.isDefaultSend = isDefaultSend;
-  remoteDownloadDialogData.show = true;
+async function handleDefaultRemoteDownloadMulti() {
+  const resolvedItems = selectedTorrents.value.map((torrent) => ({
+    torrent,
+    target: resolveSiteDownloadTarget(metadataStore, torrent.site),
+  }));
+  const unresolved = resolvedItems.filter(({ target }) => target.requiresSelection);
+  if (unresolved.length > 0) {
+    runtimeStore.showSnakebar(t("SentToDownloaderDialog.defaultNeedsSelection", { count: unresolved.length }), {
+      color: "warning",
+    });
+    return;
+  }
+
+  remoteDownloadMultiStatus.value = true;
+  try {
+    await sendTorrentAssignments(
+      resolvedItems.map(({ torrent, target }) => ({
+        torrent,
+        downloaderId: target.downloaderId!,
+        addTorrentOptions: {
+          localDownload: true,
+          addAtPaused: !target.autoStart,
+          savePath: target.savePath,
+          label: target.label,
+          uploadSpeedLimit: 0,
+          advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
+        },
+      })),
+    );
+  } finally {
+    remoteDownloadMultiStatus.value = false;
+  }
 }
 
 function handleSelectSeeders() {
@@ -193,23 +221,29 @@ function enterDialog() {
           @click="handleLinkCopyMulti"
         />
 
-        <NavButton
-          :disabled="!hasSelectedTorrent"
-          key="remote_download_multi"
-          color="light-blue"
-          icon="mdi-cloud-download"
-          :text="t('contentScript.pushTo')"
-          @click="() => handleRemoteDownloadMulti()"
-        />
+        <DownloadTargetMenu placement="top-end" :title="t('contentScript.pushTo')" :torrent-items="selectedTorrents">
+          <template #activator="{ disabled, loading, openMenu, status }">
+            <NavButton
+              :disabled="disabled"
+              key="remote_download_multi"
+              :loading="loading"
+              color="light-blue"
+              :icon="status === 'success' ? 'mdi-check' : status === 'error' ? 'mdi-close' : 'mdi-cloud-download'"
+              :text="t('contentScript.pushTo')"
+              @click="openMenu"
+            />
+          </template>
+        </DownloadTargetMenu>
 
         <NavButton
           v-if="canDefaultSend"
           key="remote_download_multi_default"
           :disabled="!hasSelectedTorrent"
+          :loading="remoteDownloadMultiStatus"
           color="light-blue"
           icon="mdi-download"
           :text="t('contentScript.pushToDefault')"
-          @click="() => handleRemoteDownloadMulti(true)"
+          @click="handleDefaultRemoteDownloadMulti"
         />
       </v-card-actions>
     </v-card>

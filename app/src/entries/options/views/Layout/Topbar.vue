@@ -70,7 +70,7 @@ watch(
 </script>
 
 <template>
-  <v-app-bar id="ptd-topbar" app color="amber">
+  <v-app-bar id="ptpp-topbar" app color="amber" density="compact" :height="48">
     <template #prepend>
       <v-app-bar-nav-icon
         :title="t('layout.header.navBarTip')"

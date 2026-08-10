@@ -126,7 +126,7 @@ function targetToRuntime(target: DownloadTarget): ISiteDownloadTarget {
       target.defaultDirectory && directories.includes(target.defaultDirectory)
         ? target.defaultDirectory
         : directories[0],
-    defaultTag: tags[0],
+    defaultTag: target.defaultTag && tags.includes(target.defaultTag) ? target.defaultTag : tags[0],
     autoStart: target.autoStart,
   };
 }

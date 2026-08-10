@@ -5,7 +5,7 @@
   "version": "2.0.0",
   "description": "__MSG_manifest_appDescription__",
   "default_locale": "zh_CN",
-  "homepage_url": "https://github.com/JohnathanT55/PT-Plugin-Plus",
+  "homepage_url": "https://github.com/pt-plugins/PT-Plugin-Plus",
   "minimum_chrome_version": "116",
   "action": {
     "default_icon": {
@@ -30,14 +30,8 @@
     "storage",
     "unlimitedStorage"
   ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
-  "optional_permissions": [
-    "cookies",
-    "downloads"
-  ],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "optional_permissions": ["cookies", "downloads"],
   "icons": {
     "16": "assets/icon.png",
     "19": "assets/icon-19.png",

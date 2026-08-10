@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import type { DataTableHeader } from "vuetify";
 
 import type { ISiteDownloadTarget } from "@/shared/types.ts";
+import { hasConfiguredSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
@@ -35,7 +36,9 @@ const rows = computed(() => {
       target: metadataStore.siteDownloadProfiles[site.id]?.byDownloader[selectedDownloaderId.value],
       isDefault: metadataStore.siteDownloadProfiles[site.id]?.defaultDownloaderId === selectedDownloaderId.value,
     }))
-    .filter((site) => site.target || site.isDefault);
+    // A downloader-only legacy preference is not a site binding. Keep it out
+    // of this directory table unless the site really owns a directory or tag.
+    .filter((site) => hasConfiguredSiteDownloadTarget(site.target));
 });
 
 const headers = computed(
@@ -52,6 +55,9 @@ const showEditor = ref(false);
 const editingSiteId = ref("");
 const target = ref<ISiteDownloadTarget>({ directories: [], tags: [] });
 const useAsSiteDefault = ref(false);
+const hasEditedDirectory = computed(
+  () => unique([target.value.defaultDirectory ?? "", ...target.value.directories]).length > 0,
+);
 
 const siteItems = computed(() =>
   (allAddedSiteInfo.value ?? []).map((site) => ({
@@ -62,6 +68,14 @@ const siteItems = computed(() =>
 
 function unique(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function targetDirectories(value?: ISiteDownloadTarget): string[] {
+  return unique([value?.defaultDirectory ?? "", ...(value?.directories ?? [])]);
+}
+
+function targetTags(value?: ISiteDownloadTarget): string[] {
+  return unique([value?.defaultTag ?? "", ...(value?.tags ?? [])]);
 }
 
 function openEditor(siteId = "") {
@@ -84,7 +98,7 @@ async function saveTarget() {
     target.value.tags.unshift(target.value.defaultTag);
   }
   profile.byDownloader[selectedDownloaderId.value] = cloneDeep(target.value);
-  if (useAsSiteDefault.value) profile.defaultDownloaderId = selectedDownloaderId.value;
+  if (useAsSiteDefault.value && hasEditedDirectory.value) profile.defaultDownloaderId = selectedDownloaderId.value;
   else if (profile.defaultDownloaderId === selectedDownloaderId.value) delete profile.defaultDownloaderId;
   await metadataStore.setSiteDownloadProfile(editingSiteId.value, profile);
   showEditor.value = false;
@@ -110,7 +124,7 @@ async function removeTarget(siteId: string) {
         hide-details
         item-title="name"
         item-value="id"
-        :label="t('SetSite.downloadProfile.defaultDownloader')"
+        :label="t('SetSite.downloadProfile.downloaderFilter')"
       >
         <template #item="{ props, item: { raw: downloader } }">
           <v-list-item
@@ -143,7 +157,7 @@ async function removeTarget(siteId: string) {
       </template>
       <template #item.directories="{ item }">
         <v-chip
-          v-for="directory in item.target?.directories ?? []"
+          v-for="directory in targetDirectories(item.target)"
           :key="directory"
           :color="directory === item.target?.defaultDirectory ? 'primary' : undefined"
           class="ma-1"
@@ -154,7 +168,7 @@ async function removeTarget(siteId: string) {
       </template>
       <template #item.tags="{ item }">
         <v-chip
-          v-for="tag in item.target?.tags ?? []"
+          v-for="tag in targetTags(item.target)"
           :key="tag"
           :color="tag === item.target?.defaultTag ? 'primary' : undefined"
           class="ma-1"
@@ -209,7 +223,14 @@ async function removeTarget(siteId: string) {
           clearable
           :label="t('SetSite.downloadProfile.defaultTag')"
         />
-        <v-switch v-model="useAsSiteDefault" color="success" :label="t('SetSite.downloadProfile.siteDefault')" />
+        <v-switch
+          v-model="useAsSiteDefault"
+          color="success"
+          :disabled="!hasEditedDirectory"
+          :hint="t('SetSite.downloadProfile.bindingRequired')"
+          :label="t('SetSite.downloadProfile.siteDefault')"
+          persistent-hint
+        />
         <v-switch v-model="target.autoStart" color="success" :label="t('SetSite.downloadProfile.autoStart')" />
       </v-card-text>
       <v-card-actions>

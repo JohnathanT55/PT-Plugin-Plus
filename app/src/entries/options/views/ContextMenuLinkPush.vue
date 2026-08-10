@@ -3,7 +3,7 @@
  * 本文件仅作为右键菜单的链接跳转使用
  */
 
-import { onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { getHostFromUrl, ITorrent } from "@ptd/site";
@@ -11,7 +11,7 @@ import { getHostFromUrl, ITorrent } from "@ptd/site";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 
-import SentToDownloaderDialog from "@/options/components/SentToDownloaderDialog/Index.vue";
+import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -19,8 +19,8 @@ const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
 const { t } = useI18n();
 
-const showDialog = ref(false);
 const torrentItems = ref<ITorrent[]>([]);
+const downloadTargetMenu = ref<InstanceType<typeof DownloadTargetMenu>>();
 
 onMounted(() => {
   const link = route?.query?.link;
@@ -43,7 +43,10 @@ onMounted(() => {
 
   torrentItems.value = [torrent];
   runtimeStore.showSnakebar(t("ContextMenuLinkPush.keywordWarning"), { color: "warning" });
-  showDialog.value = true;
+  metadataStore.$onReady(async () => {
+    await nextTick();
+    await downloadTargetMenu.value?.openTargetMenu();
+  });
 });
 
 function onDone() {
@@ -58,7 +61,57 @@ function onCancel() {
 </script>
 
 <template>
-  <SentToDownloaderDialog v-model="showDialog" :torrent-items="torrentItems" @done="onDone" @cancel="onCancel" />
+  <main class="ptpp-context-link-push">
+    <h1>{{ t("SearchEntity.ActionTd.sendToDownloader") }}</h1>
+    <p>{{ t("ContextMenuLinkPush.keywordWarning") }}</p>
+    <div class="ptpp-context-link-push__actions">
+      <DownloadTargetMenu
+        ref="downloadTargetMenu"
+        :title="t('SearchEntity.ActionTd.sendToDownloader')"
+        :torrent-items="torrentItems"
+        @done="onDone"
+      >
+        <template #activator="{ disabled, loading, openMenu, status }">
+          <v-btn
+            :disabled="disabled"
+            :loading="loading"
+            color="primary"
+            :prepend-icon="status === 'success' ? 'mdi-check' : status === 'error' ? 'mdi-close' : 'mdi-cloud-download'"
+            @click="openMenu"
+          >
+            {{ t("SearchEntity.ActionTd.sendToDownloader") }}
+          </v-btn>
+        </template>
+      </DownloadTargetMenu>
+      <v-btn variant="text" @click="onCancel">{{ t("common.dialog.cancel") }}</v-btn>
+    </div>
+  </main>
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.ptpp-context-link-push {
+  background: #fff;
+  border-top: 5px solid #1976d2;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 16%);
+  margin: 40px auto;
+  max-width: 680px;
+  padding: 20px 24px 24px;
+
+  h1 {
+    color: #174f78;
+    font-size: 20px;
+    margin: 0 0 10px;
+  }
+
+  p {
+    color: #546e7a;
+    margin: 0 0 20px;
+  }
+}
+
+.ptpp-context-link-push__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+</style>

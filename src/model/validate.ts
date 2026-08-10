@@ -45,6 +45,19 @@ function validateTarget(
       path + ".defaultDirectory"
     );
   }
+  if (
+    target &&
+    target.defaultTag &&
+    Array.isArray(target.tags) &&
+    target.tags.indexOf(target.defaultTag) === -1
+  ) {
+    issue(
+      issues,
+      "error",
+      "default-tag-not-in-candidates",
+      path + ".defaultTag"
+    );
+  }
 }
 
 function validateScheduler(value: any, path: string, issues: ValidationIssue[]) {

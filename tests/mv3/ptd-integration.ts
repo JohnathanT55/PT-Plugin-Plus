@@ -4,7 +4,14 @@ import {
   mergePtppStateIntoRuntimeStores,
   persistPtppRuntimeMigration,
 } from "../../app/src/entries/integration/ptppMigration";
-import { resolveSiteDownloadTarget } from "../../app/src/entries/shared/downloadTarget";
+import {
+  buildSiteDownloadMenuTargets,
+  hasConfiguredSiteDownloadTarget,
+  hasSiteDownloadDirectoryBinding,
+  normalizeSiteDownloadTarget,
+  resolveSiteDownloadTarget,
+} from "../../app/src/entries/shared/downloadTarget";
+import { executePreflightedBatch } from "../../app/src/entries/shared/batchPreflight";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`PTD integration test failed: ${message}`);
@@ -249,6 +256,256 @@ assert(
   "multiple site directories without an explicit default require selection",
 );
 
+const siteBindingBeatsGlobalMetadata = JSON.parse(JSON.stringify(runtimeMerge.metadata));
+siteBindingBeatsGlobalMetadata.downloaders["transmission-global"] = {
+  ...siteBindingBeatsGlobalMetadata.downloaders["qb-fixture"],
+  id: "transmission-global",
+  name: "Global Transmission",
+  type: "Transmission",
+  address: "https://transmission.example.invalid",
+};
+siteBindingBeatsGlobalMetadata.defaultDownloader = {
+  id: "transmission-global",
+  folder: "/downloads",
+};
+delete siteBindingBeatsGlobalMetadata.siteDownloadProfiles[siteId].defaultDownloaderId;
+const siteBindingBeatsGlobal = resolveSiteDownloadTarget(siteBindingBeatsGlobalMetadata, siteId);
+assert(
+  siteBindingBeatsGlobal.downloaderId === "qb-fixture" &&
+    siteBindingBeatsGlobal.savePath === "/fixture/site-a" &&
+    siteBindingBeatsGlobal.source === "site-profile" &&
+    siteBindingBeatsGlobal.reason === "site-single-binding" &&
+    !siteBindingBeatsGlobal.requiresSelection,
+  "a sole site-bound qBittorrent directory beats a global Transmission root",
+);
+
+const downloaderOnlyPreferenceMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+downloaderOnlyPreferenceMetadata.siteDownloadProfiles[siteId].defaultDownloaderId = "transmission-global";
+downloaderOnlyPreferenceMetadata.siteDownloadProfiles[siteId].byDownloader["transmission-global"] = {
+  directories: [],
+  tags: [],
+};
+const downloaderOnlyPreferenceTarget = resolveSiteDownloadTarget(downloaderOnlyPreferenceMetadata, siteId);
+assert(
+  downloaderOnlyPreferenceTarget.downloaderId === "qb-fixture" &&
+    downloaderOnlyPreferenceTarget.savePath === "/fixture/site-a" &&
+    downloaderOnlyPreferenceTarget.reason === "site-single-binding" &&
+    !downloaderOnlyPreferenceTarget.requiresSelection,
+  "a downloader-only site preference cannot override another downloader's sole directory binding",
+);
+const siteDownloadMenuTargets = buildSiteDownloadMenuTargets(siteBindingBeatsGlobalMetadata, siteId);
+const firstGeneralMenuTargetIndex = siteDownloadMenuTargets.findIndex((target) => target.kind === "general");
+assert(
+  firstGeneralMenuTargetIndex > 0 &&
+    siteDownloadMenuTargets.slice(0, firstGeneralMenuTargetIndex).every((target) => target.kind === "site") &&
+    siteDownloadMenuTargets[0].downloaderId === "qb-fixture" &&
+    siteDownloadMenuTargets[0].savePath === "/fixture/site-a" &&
+    siteDownloadMenuTargets.some(
+      (target) => target.kind === "general" && target.downloaderId === "transmission-global" && target.savePath === "",
+    ) &&
+    siteDownloadMenuTargets.some(
+      (target) =>
+        target.kind === "general" && target.downloaderId === "transmission-global" && target.savePath === "/downloads",
+    ),
+  "the manual menu lists site-bound paths first and keeps global-default plus downloader-root overrides",
+);
+assert(
+  new Set(siteDownloadMenuTargets.map((target) => [target.downloaderId, target.savePath, target.label].join("\u0000")))
+    .size === siteDownloadMenuTargets.length,
+  "the manual menu removes duplicate downloader/path/tag targets without changing site-first ordering",
+);
+const mixedSiteDownloadMenuTargets = buildSiteDownloadMenuTargets(siteBindingBeatsGlobalMetadata);
+assert(
+  mixedSiteDownloadMenuTargets.length > 0 && mixedSiteDownloadMenuTargets.every((target) => target.kind === "general"),
+  "a mixed-site manual batch exposes only common downloader/root targets",
+);
+
+const noSiteBindingMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+noSiteBindingMetadata.siteDownloadProfiles[siteId].byDownloader = {};
+const noSiteBindingTarget = resolveSiteDownloadTarget(noSiteBindingMetadata, siteId);
+assert(
+  noSiteBindingTarget.downloaderId === "transmission-global" &&
+    noSiteBindingTarget.savePath === "/downloads" &&
+    noSiteBindingTarget.source === "global-default" &&
+    noSiteBindingTarget.reason === "global-default" &&
+    !noSiteBindingTarget.requiresSelection,
+  "the global downloader is used only when the site has no bound directory",
+);
+
+const noSiteOrGlobalFolderMetadata = JSON.parse(JSON.stringify(noSiteBindingMetadata));
+noSiteOrGlobalFolderMetadata.defaultDownloader.folder = "";
+const noSiteOrGlobalFolderTarget = resolveSiteDownloadTarget(noSiteOrGlobalFolderMetadata, siteId);
+assert(
+  noSiteOrGlobalFolderTarget.downloaderId === "transmission-global" &&
+    noSiteOrGlobalFolderTarget.savePath === "" &&
+    !noSiteOrGlobalFolderTarget.requiresSelection,
+  "a site with no independent directory may use the global downloader's root directory",
+);
+
+const downloaderOnlyWithoutBindingMetadata = JSON.parse(JSON.stringify(noSiteBindingMetadata));
+downloaderOnlyWithoutBindingMetadata.siteDownloadProfiles[siteId].defaultDownloaderId = "qb-fixture";
+downloaderOnlyWithoutBindingMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"] = {
+  directories: [],
+  tags: [],
+};
+const downloaderOnlyWithoutBindingTarget = resolveSiteDownloadTarget(downloaderOnlyWithoutBindingMetadata, siteId);
+assert(
+  downloaderOnlyWithoutBindingTarget.downloaderId === "transmission-global" &&
+    downloaderOnlyWithoutBindingTarget.savePath === "/downloads" &&
+    downloaderOnlyWithoutBindingTarget.source === "global-default" &&
+    !downloaderOnlyWithoutBindingTarget.requiresSelection,
+  "a downloader-only site preference falls back to the global downloader when no site directory exists",
+);
+
+const defaultDirectoryOnlyMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+defaultDirectoryOnlyMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"] = {
+  directories: [],
+  defaultDirectory: "/fixture/default-only",
+  tags: [],
+};
+const defaultDirectoryOnlyTarget = resolveSiteDownloadTarget(defaultDirectoryOnlyMetadata, siteId);
+assert(
+  defaultDirectoryOnlyTarget.downloaderId === "qb-fixture" &&
+    defaultDirectoryOnlyTarget.savePath === "/fixture/default-only" &&
+    defaultDirectoryOnlyTarget.reason === "site-single-binding" &&
+    !defaultDirectoryOnlyTarget.requiresSelection,
+  "a site default directory remains an atomic binding even when it is not repeated in the candidate list",
+);
+
+const multipleSiteBindingsMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+multipleSiteBindingsMetadata.siteDownloadProfiles[siteId].byDownloader["transmission-global"] = {
+  directories: ["/downloads/second-site-binding"],
+  tags: [],
+};
+assert(
+  resolveSiteDownloadTarget(multipleSiteBindingsMetadata, siteId).reason === "multiple-site-bindings",
+  "multiple site bindings without an explicit site default require selection",
+);
+multipleSiteBindingsMetadata.siteDownloadProfiles[siteId].defaultDownloaderId = "transmission-global";
+const explicitMultipleBindingTarget = resolveSiteDownloadTarget(multipleSiteBindingsMetadata, siteId);
+assert(
+  explicitMultipleBindingTarget.downloaderId === "transmission-global" &&
+    explicitMultipleBindingTarget.savePath === "/downloads/second-site-binding" &&
+    explicitMultipleBindingTarget.reason === "site-explicit-default" &&
+    !explicitMultipleBindingTarget.requiresSelection,
+  "an explicit site default resolves otherwise ambiguous site bindings",
+);
+
+const unavailableSiteBindingMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+unavailableSiteBindingMetadata.downloaders["qb-fixture"].enabled = false;
+assert(
+  resolveSiteDownloadTarget(unavailableSiteBindingMetadata, siteId).reason === "bound-downloader-unavailable",
+  "an unavailable configured site binding never silently falls back to the global root",
+);
+
+const partiallyUnavailableBindingsMetadata = JSON.parse(JSON.stringify(multipleSiteBindingsMetadata));
+delete partiallyUnavailableBindingsMetadata.siteDownloadProfiles[siteId].defaultDownloaderId;
+partiallyUnavailableBindingsMetadata.downloaders["qb-fixture"].enabled = false;
+assert(
+  resolveSiteDownloadTarget(partiallyUnavailableBindingsMetadata, siteId).reason === "multiple-site-bindings",
+  "one usable binding cannot silently win while another configured binding is unavailable",
+);
+
+const unavailableExplicitBindingMetadata = JSON.parse(JSON.stringify(multipleSiteBindingsMetadata));
+unavailableExplicitBindingMetadata.siteDownloadProfiles[siteId].defaultDownloaderId = "qb-fixture";
+unavailableExplicitBindingMetadata.downloaders["qb-fixture"].enabled = false;
+assert(
+  resolveSiteDownloadTarget(unavailableExplicitBindingMetadata, siteId).reason === "bound-downloader-unavailable",
+  "an unavailable explicit site default cannot fall through to another valid site binding",
+);
+
+const excludedSiteBindingMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+excludedSiteBindingMetadata.downloaders["qb-fixture"].excludedSites = [siteId];
+assert(
+  resolveSiteDownloadTarget(excludedSiteBindingMetadata, siteId).reason === "bound-downloader-unavailable",
+  "a downloader excluded for the site is not a valid automatic site binding",
+);
+
+const tagOnlySiteProfileMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+tagOnlySiteProfileMetadata.siteDownloadProfiles[siteId].byDownloader = {
+  "qb-fixture": { directories: [], tags: ["tag-only"] },
+};
+tagOnlySiteProfileMetadata.siteDownloadProfiles[siteId].defaultDownloaderId = "qb-fixture";
+assert(
+  resolveSiteDownloadTarget(tagOnlySiteProfileMetadata, siteId).source === "global-default" &&
+    resolveSiteDownloadTarget(tagOnlySiteProfileMetadata, siteId).downloaderId === "transmission-global",
+  "a tag or downloader preference without a site directory does not override the global downloader",
+);
+assert(
+  !hasConfiguredSiteDownloadTarget({ directories: [], tags: [], autoStart: true }) &&
+    hasConfiguredSiteDownloadTarget({ directories: ["/fixture/visible"], tags: [], autoStart: true }) &&
+    hasConfiguredSiteDownloadTarget({ directories: [], tags: ["visible-tag"], autoStart: false }),
+  "auto-start alone does not create an empty download-path row, while real directories or tags remain visible",
+);
+const normalizedSiteTarget = normalizeSiteDownloadTarget({
+  directories: [" /fixture/visible ", "", "/fixture/visible"],
+  tags: [" visible-tag ", ""],
+  defaultDirectory: " /fixture/default ",
+  defaultTag: " visible-tag ",
+  autoStart: false,
+});
+assert(
+  normalizedSiteTarget.directories.join("|") === "/fixture/default|/fixture/visible" &&
+    normalizedSiteTarget.tags.join("|") === "visible-tag" &&
+    normalizedSiteTarget.defaultDirectory === "/fixture/default" &&
+    normalizedSiteTarget.defaultTag === "visible-tag" &&
+    normalizedSiteTarget.autoStart === false &&
+    hasSiteDownloadDirectoryBinding(normalizedSiteTarget) &&
+    !hasSiteDownloadDirectoryBinding({ directories: [], tags: ["tag-only"], autoStart: false }),
+  "site targets are normalized while tags and auto-start alone never become directory bindings",
+);
+
+const multipleTagSuggestionsMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+multipleTagSuggestionsMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"].tags = ["movies", "archive"];
+delete multipleTagSuggestionsMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"].defaultTag;
+const multipleTagSuggestionsTarget = resolveSiteDownloadTarget(multipleTagSuggestionsMetadata, siteId);
+assert(
+  multipleTagSuggestionsTarget.downloaderId === "qb-fixture" &&
+    multipleTagSuggestionsTarget.savePath === "/fixture/site-a" &&
+    multipleTagSuggestionsTarget.label === "" &&
+    !multipleTagSuggestionsTarget.requiresSelection,
+  "multiple optional tag suggestions do not block an otherwise unambiguous site directory binding",
+);
+const multipleTagMenuTargets = buildSiteDownloadMenuTargets(multipleTagSuggestionsMetadata, siteId).filter(
+  (target) => target.kind === "site" && target.downloaderId === "qb-fixture" && target.savePath === "/fixture/site-a",
+);
+assert(
+  multipleTagMenuTargets.map((target) => target.label).join("|") === "|movies|archive",
+  "the manual site menu keeps the automatic no-tag tuple first and exposes every optional tag",
+);
+
+const singleTagMenuMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+singleTagMenuMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"].tags = ["single-tag"];
+delete singleTagMenuMetadata.siteDownloadProfiles[siteId].byDownloader["qb-fixture"].defaultTag;
+const singleTagMenuTargets = buildSiteDownloadMenuTargets(singleTagMenuMetadata, siteId).filter(
+  (target) => target.kind === "site" && target.downloaderId === "qb-fixture" && target.savePath === "/fixture/site-a",
+);
+assert(
+  singleTagMenuTargets.map((target) => target.label).join("|") === "single-tag|",
+  "the manual site menu presents the one-click single tag first and retains an explicit no-tag override",
+);
+
+const generalTagMenuMetadata = JSON.parse(JSON.stringify(siteBindingBeatsGlobalMetadata));
+generalTagMenuMetadata.downloaders["transmission-global"].suggestTags = ["general-tag"];
+const generalTagMenuTargets = buildSiteDownloadMenuTargets(generalTagMenuMetadata, siteId);
+assert(
+  generalTagMenuTargets.some(
+    (target) =>
+      target.kind === "general" &&
+      target.downloaderId === "transmission-global" &&
+      target.savePath === "" &&
+      target.label === "general-tag",
+  ),
+  "the manual menu exposes downloader-level candidate tags without changing the automatic target",
+);
+
+const excludedGlobalDownloaderMetadata = JSON.parse(JSON.stringify(noSiteBindingMetadata));
+excludedGlobalDownloaderMetadata.downloaders["transmission-global"].excludedSites = [siteId];
+assert(
+  resolveSiteDownloadTarget(excludedGlobalDownloaderMetadata, siteId).reason === "global-downloader-unavailable",
+  "an excluded global downloader requires manual selection instead of a silent push",
+);
+
 const repeatedRuntimeMerge = mergePtppStateIntoRuntimeStores(
   state,
   {
@@ -303,6 +560,37 @@ assert(
     updatedRuntimeMerge.keepUploadTask["task-fixture"].title === "User configured task" &&
     updatedRuntimeMerge.downloadHistoryAdditions.length === 0,
   "a later PTPP revision does not overwrite or duplicate user-configured PTD runtime data",
+);
+
+const preflightedSideEffects: number[] = [];
+const failedBatchPreflight = await executePreflightedBatch(
+  [1, 2, 3],
+  async (value) => {
+    if (value === 2) throw new Error("fixture preflight failure");
+    return value * 10;
+  },
+  async (value) => {
+    preflightedSideEffects.push(value);
+    return value;
+  },
+);
+assert(
+  !failedBatchPreflight.preflight.ok &&
+    failedBatchPreflight.preflight.failures.length === 1 &&
+    failedBatchPreflight.preflight.failures[0].index === 1 &&
+    failedBatchPreflight.results.length === 0 &&
+    preflightedSideEffects.length === 0,
+  "a failed batch preflight prevents every downstream side effect",
+);
+
+const successfulBatchPreflight = await executePreflightedBatch(
+  [1, 2, 3],
+  async (value) => value * 10,
+  async (value) => value + 1,
+);
+assert(
+  successfulBatchPreflight.preflight.ok && successfulBatchPreflight.results.join(",") === "11,21,31",
+  "a successful full preflight executes every prepared assignment in order",
 );
 
 console.log("PTPP migration bridge and site download target resolution tests passed.");

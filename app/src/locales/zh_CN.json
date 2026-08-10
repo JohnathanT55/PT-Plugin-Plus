@@ -546,9 +546,12 @@
       "treatTTQueryAsImdbSearch": "是否将 tt\\d\\{7,8\\} 的搜索词直接视为 IMDb 搜索"
     },
     "tab": {
+      "advanced": "高级",
       "backup": "备份恢复",
       "download": "下载",
+      "general": "常规",
       "native-bridge": "原生通信桥",
+      "search": "搜索",
       "search-entity": "@:common.search",
       "social-information": "媒体评分",
       "ui": "界面UI",
@@ -572,6 +575,7 @@
         "index": "页面显示模式",
         "light": "明亮模式"
       },
+      "ptppToolbarStyleNote": "站点助手使用 PT-Plugin-Plus 原版常驻纵向工具栏；可拖动位置并双击顶部黄色区域重置。",
       "dragNote": "拖拽时的下载链接不一定能被正确识别！",
       "enableFadeEffect": "启用淡入效果（即默认半透明，当鼠标移入时显示）",
       "enableOnSocialSite": "在社交站点（如豆瓣、IMDb）启用侧边栏",
@@ -673,6 +677,7 @@
     "index": {
       "changeDefaultDownloader": "更新默认下载服务器成功！如有必要请进一步设置下载地址和标签。",
       "editDefaultDownloaderBtn": "默认下载服务器设置",
+      "deleteAffectedSites": "删除后会同时移除这些站点的下载器/目录绑定：{sites}。确认删除后，这些站点才会按全局默认规则回退。",
       "emptyNotice": "在使用推送服务之前，您至少需要添加一个下载服务器。",
       "remove": {
         "multi": "你确定删除这{count}个下载服务器吗？",
@@ -821,12 +826,17 @@
     },
     "downloadProfile": {
       "autoStart": "添加后自动开始任务",
+      "bindingRequired": "必须先为该下载器设置站点保存目录，才能设为本站默认。",
       "defaultDirectory": "默认保存目录",
       "defaultDownloader": "站点默认下载器",
       "defaultTag": "默认标签",
-      "description": "这里的设置优先于全局默认下载器。可以为同一站点在不同下载器下分别维护目录和标签。",
+      "description": "下载器与站点保存目录构成不可拆分的绑定，并优先于全局默认下载器；仅选择下载器或仅设置标签不构成绑定。",
       "directories": "候选保存目录",
+      "downloaderFilter": "当前下载服务器",
+      "effectiveSiteBinding": "站点绑定",
+      "inheritsGlobal": "继承全局",
       "noDownloader": "请先在下载服务器设置中添加并启用至少一个下载器。",
+      "selectionRequired": "需要选择或修复绑定",
       "siteDefault": "本站默认",
       "tags": "候选标签",
       "title": "下载服务器与目录"
@@ -1069,17 +1079,29 @@
       "title": "快速搜索"
     },
     "advanceList": "高级列表",
+    "addToCollection": "添加到收藏",
     "cannotParseDetailLink": "无法解析当前页面种子链接",
+    "collectionAdded": "已添加到收藏",
+    "collectionFailed": "收藏操作失败",
+    "collectionRemoved": "已从收藏中移除",
     "copyLink": "复制链接",
     "copyLinkFailed": "复制下载链接失败",
     "copyLinkSuccess": "下载链接已复制到剪贴板",
+    "downloaderRootDirectory": "下载器默认目录",
+    "downloadTo": "下载到…",
+    "dragTitle": "拖动工具栏；双击恢复默认位置",
+    "noAvailableDownloadTarget": "没有可用的下载目标",
     "noTorrentParsed": "未解析到当前页面种子",
     "openPTD": "打开 PT-Plugin-Plus",
+    "oneClickDownload": "一键下载",
+    "oneClickDownloadAll": "一键下载本页",
+    "oneClickDownloadNeedsSelection": "当前站点存在多个或不可用的下载目录绑定，请使用“下载到…”选择目标。",
     "parsePageFailed": "页面解析失败",
     "parseResultEmpty": "未能解析出结果",
-    "pushTo": "推送到...",
+    "pushTo": "推送到…",
     "pushToDefault": "推送到默认下载器",
-    "quickSearch": "快捷搜索"
+    "quickSearch": "快捷搜索",
+    "removeFromCollection": "移除收藏"
   },
   "downloaderLabel": {
     "localDownload": "本地下载"
@@ -1162,7 +1184,7 @@
     "contextMenuSendToDownloaderAdvanced": "高级推送",
     "contextMenuSendToDownloaderDefaultFolder": "默认路径",
     "contextMenuSendToDownloaderIn": "推送到 $1 -> $2",
-    "extDesc": "PT-Plugin-Plus 的 Manifest V3 延续版本，保留聚合搜索、用户数据、下载服务器、站点专用目录、历史、收藏、辅种与 WebDAV 备份。",
+    "extDesc": "PT-Plugin-Plus 的 Manifest V3 延续版本，保留聚合搜索、用户数据、下载服务器、站点专用下载器与保存目录、下载历史、辅种和 WebDAV 备份。站点目录绑定优先于全局默认下载器。",
     "extName": "PT 助手 Plus",
     "notificationSendLinkToDownloaderFailure": "将链接发送到下载器 [$1] 失败",
     "notificationSendLinkToDownloaderSuccess": "已成功将链接发送到下载器 [$1]",

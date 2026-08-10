@@ -29,6 +29,20 @@ export interface ITorrentInfoForVerification {
   }>;
 }
 
+export interface IPtppCollectionItem {
+  siteId?: string;
+  host?: string;
+  title?: string;
+  subTitle?: string;
+  url?: string;
+  link?: string;
+  size?: number;
+  time?: number;
+  imdbId?: string;
+  groups?: string[];
+  movieInfo?: Record<string, unknown>;
+}
+
 import type { TExtensionStorageKey, IExtensionStorageSchema } from "@/storage.ts";
 import {
   ILoggerItem,
@@ -117,8 +131,16 @@ interface ProtocolMap extends TMessageMap {
   getDownloaderConfig(downloaderId: string): IDownloaderMetadata;
   getDownloaderVersion(downloaderId: string): string;
   getDownloaderStatus(downloaderId: string): TorrentClientStatus;
+  getDownloaderFreeSpace(downloaderId: string): number | "N/A";
   getTorrentDownloadLink(torrent: ITorrent): string;
   getTorrentInfoForVerification(torrent: ITorrent): ITorrentInfoForVerification;
+
+  // 2.3.1 PTPP favorites compatibility store
+  getPtppCollectionItem(link: string): IPtppCollectionItem | null;
+  togglePtppCollection(data: { torrent: ITorrent; detailUrl?: string }): {
+    collected: boolean;
+    item?: IPtppCollectionItem;
+  };
 
   getClientTorrents(downloaderId: string): CTorrent[];
   deleteClientTorrent(data: { downloaderId: string; id: any; removeData?: boolean }): boolean;

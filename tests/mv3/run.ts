@@ -326,9 +326,80 @@ const siteDefaultResolution = resolveDownloadTarget(
   siteDefaultWithoutPath.settings,
 );
 assert(
-  siteDefaultResolution.downloaderId === "tr-site" &&
-    siteDefaultResolution.target.defaultDirectory === "/fixture/tr-site",
-  "site default downloader applies even without a site-specific path",
+  siteDefaultResolution.downloaderId === "qb-global" &&
+    siteDefaultResolution.target.defaultDirectory === "/fixture/qb-global",
+  "a site downloader without a site directory does not override the global default",
+);
+
+const atomicBindingState = structuredClone(siteDefaultWithoutPath);
+atomicBindingState.siteDownloadProfiles.audiences.byDownloader["qb-global"] = {
+  directories: ["/fixture/audiences"],
+  tags: ["fixture-site-tag"],
+  defaultDirectory: "/fixture/audiences",
+  defaultTag: "fixture-site-tag",
+};
+const atomicBindingResolution = resolveDownloadTarget(
+  "audiences",
+  undefined,
+  atomicBindingState.siteDownloadProfiles,
+  atomicBindingState.downloaders,
+  atomicBindingState.settings,
+);
+assert(
+  atomicBindingResolution.downloaderId === "qb-global" &&
+    atomicBindingResolution.target.defaultDirectory === "/fixture/audiences" &&
+    atomicBindingResolution.target.defaultTag === "fixture-site-tag",
+  "a sole site downloader/directory binding atomically outranks downloader-only preferences and keeps its tag",
+);
+
+const multipleBindingState = structuredClone(atomicBindingState);
+delete multipleBindingState.siteDownloadProfiles.audiences.defaultDownloaderId;
+multipleBindingState.siteDownloadProfiles.audiences.byDownloader["tr-site"] = {
+  directories: ["/fixture/audiences-transmission"],
+  tags: [],
+  defaultDirectory: "/fixture/audiences-transmission",
+};
+assert(
+  resolveDownloadTarget(
+    "audiences",
+    undefined,
+    multipleBindingState.siteDownloadProfiles,
+    multipleBindingState.downloaders,
+    multipleBindingState.settings,
+  ).requiresSelection,
+  "multiple site directory bindings without an explicit site default require selection",
+);
+
+const unavailableBindingState = structuredClone(atomicBindingState);
+unavailableBindingState.downloaders["qb-global"].enabled = false;
+unavailableBindingState.settings.defaultDownloaderId = "tr-site";
+assert(
+  resolveDownloadTarget(
+    "audiences",
+    undefined,
+    unavailableBindingState.siteDownloadProfiles,
+    unavailableBindingState.downloaders,
+    unavailableBindingState.settings,
+  ).requiresSelection,
+  "an unavailable site directory binding never silently falls back to the global downloader",
+);
+
+const tagOnlyBindingState = structuredClone(siteDefaultWithoutPath);
+tagOnlyBindingState.siteDownloadProfiles.audiences.byDownloader["tr-site"] = {
+  directories: [],
+  tags: ["fixture-tag"],
+};
+const tagOnlyBindingResolution = resolveDownloadTarget(
+  "audiences",
+  undefined,
+  tagOnlyBindingState.siteDownloadProfiles,
+  tagOnlyBindingState.downloaders,
+  tagOnlyBindingState.settings,
+);
+assert(
+  tagOnlyBindingResolution.downloaderId === "qb-global" &&
+    tagOnlyBindingResolution.target.defaultDirectory === "/fixture/qb-global",
+  "a site tag without a site directory does not block global fallback",
 );
 
 [

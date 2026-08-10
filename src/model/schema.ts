@@ -45,6 +45,8 @@ export interface DownloadTarget {
   tags: string[];
   /** Preferred direct-push folder; all directories remain available in advanced selection. */
   defaultDirectory?: string;
+  /** Preferred optional tag; all tags remain available in manual selection. */
+  defaultTag?: string;
   autoStart?: boolean;
 }
 

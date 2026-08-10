@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, provide, useTemplateRef, ref, shallowReactive, computed, withModifiers } from "vue";
+import { computed, inject, nextTick, provide, ref, useTemplateRef, withModifiers } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDraggable } from "@vueuse/core";
 import { type ITorrent } from "@ptd/site";
@@ -7,29 +7,32 @@ import { type ITorrent } from "@ptd/site";
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
-import type { IRemoteDownloadDialogData } from "./types.ts";
 import { currentView, type IPtdData, pageType, updatePageType } from "./utils.ts";
 
-import SpeedDialBtn from "./components/SpeedDialBtn.vue";
-import SentToDownloaderDialog from "@/options/components/SentToDownloaderDialog/Index.vue";
+import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
+const metadataStore = useMetadataStore();
 const { t } = useI18n();
 
-const ptdIcon = chrome.runtime.getURL("icons/logo/64.png");
+const ptppIcon = chrome.runtime.getURL("icons/logo/64.png");
 const ptdData = inject<IPtdData>("ptd_data", {});
 
 const el = useTemplateRef<HTMLElement>("el");
+const dragHandle = useTemplateRef<HTMLElement>("dragHandle");
 provide("app", el);
 
 // 记录一下与右边界和下边界的距离
 const rightX = ref<number>(0);
 const bottomY = ref<number>(0);
 
-const openSpeedDial = ref<boolean>(false);
 const { x, y, style } = useDraggable(el, {
+  handle: dragHandle,
   preventDefault: true,
   initialValue: { x: -100, y: -100 }, // Default position off-screen
   onEnd: ({ x, y }) => {
@@ -59,29 +62,30 @@ window.addEventListener("resize", () => {
 
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
 configStore.$onReady(() => {
-  openSpeedDial.value = configStore.contentScript?.defaultOpenSpeedDial ?? false;
-
-  if (openSpeedDial.value) {
-    updatePageType(ptdData).catch();
-  }
+  updatePageType(ptdData).catch();
 
   let { x: storeX = -100, y: storeY = -100 } = configStore.contentScript?.position ?? {};
   let { clientWidth, clientHeight } = document.documentElement;
 
-  x.value = storeX <= 0 || storeX > clientWidth - 50 ? clientWidth - 100 : storeX; // Default to right side
-  y.value = storeY <= 0 || storeY > clientHeight - 50 ? clientHeight - 100 : storeY; // Default to bottom
+  x.value = storeX <= 0 || storeX > clientWidth - 80 ? clientWidth - 90 : storeX; // Default to right side
+  y.value = storeY <= 0 || storeY > clientHeight - 80 ? Math.max(12, (clientHeight - 430) / 2) : storeY;
   rightX.value = clientWidth - x.value;
   bottomY.value = clientHeight - y.value;
 });
 
-const remoteDownloadDialogData = shallowReactive<IRemoteDownloadDialogData>({
-  show: false,
-  torrents: [] as ITorrent[],
-  isDefaultSend: false,
-});
-provide("remoteDownloadDialogData", remoteDownloadDialogData);
+function resetToolbarPosition() {
+  const { clientWidth, clientHeight } = document.documentElement;
+  x.value = clientWidth - 90;
+  y.value = Math.max(12, (clientHeight - 430) / 2);
+  rightX.value = clientWidth - x.value;
+  bottomY.value = clientHeight - y.value;
+  configStore.updateContentScriptPosition(x.value, y.value);
+}
 
-const CUSTOM_DRAG_MIME = "text/json+ptd";
+const manualDownloadTorrents = ref<ITorrent[]>([]);
+const downloadTargetMenu = ref<InstanceType<typeof DownloadTargetMenu>>();
+
+const CUSTOM_DRAG_MIME = "text/json+ptpp";
 
 const isDragging = ref<boolean>(false);
 
@@ -175,7 +179,7 @@ function getIDFromURL(url?: URL | null): string {
   return "";
 }
 
-function onDrop(event: DragEvent) {
+async function onDrop(event: DragEvent) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) {
     isDragging.value = false;
@@ -187,7 +191,7 @@ function onDrop(event: DragEvent) {
     try {
       torrents = JSON.parse(dataTransfer.getData(CUSTOM_DRAG_MIME));
     } catch (error) {
-      console.warn("[PTD] Failed to parse dropped data as JSON:", error);
+      console.warn("[PTPP] Failed to parse dropped data as JSON:", error);
     }
   } else {
     // 尝试从其他类型中提取链接
@@ -200,11 +204,32 @@ function onDrop(event: DragEvent) {
     }
   }
   if (torrents.length > 0) {
-    console.debug("[PTD] Dropped data:", torrents);
-    remoteDownloadDialogData.torrents = torrents;
-    remoteDownloadDialogData.show = true;
+    const assignments = torrents.map((torrent) => ({
+      torrent,
+      target: resolveSiteDownloadTarget(metadataStore, torrent.site || ptdData.siteId),
+    }));
+    if (assignments.every(({ target }) => !target.requiresSelection && target.downloaderId && target.downloader)) {
+      await sendTorrentAssignments(
+        assignments.map(({ torrent, target }) => ({
+          torrent,
+          downloaderId: target.downloaderId!,
+          addTorrentOptions: {
+            localDownload: true,
+            addAtPaused: !target.autoStart,
+            savePath: target.savePath,
+            label: target.label,
+            uploadSpeedLimit: 0,
+            advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
+          },
+        })),
+      );
+    } else {
+      manualDownloadTorrents.value = torrents;
+      await nextTick();
+      await downloadTargetMenu.value?.openTargetMenu();
+    }
   } else {
-    console.warn("[PTD] No valid torrent data found in the dropped content.");
+    console.warn("[PTPP] No valid torrent data found in the dropped content.");
   }
   isDragging.value = false; // 重置拖拽状态
 }
@@ -212,7 +237,7 @@ function onDrop(event: DragEvent) {
 const dropAction = computed(() => {
   if (ptdData.siteId && (configStore.contentScript?.dragLinkOnSpeedDial ?? true)) {
     return {
-      drop: withModifiers((e) => onDrop(e as DragEvent), ["prevent"]),
+      drop: withModifiers((e) => void onDrop(e as DragEvent), ["prevent"]),
       dragover: withModifiers(() => (isDragging.value = true), ["prevent"]),
       dragenter: () => withModifiers(() => (isDragging.value = true), ["prevent"]),
       // dragleave 和 mouseleave 事件直接使用 vue 的普通注册方式，而不是用 对象方式（因为不会有任何副作用）
@@ -227,63 +252,94 @@ function openOptions() {
 </script>
 
 <template>
-  <v-theme-provider :theme="configStore.contentScript.applyTheme ? configStore.uiTheme : ''">
+  <v-theme-provider theme="">
     <div
       ref="el"
       :style="style"
-      style="position: fixed; z-index: 9999999"
-      :class="{
-        'ptd-fade-enter': configStore.contentScript.fadeEnterStyle,
-      }"
+      class="ptpp-toolbar"
+      @mouseleave.prevent="isDragging = false"
+      @dragleave.prevent="isDragging = false"
+      v-on="dropAction"
     >
-      <v-speed-dial
-        v-model="openSpeedDial"
-        :close-on-content-click="false"
-        disable-initial-focus
-        no-click-animation
-        persistent
-      >
-        <template v-slot:activator="{ props: activatorProps }">
-          <v-fab
-            v-bind="activatorProps"
-            color="amber"
-            icon
-            size="x-large"
-            @click="updatePageType(ptdData)"
-            @mouseleave.prevent="isDragging = false"
-            @dragleave.prevent="isDragging = false"
-            v-on="dropAction"
-          >
-            <v-avatar :class="{ 'ptd-fab-loading': isDragging }" :image="ptdIcon" color="transparent" rounded="0" />
-          </v-fab>
-        </template>
+      <div
+        ref="dragHandle"
+        class="ptpp-toolbar-drag-handle"
+        :title="t('contentScript.dragTitle')"
+        @dblclick="resetToolbarPosition"
+      />
+      <button class="ptpp-toolbar-logo" type="button" :title="t('contentScript.openPTD')" @click="openOptions">
+        <img :class="{ 'ptpp-toolbar-logo-loading': isDragging }" :src="ptppIcon" alt="PT-Plugin-Plus" />
+      </button>
 
-        <!-- 这里根据 pageType 来决定显示哪些按钮 -->
-        <component :is="currentView" :key="pageType" />
+      <!-- PTPP 原版默认常驻显示全部可用操作。 -->
+      <component :is="currentView" :key="pageType" />
 
-        <SpeedDialBtn key="home" color="amber" icon="mdi-home" :title="t('contentScript.openPTD')" @click="openOptions" />
-      </v-speed-dial>
+      <DownloadTargetMenu
+        ref="downloadTargetMenu"
+        placement="top-end"
+        :title="t('contentScript.pushTo')"
+        :torrent-items="manualDownloadTorrents"
+      />
     </div>
 
     <v-snackbar-queue v-model="runtimeStore.uiGlobalSnakebar" closable :attach="true" />
-
-    <SentToDownloaderDialog
-      v-model="remoteDownloadDialogData.show"
-      :content-class="['bg-white']"
-      :torrent-items="remoteDownloadDialogData.torrents"
-      :is-default-send="remoteDownloadDialogData.isDefaultSend"
-    />
   </v-theme-provider>
 </template>
 
 <style scoped lang="scss">
-@keyframes onFABLoading {
-  100% {
-    transform: rotate(360deg);
+.ptpp-toolbar {
+  background: aliceblue;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+  color: #1976d2;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  opacity: 0.32;
+  overflow: visible;
+  padding-bottom: 5px;
+  position: fixed;
+  transition: opacity 120ms ease;
+  width: 80px;
+  z-index: 9999999;
+
+  &:hover,
+  &:focus-within {
+    opacity: 0.94;
   }
 }
 
-.ptd-fab-loading {
-  animation: onFABLoading 1.9s linear infinite running;
+.ptpp-toolbar-drag-handle {
+  background: #ffc107;
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  height: 8px;
+  width: 100%;
+}
+
+.ptpp-toolbar-logo {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: block;
+  margin: 5px auto;
+  padding: 0;
+
+  img {
+    display: block;
+    height: 34px;
+    opacity: 0.75;
+    width: 34px;
+  }
+}
+
+.ptpp-toolbar-logo-loading {
+  animation: ptpp-logo-loading 1.2s linear infinite;
+}
+
+@keyframes ptpp-logo-loading {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

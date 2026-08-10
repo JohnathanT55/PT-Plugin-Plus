@@ -6,6 +6,6 @@
 		"message": "PT Plugin Plus"
 	},
 	"manifest_appDescription": {
-		"message": "Just a tools for Private Tracker."
+		"message": "Manifest V3 continuation of PT-Plugin-Plus with search, user data, history, and site-bound downloader/save-path targets."
 	}
 }

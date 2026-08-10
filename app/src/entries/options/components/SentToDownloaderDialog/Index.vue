@@ -14,14 +14,12 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import type { IDownloaderMetadata } from "@/shared/types.ts";
-import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
-import { sendTorrentAssignments, sendTorrentToDownloader } from "./utils.ts";
+import { sendTorrentToDownloader } from "./utils.ts";
 
 const showDialog = defineModel<boolean>();
-const { torrentItems, isDefaultSend } = defineProps<{
+const { torrentItems } = defineProps<{
   torrentItems: ITorrent[];
-  isDefaultSend?: boolean;
 }>();
 const emit = defineEmits<{
   (e: "cancel"): void;
@@ -60,13 +58,6 @@ const enabledDownloadersBySite = computed(() => {
 const sortedEnabledDownloadersBySite = computed(() =>
   [...enabledDownloadersBySite.value].sort((a, b) => (b.sortIndex ?? 0) - (a.sortIndex ?? 0)),
 );
-const resolvedDefaultTargets = computed(() =>
-  torrentItems.map((torrent) => ({
-    torrent,
-    target: resolveSiteDownloadTarget(metadataStore, torrent.site),
-  })),
-);
-
 const downloaderTitle = (downloader: IDownloaderMetadata) => `${downloader.name} [${downloader.address}]`;
 const getDownloaderIcon = (x: string) => chrome.runtime.getURL(getDownloaderIconRaw(x));
 
@@ -92,8 +83,7 @@ async function sendToDownloader() {
     return;
   }
 
-  // 保存此次选择记录（默认推送不保存）
-  if (!isDefaultSend && configStore.download.saveLastDownloader) {
+  if (configStore.download.saveLastDownloader) {
     // noinspection ES6MissingAwait
     metadataStore.setLastDownloader({
       id: selectedDownloader.value.id,
@@ -128,62 +118,24 @@ function quickSendToDownloader(downloader: IDownloaderMetadata, path: string = "
   return sendToDownloader();
 }
 
-async function sendToResolvedDefaults() {
-  const unresolved = resolvedDefaultTargets.value.filter(({ target }) => target.requiresSelection);
-  if (unresolved.length > 0) {
-    runtimeStore.showSnakebar(t("SentToDownloaderDialog.defaultNeedsSelection", { count: unresolved.length }), {
-      color: "warning",
-    });
-    quickSendToClient.value = true;
-    return;
-  }
-
-  isSending.value = true;
-  try {
-    await sendTorrentAssignments(
-      resolvedDefaultTargets.value.map(({ torrent, target }) => ({
-        torrent,
-        downloaderId: target.downloaderId!,
-        addTorrentOptions: {
-          localDownload: true,
-          addAtPaused: !target.autoStart,
-          savePath: target.savePath,
-          label: target.label,
-          uploadSpeedLimit: 0,
-          advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
-        },
-      })),
-    );
-    showDialog.value = false;
-    emit("done");
-  } finally {
-    isSending.value = false;
-  }
-}
-
 async function dialogEnter() {
-  // 如果是默认下载发送，则直接设置为快速发送到客户端模式
-  if (isDefaultSend) {
-    await sendToResolvedDefaults();
-  } else {
-    restoreAddTorrentOptions(); // 先重置所有选项，然后如果需要则从uiStore中获取历史情况
-    quickSendToClient.value = configStore.download.useQuickSendToClient;
+  restoreAddTorrentOptions(); // 先重置所有选项，然后如果需要则从uiStore中获取历史情况
+  quickSendToClient.value = configStore.download.useQuickSendToClient;
 
-    // 如果不是快速发送到客户端模式，则尝试设置默认下载器
-    if (!quickSendToClient.value) {
-      const lastDownloaderId = metadataStore.lastDownloader?.id;
-      selectedDownloader.value = lastDownloaderId // 如果有上次选择的下载器，则直接使用
-        ? metadataStore.downloaders[lastDownloaderId]
-        : sortedEnabledDownloadersBySite.value.length === 1 // 如果只有一个启用的下载器，则直接使用
-          ? sortedEnabledDownloadersBySite.value[0]
-          : null;
+  // 如果不是快速发送到客户端模式，则尝试设置默认下载器
+  if (!quickSendToClient.value) {
+    const lastDownloaderId = metadataStore.lastDownloader?.id;
+    selectedDownloader.value = lastDownloaderId // 如果有上次选择的下载器，则直接使用
+      ? metadataStore.downloaders[lastDownloaderId]
+      : sortedEnabledDownloadersBySite.value.length === 1 // 如果只有一个启用的下载器，则直接使用
+        ? sortedEnabledDownloadersBySite.value[0]
+        : null;
 
-      // 将上一次的下载器选项通过 toMerged 合并到当前选项中，而不是直接覆盖
-      addTorrentOptions.value = toMerged(
-        addTorrentOptions.value,
-        metadataStore.lastDownloader?.options ?? {},
-      ) as Required<Omit<CAddTorrentOptions, "localDownloadOption">>;
-    }
+    // 将上一次的下载器选项通过 toMerged 合并到当前选项中，而不是直接覆盖
+    addTorrentOptions.value = toMerged(
+      addTorrentOptions.value,
+      metadataStore.lastDownloader?.options ?? {},
+    ) as Required<Omit<CAddTorrentOptions, "localDownloadOption">>;
   }
 }
 

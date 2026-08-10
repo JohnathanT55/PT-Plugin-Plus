@@ -21,11 +21,23 @@ function syncTargets() {
   for (const downloader of enabledDownloaders.value) {
     profile.value.byDownloader[downloader.id] ??= emptyTarget();
   }
+  const defaultDownloaderId = profile.value.defaultDownloaderId;
+  if (defaultDownloaderId && !hasBoundDirectory(profile.value.byDownloader[defaultDownloaderId])) {
+    delete profile.value.defaultDownloaderId;
+  }
 }
 
 function unique(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
+
+function hasBoundDirectory(target?: ISiteDownloadTarget): boolean {
+  return unique([target?.defaultDirectory ?? "", ...(target?.directories ?? [])]).length > 0;
+}
+
+const siteBindingDownloaders = computed(() =>
+  enabledDownloaders.value.filter((downloader) => hasBoundDirectory(profile.value.byDownloader[downloader.id])),
+);
 
 function folderItems(downloaderId: string): string[] {
   return unique([
@@ -51,6 +63,9 @@ function normalizeTarget(downloaderId: string) {
   if (target.defaultTag && !target.tags.includes(target.defaultTag)) {
     target.tags.unshift(target.defaultTag);
   }
+  if (profile.value.defaultDownloaderId === downloaderId && !hasBoundDirectory(target)) {
+    delete profile.value.defaultDownloaderId;
+  }
 }
 
 watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTargets, { immediate: true });
@@ -66,9 +81,12 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
 
       <v-autocomplete
         v-model="profile.defaultDownloaderId"
-        :items="enabledDownloaders"
+        :disabled="siteBindingDownloaders.length === 0"
+        :hint="t('SetSite.downloadProfile.bindingRequired')"
+        :items="siteBindingDownloaders"
         :label="t('SetSite.downloadProfile.defaultDownloader')"
         clearable
+        persistent-hint
         item-title="name"
         item-value="id"
       >
@@ -89,24 +107,29 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
         </template>
       </v-autocomplete>
 
-      <v-expansion-panels multiple variant="accordion">
-        <v-expansion-panel v-for="downloader in enabledDownloaders" :key="downloader.id">
-          <v-expansion-panel-title>
-            <v-avatar class="mr-3" size="24">
+      <div class="ptpp-site-download-profile-list">
+        <section v-for="downloader in enabledDownloaders" :key="downloader.id" class="ptpp-site-download-profile-row">
+          <header class="ptpp-site-download-profile-heading">
+            <v-avatar size="26">
               <v-img :src="getDownloaderIcon(downloader.type)" />
             </v-avatar>
-            {{ downloader.name }} · {{ downloader.address }}
-            <v-chip v-if="profile.defaultDownloaderId === downloader.id" class="ml-3" color="primary" size="small">
+            <div class="ptpp-site-download-profile-identity">
+              <strong>{{ downloader.name }}</strong>
+              <span>{{ downloader.address }}</span>
+            </div>
+            <v-chip v-if="profile.defaultDownloaderId === downloader.id" color="primary" size="small">
               {{ t("SetSite.downloadProfile.siteDefault") }}
             </v-chip>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
+          </header>
+
+          <div class="ptpp-site-download-profile-fields">
             <v-combobox
               v-model="profile.byDownloader[downloader.id].directories"
               :items="folderItems(downloader.id)"
               :label="t('SetSite.downloadProfile.directories')"
               chips
               clearable
+              density="compact"
               multiple
               @update:model-value="normalizeTarget(downloader.id)"
             />
@@ -115,6 +138,7 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
               :items="folderItems(downloader.id)"
               :label="t('SetSite.downloadProfile.defaultDirectory')"
               clearable
+              density="compact"
               @update:model-value="normalizeTarget(downloader.id)"
             />
             <v-combobox
@@ -123,6 +147,7 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
               :label="t('SetSite.downloadProfile.tags')"
               chips
               clearable
+              density="compact"
               multiple
               @update:model-value="normalizeTarget(downloader.id)"
             />
@@ -131,17 +156,19 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
               :items="tagItems(downloader.id)"
               :label="t('SetSite.downloadProfile.defaultTag')"
               clearable
+              density="compact"
               @update:model-value="normalizeTarget(downloader.id)"
             />
             <v-switch
               v-model="profile.byDownloader[downloader.id].autoStart"
               :label="t('SetSite.downloadProfile.autoStart')"
               color="success"
+              density="compact"
               hide-details
             />
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+          </div>
+        </section>
+      </div>
 
       <v-alert v-if="enabledDownloaders.length === 0" type="warning" variant="tonal">
         {{ t("SetSite.downloadProfile.noDownloader") }}
@@ -149,3 +176,76 @@ watch(() => enabledDownloaders.value.map((downloader) => downloader.id), syncTar
     </v-container>
   </v-card>
 </template>
+
+<style scoped lang="scss">
+.ptpp-site-download-profile-list {
+  border: 1px solid #555;
+}
+
+.ptpp-site-download-profile-row {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(0, 2.8fr);
+
+  & + & {
+    border-top: 1px solid #555;
+  }
+}
+
+.ptpp-site-download-profile-heading {
+  align-content: start;
+  align-items: center;
+  background: #393939;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  padding: 14px 12px;
+
+  .v-chip {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.ptpp-site-download-profile-identity {
+  display: grid;
+  min-width: 0;
+
+  strong {
+    color: #eee;
+  }
+
+  span {
+    color: #9bc7e4;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.ptpp-site-download-profile-fields {
+  align-items: start;
+  display: grid;
+  gap: 10px 12px;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  padding: 12px;
+
+  .v-switch {
+    align-self: center;
+  }
+}
+
+@media (max-width: 1100px) {
+  .ptpp-site-download-profile-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ptpp-site-download-profile-heading .v-chip {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .ptpp-site-download-profile-fields {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

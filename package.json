@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "type": "module",
   "description": "Manifest V3 continuation of PT-Plugin-Plus, based on the PT-depiler application framework",
-  "homepage": "https://github.com/JohnathanT55/PT-Plugin-Plus",
+  "homepage": "https://github.com/pt-plugins/PT-Plugin-Plus",
   "license": "MIT",
   "packageManager": "pnpm@11.16.0",
   "engines": {

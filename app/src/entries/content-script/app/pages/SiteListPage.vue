@@ -6,13 +6,14 @@ import { type ITorrent } from "@ptd/site";
 import { sendMessage } from "@/messages.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
-import { canDirectSendToSite } from "@/shared/downloadTarget.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
+import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
-import type { IRemoteDownloadDialogData } from "../types.ts";
 import { copyTextToClipboard, doKeywordSearch, siteInstance, wrapperConfirmFn, type IPtdData } from "../utils.ts";
 
 import AdvanceListModuleDialog from "../components/AdvanceListModuleDialog.vue";
 import SpeedDialBtn from "../components/SpeedDialBtn.vue";
+import DownloadTargetMenu from "../components/DownloadTargetMenu.vue";
 
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
@@ -22,7 +23,7 @@ const ptdData = inject<IPtdData>("ptd_data", {});
 const enabledDownloadersBySite = computed(() => {
   return metadataStore.getEnabledDownloadersBySite(ptdData.siteId ?? "");
 });
-const canDefaultSend = computed(() => canDirectSendToSite(metadataStore, ptdData.siteId));
+const resolvedDefaultTarget = computed(() => resolveSiteDownloadTarget(metadataStore, ptdData.siteId));
 
 async function parseListPage(showNoTorrentError = true) {
   // 使用克隆的文档，避免污染原始文档
@@ -84,16 +85,50 @@ function handleLinkCopyMulti() {
     });
 }
 
-const remoteDownloadDialogData = inject<IRemoteDownloadDialogData>("remoteDownloadDialogData")!;
+async function loadListTorrents() {
+  return (await parseListPage()).torrents;
+}
 
-function handleRemoteDownloadMulti(isDefaultSend = false) {
-  parseListPage().then(({ torrents }) => {
-    if (torrents.length > 0) {
-      remoteDownloadDialogData.torrents = torrents;
-      remoteDownloadDialogData.isDefaultSend = isDefaultSend;
-      remoteDownloadDialogData.show = true;
-    }
-  });
+const defaultSendLoading = ref(false);
+const defaultSendStatus = ref<"idle" | "success" | "error">("idle");
+const downloadTargetMenu = ref<InstanceType<typeof DownloadTargetMenu>>();
+const defaultDownloadTitle = computed(() => {
+  const target = resolvedDefaultTarget.value;
+  if (target.requiresSelection || !target.downloader) return t("contentScript.oneClickDownloadNeedsSelection");
+  return [t("contentScript.oneClickDownloadAll"), target.downloader.name, target.savePath].filter(Boolean).join(" → ");
+});
+
+async function handleDefaultDownloadMulti() {
+  const target = resolvedDefaultTarget.value;
+  if (target.requiresSelection || !target.downloaderId || !target.downloader) {
+    await downloadTargetMenu.value?.openTargetMenu();
+    return;
+  }
+
+  defaultSendLoading.value = true;
+  try {
+    const torrents = await loadListTorrents();
+    const summary = await sendTorrentAssignments(
+      torrents.map((torrent) => ({
+        torrent,
+        downloaderId: target.downloaderId!,
+        addTorrentOptions: {
+          localDownload: true,
+          addAtPaused: !target.autoStart,
+          savePath: target.savePath,
+          label: target.label,
+          uploadSpeedLimit: 0,
+          advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
+        },
+      })),
+    );
+    defaultSendStatus.value = summary.failedCount === 0 && summary.totalCount > 0 ? "success" : "error";
+  } catch {
+    defaultSendStatus.value = "error";
+  } finally {
+    defaultSendLoading.value = false;
+    window.setTimeout(() => (defaultSendStatus.value = "idle"), 2000);
+  }
 }
 
 const parsedTorrents = shallowRef<ITorrent[]>([]);
@@ -117,6 +152,23 @@ async function handleSearch() {
 
 <template>
   <SpeedDialBtn
+    key="download_default"
+    :disabled="enabledDownloadersBySite.length === 0"
+    icon="mdi-download-multiple"
+    :label="t('contentScript.oneClickDownloadAll')"
+    :loading="defaultSendLoading"
+    :status="defaultSendStatus"
+    :title="defaultDownloadTitle"
+    @click="() => wrapperConfirmFn(handleDefaultDownloadMulti)"
+  />
+  <DownloadTargetMenu
+    ref="downloadTargetMenu"
+    key="download"
+    icon="mdi-download-box-outline"
+    :load-torrents="loadListTorrents"
+    :title="t('contentScript.downloadTo')"
+  />
+  <SpeedDialBtn
     key="save"
     :loading="localDownloadMultiStatus"
     color="light-blue"
@@ -132,24 +184,6 @@ async function handleSearch() {
     :title="t('contentScript.copyLink')"
     @click="wrapperConfirmFn(handleLinkCopyMulti)"
   />
-  <SpeedDialBtn
-    key="download"
-    :disabled="enabledDownloadersBySite.length === 0"
-    color="light-blue"
-    icon="mdi-cloud-download"
-    :title="t('contentScript.pushTo')"
-    @click="() => handleRemoteDownloadMulti()"
-  />
-  <SpeedDialBtn
-    key="download_default"
-    v-if="canDefaultSend"
-    :disabled="enabledDownloadersBySite.length === 0"
-    color="light-blue"
-    icon="mdi-download"
-    :title="t('contentScript.pushToDefault')"
-    @click="() => handleRemoteDownloadMulti(true)"
-  />
-
   <SpeedDialBtn
     key="advance"
     color="indigo"

@@ -6,6 +6,6 @@
 		"message": "PTPP"
 	},
 	"manifest_appDescription": {
-		"message": "PT 助手，一个可以提升 PT 站点使用效率的工具。"
+		"message": "PT-Plugin-Plus 的 Manifest V3 延续版本：聚合搜索、用户数据、下载历史，以及优先于全局默认下载器的站点专用下载器与保存目录。"
 	}
 }

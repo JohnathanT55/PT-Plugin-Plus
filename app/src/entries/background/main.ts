@@ -3,13 +3,13 @@ import { initializePtppRuntimeMigration } from "@/integration/ptppMigration.ts";
 import { fixAllStoredUserInfo } from "./utils/fixer.ts";
 
 import "./utils/base.ts";
+import "./utils/collection.ts";
 import "./utils/cookies.ts";
 import "./utils/offscreen.ts";
 import "./utils/contextMenus.ts";
 import "./utils/omnibox.ts";
 import "./utils/alarms.ts";
 import "./utils/webRequest.ts";
-import "./utils/nativeMessaging.ts";
 
 initializePtppRuntimeMigration()
   .then((report) => {
@@ -27,7 +27,7 @@ chrome.action.onClicked.addListener(async () => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.debug("[PTD] Installed!");
+  console.debug("[PTPP MV3] Installed!");
 
   // 修复存储中的坏数据
   fixAllStoredUserInfo().catch();

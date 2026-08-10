@@ -9,6 +9,7 @@ import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useTableCustomFilter } from "@/options/directives/useAdvanceFilter.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
 import AddDialog from "./AddDialog.vue";
 import EditDialog from "./EditDialog.vue";
@@ -27,6 +28,11 @@ const { t } = useI18n();
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
+const effectiveSiteDownloadTargets = computed(() =>
+  Object.fromEntries(
+    (allAddedSiteInfo.value ?? []).map((site) => [site.id, resolveSiteDownloadTarget(metadataStore, site.id)]),
+  ),
+);
 
 const showAddDialog = ref<boolean>(false);
 const showEditDialog = ref<boolean>(false);
@@ -268,12 +274,29 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
         </a>
       </template>
       <template #item.defaultDownloader="{ item }">
-        <span v-if="metadataStore.getSiteDefaultDownloaderId(item.id)">
-          {{
-            metadataStore.downloaders[metadataStore.getSiteDefaultDownloaderId(item.id)!]?.name ??
-            metadataStore.getSiteDefaultDownloaderId(item.id)
-          }}
+        <span v-if="effectiveSiteDownloadTargets[item.id]?.requiresSelection" class="text-warning">
+          {{ t("SetSite.downloadProfile.selectionRequired") }}
         </span>
+        <div v-else-if="effectiveSiteDownloadTargets[item.id]?.downloader" class="d-flex align-center ga-2">
+          <span>
+            {{ effectiveSiteDownloadTargets[item.id].downloader?.name }}
+            <template v-if="effectiveSiteDownloadTargets[item.id].savePath">
+              → {{ effectiveSiteDownloadTargets[item.id].savePath }}
+            </template>
+          </span>
+          <v-chip
+            :color="effectiveSiteDownloadTargets[item.id].source === 'global-default' ? undefined : 'primary'"
+            size="x-small"
+          >
+            {{
+              t(
+                effectiveSiteDownloadTargets[item.id].source === "global-default"
+                  ? "SetSite.downloadProfile.inheritsGlobal"
+                  : "SetSite.downloadProfile.effectiveSiteBinding",
+              )
+            }}
+          </v-chip>
+        </div>
         <span v-else class="text-medium-emphasis">—</span>
       </template>
       <template #item.userConfig.isOffline="{ item }">

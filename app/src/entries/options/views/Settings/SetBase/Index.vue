@@ -14,7 +14,7 @@ const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 
 const setBaseTabs = setBaseChildren.map((x) => ({
-  key: x.alias ?? x.path,
+  key: String(x.meta?.tabKey ?? x.path),
   route: x.name,
   icon: x.meta!.icon,
 }));
@@ -43,8 +43,9 @@ async function save() {
 </script>
 
 <template>
+  <v-alert class="mb-2" :title="t('route.Settings.SetBase')" type="info" />
   <v-card>
-    <v-tabs v-model="activeTab" align-tabs="center" bg-color="primary" show-arrows stacked>
+    <v-tabs v-model="activeTab" align-tabs="center" color="yellow" show-arrows stacked>
       <v-tab v-for="tab in setBaseTabs" :key="tab.key as string" :value="tab.route">
         <v-icon :icon="tab.icon as string" />
         {{ t(`SetBase.tab.${tab.key}`) }}

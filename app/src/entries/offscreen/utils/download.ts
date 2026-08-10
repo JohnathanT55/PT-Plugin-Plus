@@ -100,6 +100,11 @@ onMessage("getDownloaderStatus", async ({ data: downloaderId }) => {
   return downloaderStatus;
 });
 
+onMessage("getDownloaderFreeSpace", async ({ data: downloaderId }) => {
+  const downloaderInstance = await getDownloaderInstance(downloaderId);
+  return downloaderInstance ? await downloaderInstance.getClientFreeSpace() : "N/A";
+});
+
 export async function getTorrentDownloadLink(torrent: ITorrent) {
   const site = await getSiteInstance<"public">(torrent.site);
   return await site.getTorrentDownloadLink(torrent);

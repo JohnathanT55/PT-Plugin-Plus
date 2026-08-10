@@ -546,9 +546,12 @@
       "treatTTQueryAsImdbSearch": "Treat tt\\d\\{7,8\\} search terms directly as IMDb search"
     },
     "tab": {
+      "advanced": "Advanced",
       "backup": "Backup & Restore",
       "download": "Download",
+      "general": "General",
       "native-bridge": "Native Bridge",
+      "search": "Search",
       "search-entity": "@:common.search",
       "social-information": "Social Rating",
       "ui": "Option UI",
@@ -572,6 +575,7 @@
         "index": "UI display mode",
         "light": "Light Mode"
       },
+      "ptppToolbarStyleNote": "The site assistant uses the classic always-visible PT-Plugin-Plus toolbar. Drag it to move, or double-click the yellow handle to reset.",
       "dragNote": "Dragged download links may not always be correctly recognized!",
       "enableFadeEffect": "Enable fade-in effect (semi-transparent by default, shows on hover)",
       "enableOnSocialSite": "Enable sidebar on social sites (e.g. Douban, IMDb)",
@@ -673,6 +677,7 @@
     "index": {
       "changeDefaultDownloader": "Default downloader updated successfully. If necessary, please further configure the download path and tags.",
       "editDefaultDownloaderBtn": "Edit Default Downloader",
+      "deleteAffectedSites": "Deleting this downloader also removes its downloader/folder bindings for: {sites}. Those sites fall back to the global default only after you confirm deletion.",
       "emptyNotice": "Before using the download service, you need to add at least one download server.",
       "remove": {
         "multi": "Are you sure to delete these {count} download servers?",
@@ -821,12 +826,17 @@
     },
     "downloadProfile": {
       "autoStart": "Start task after adding",
+      "bindingRequired": "Set a site save directory for this downloader before making it the site default.",
       "defaultDirectory": "Default save directory",
       "defaultDownloader": "Site default downloader",
       "defaultTag": "Default tag",
-      "description": "These settings take priority over the global default downloader. Each site can use different directories and tags for each downloader.",
+      "description": "A downloader and its site save directory form one binding that takes priority over the global default. A downloader or tag without a directory is not a binding.",
       "directories": "Suggested save directories",
+      "downloaderFilter": "Current downloader",
+      "effectiveSiteBinding": "Site binding",
+      "inheritsGlobal": "Global fallback",
       "noDownloader": "Add and enable at least one downloader first.",
+      "selectionRequired": "Select or repair binding",
       "siteDefault": "Site default",
       "tags": "Suggested tags",
       "title": "Downloader and directories"
@@ -1072,17 +1082,29 @@
       "title": "Quick Search"
     },
     "advanceList": "Advanced List",
+    "addToCollection": "Add to Favorites",
     "cannotParseDetailLink": "Cannot parse torrent link on this page",
+    "collectionAdded": "Added to favorites",
+    "collectionFailed": "Favorite operation failed",
+    "collectionRemoved": "Removed from favorites",
     "copyLink": "Copy Link",
     "copyLinkFailed": "Failed to copy download link",
     "copyLinkSuccess": "Download link copied to clipboard",
+    "downloaderRootDirectory": "Downloader default directory",
+    "downloadTo": "Download to…",
+    "dragTitle": "Drag toolbar; double-click to reset its position",
+    "noAvailableDownloadTarget": "No available download target",
     "noTorrentParsed": "No torrents found on this page",
     "openPTD": "Open PT-Plugin-Plus",
+    "oneClickDownload": "One-click Download",
+    "oneClickDownloadAll": "One-click Download Page",
+    "oneClickDownloadNeedsSelection": "This site has multiple or unavailable directory bindings. Use “Download to…” to choose a target.",
     "parsePageFailed": "Page parsing failed",
     "parseResultEmpty": "Failed to parse results",
-    "pushTo": "Push to...",
+    "pushTo": "Push to…",
     "pushToDefault": "Push to Default Downloader",
-    "quickSearch": "Quick Search"
+    "quickSearch": "Quick Search",
+    "removeFromCollection": "Remove Favorite"
   },
   "downloaderLabel": {
     "localDownload": "Local Download"
@@ -1165,7 +1187,7 @@
     "contextMenuSendToDownloaderAdvanced": "Advanced push",
     "contextMenuSendToDownloaderDefaultFolder": "Default path",
     "contextMenuSendToDownloaderIn": "Push to $1 -> $2",
-    "extDesc": "Manifest V3 continuation of PT-Plugin-Plus with search, user data, download servers, site paths, history, and WebDAV backup.",
+    "extDesc": "Manifest V3 continuation of PT-Plugin-Plus with search, user data, download servers, site-bound downloader/save-path targets, history, and WebDAV backup. Site bindings take priority over the global default downloader.",
     "extName": "PT-Plugin-Plus",
     "notificationSendLinkToDownloaderFailure": "Failed to send the link to the downloader [$1]",
     "notificationSendLinkToDownloaderSuccess": "Successfully sent the link to the downloader [$1]",

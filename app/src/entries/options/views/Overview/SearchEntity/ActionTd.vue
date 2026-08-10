@@ -7,8 +7,9 @@ import type { ISearchResultTorrent } from "@/shared/types.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
+import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
-import SentToDownloaderDialog from "@/options/components/SentToDownloaderDialog/Index.vue";
+import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 import KeepUploadDialog from "./KeepUploadDialog.vue";
 
 const {
@@ -39,7 +40,9 @@ async function getTorrentDownloadLinks() {
 
   for (const torrent of torrentItems) {
     const downloadUrl = await sendMessage("getTorrentDownloadLink", torrent);
-    sendMessage("logger", { msg: `torrent ${torrent} download link: ${downloadUrl}` }).catch();
+    sendMessage("logger", {
+      msg: `Resolved torrent download link for ${torrent.site ?? "unknown"}:${torrent.id ?? "unknown"}`,
+    }).catch();
     downloadUrls.push({ torrent, downloadUrl });
   }
 
@@ -74,12 +77,40 @@ async function localDlTorrentDownloadLink() {
   localDlTorrentDownloadLinkBtnStatus.value = false;
 }
 
-const showDownloadClientDialog = ref(false);
-const isDefaultSend = ref(false);
+const defaultSendLoading = ref(false);
 
-function sendToDownloader(defaultDownload = false) {
-  isDefaultSend.value = defaultDownload;
-  showDownloadClientDialog.value = true;
+async function sendToDefaultDownloader() {
+  const resolvedItems = torrentItems.map((torrent) => ({
+    torrent,
+    target: resolveSiteDownloadTarget(metadataStore, torrent.site),
+  }));
+  const unresolved = resolvedItems.filter(({ target }) => target.requiresSelection);
+  if (unresolved.length > 0) {
+    runtimeStore.showSnakebar(t("SentToDownloaderDialog.defaultNeedsSelection", { count: unresolved.length }), {
+      color: "warning",
+    });
+    return;
+  }
+
+  defaultSendLoading.value = true;
+  try {
+    await sendTorrentAssignments(
+      resolvedItems.map(({ torrent, target }) => ({
+        torrent,
+        downloaderId: target.downloaderId!,
+        addTorrentOptions: {
+          localDownload: true,
+          addAtPaused: !target.autoStart,
+          savePath: target.savePath,
+          label: target.label,
+          uploadSpeedLimit: 0,
+          advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
+        },
+      })),
+    );
+  } finally {
+    defaultSendLoading.value = false;
+  }
 }
 
 const showKeepUploadDialog = ref(false);
@@ -94,20 +125,26 @@ function openKeepUploadDialog() {
     <v-btn
       v-if="canDefaultSend"
       :disabled="torrentItems.length == 0"
+      :loading="defaultSendLoading"
       :size="btnSize"
       icon="mdi-download"
       :title="t('SearchEntity.ActionTd.sendToDefault')"
-      @click="() => sendToDownloader(true)"
+      @click="sendToDefaultDownloader"
     />
 
     <!-- 下载到服务器 -->
-    <v-btn
-      :disabled="torrentItems.length == 0"
-      :size="btnSize"
-      icon="mdi-cloud-download"
-      :title="t('SearchEntity.ActionTd.sendToDownloader')"
-      @click="() => sendToDownloader()"
-    />
+    <DownloadTargetMenu :title="t('SearchEntity.ActionTd.sendToDownloader')" :torrent-items="torrentItems">
+      <template #activator="{ disabled, loading, openMenu, status }">
+        <v-btn
+          :disabled="disabled"
+          :loading="loading"
+          :size="btnSize"
+          :icon="status === 'success' ? 'mdi-check' : status === 'error' ? 'mdi-close' : 'mdi-cloud-download'"
+          :title="t('SearchEntity.ActionTd.sendToDownloader')"
+          @click="openMenu"
+        />
+      </template>
+    </DownloadTargetMenu>
     <!-- 复制下载链接 -->
     <v-btn
       :disabled="torrentItems.length == 0"
@@ -136,13 +173,6 @@ function openKeepUploadDialog() {
       @click="openKeepUploadDialog"
     />
   </v-btn-group>
-
-  <!-- 在点击发送到远程服务器时，弹出选择下载器及其他自定义选项 -->
-  <SentToDownloaderDialog
-    v-model="showDownloadClientDialog"
-    :torrent-items="torrentItems"
-    :is-default-send="isDefaultSend"
-  />
 
   <!-- 辅种检测对话框 -->
   <KeepUploadDialog v-if="showKeepUploadBtn" v-model="showKeepUploadDialog" :torrent-items="torrentItems" />

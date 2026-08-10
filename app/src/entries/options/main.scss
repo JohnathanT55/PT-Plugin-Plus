@@ -56,3 +56,223 @@ a:not(:hover) {
     margin-left: 4px;
   }
 }
+
+/*
+ * PTPP product shell
+ *
+ * The Vue/Vuetify runtime is retained, while the visible product shell follows
+ * the archived PT-Plugin-Plus layout instead of PT-depiler's card dashboard.
+ */
+html,
+body,
+#app {
+  background: #292929;
+  height: 100%;
+  margin: 0;
+  min-height: 100%;
+}
+
+#ptpp {
+  background: #292929;
+  color: #eeeeee;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+
+  #ptpp-topbar {
+    background: #ffc107 !important;
+    color: #fff;
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.42);
+
+    .v-toolbar__content {
+      padding-inline: 4px 12px;
+    }
+
+    .v-app-bar-title {
+      font-size: 19px;
+      font-weight: 500;
+    }
+
+    .ptd-search-input {
+      align-self: stretch;
+      background: rgba(255, 255, 255, 0.12);
+      max-width: 860px;
+
+      .v-field {
+        background: transparent !important;
+        border-radius: 0;
+        box-shadow: none !important;
+        color: #fff;
+      }
+
+      .v-field__overlay {
+        background: transparent !important;
+        opacity: 0 !important;
+      }
+
+      .v-field__outline {
+        display: none;
+      }
+
+      .v-btn {
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #fff !important;
+      }
+
+      input,
+      input::placeholder {
+        color: #fff !important;
+        opacity: 0.92;
+      }
+    }
+  }
+
+  #ptpp-navigation {
+    background: #3b3b3b;
+    border-right: 1px solid #4c4c4c;
+    color: #f1f1f1;
+
+    .v-navigation-drawer__content {
+      background: #3b3b3b;
+    }
+
+    .v-list {
+      background: transparent;
+      padding: 9px 0;
+    }
+
+    .v-list-subheader {
+      color: #7f7f7f !important;
+      font-size: 12px;
+      min-height: 30px;
+      padding-inline: 12px;
+    }
+
+    .v-list-item {
+      border-radius: 0;
+      color: #f1f1f1;
+      margin: 0;
+      min-height: 38px;
+      padding-inline: 20px 10px;
+
+      &:hover {
+        background: #484848;
+      }
+
+      &.v-list-item--active {
+        background: #484848;
+        color: #2196f3;
+      }
+    }
+
+    .v-footer {
+      background: #252525;
+      border-top: 1px solid #151515;
+      color: #9a9a9a;
+      font-size: 11px;
+      min-height: 34px;
+      padding: 2px;
+    }
+  }
+
+  #ptpp-main {
+    background: #292929;
+    min-height: 100vh;
+
+    > .v-container {
+      max-width: none;
+      padding: 18px 14px 46px;
+    }
+  }
+
+  #ptpp-main > .v-container > .v-alert:first-child,
+  #ptpp-main > .v-container > div > .v-alert:first-child,
+  .v-alert.bg-info,
+  .ptpp-section-title {
+    background: #2196f3 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    min-height: 56px;
+  }
+
+  .v-card {
+    background: #424242;
+    border: 0;
+    border-radius: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+    color: #eeeeee;
+  }
+
+  .v-card-title {
+    background: #424242;
+    min-height: 58px;
+  }
+
+  .v-data-table {
+    background: #424242;
+    color: #eeeeee;
+
+    thead th {
+      background: #424242 !important;
+      border-bottom-color: #555 !important;
+      color: #eeeeee !important;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    tbody td {
+      border-bottom-color: #525252 !important;
+      color: #eeeeee;
+    }
+
+    tbody tr:hover td {
+      background: #494949 !important;
+    }
+
+    .v-data-table-footer {
+      border-top: 1px solid #555;
+      color: #ddd;
+    }
+  }
+
+  .v-field,
+  .v-list,
+  .v-menu > .v-overlay__content > .v-list,
+  .v-expansion-panel,
+  .v-dialog .v-card {
+    background: #424242;
+    color: #eeeeee;
+  }
+
+  .v-dialog .v-toolbar {
+    background: #2196f3 !important;
+    color: #fff;
+  }
+
+  .v-tabs {
+    background: #424242;
+    color: #ddd;
+
+    .v-tab--selected {
+      color: #ffeb3b;
+    }
+  }
+
+  .v-btn {
+    border-radius: 1px;
+    text-transform: none;
+  }
+
+  .text-primary,
+  a {
+    color: #2196f3 !important;
+  }
+}
+
+@media (max-width: 960px) {
+  #ptpp #ptpp-main > .v-container {
+    padding-inline: 8px;
+  }
+}

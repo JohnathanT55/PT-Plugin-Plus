@@ -44,7 +44,7 @@ configStore.$onReady(() => {
 </script>
 
 <template>
-  <v-app id="ptd" :theme="configStore.uiTheme">
+  <v-app id="ptpp" :theme="configStore.uiTheme">
     <!-- 页面比例提示 -->
     <v-system-bar
       v-if="(pixelRatio > 1.1 || pixelRatio < 0.8) && !configStore.ignoreWrongPixelRatio"
@@ -61,7 +61,7 @@ configStore.$onReady(() => {
     <!-- 导航栏 -->
     <Navigation />
 
-    <v-main id="ptd-main">
+    <v-main id="ptpp-main">
       <v-container fluid>
         <router-view v-slot="{ Component }">
           <component :is="Component" />

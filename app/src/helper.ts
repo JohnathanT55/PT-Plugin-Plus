@@ -1,7 +1,7 @@
 // 此处放置一些全局都可以用的助手函数、常量定义
 
 // 仓库标识仅用于链接与 API，不直接插入产品界面文案。
-const REPO_SLUG = "JohnathanT55/PT-Plugin-Plus";
+const REPO_SLUG = "pt-plugins/PT-Plugin-Plus";
 export const REPO_URL = `https://github.com/${REPO_SLUG}`;
 export const REPO_API = `https://api.github.com/repos/${REPO_SLUG}`;
 

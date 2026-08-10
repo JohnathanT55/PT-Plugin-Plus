@@ -77,7 +77,7 @@ export default defineConfig({
         name: "__MSG_extName__",
         description: "__MSG_extDesc__",
         default_locale: "en",
-        homepage_url: "https://github.com/JohnathanT55/PT-Plugin-Plus",
+        homepage_url: "https://github.com/pt-plugins/PT-Plugin-Plus",
         icons: {
           "16": "icons/logo/16.png",
           "19": "icons/logo/19.png",

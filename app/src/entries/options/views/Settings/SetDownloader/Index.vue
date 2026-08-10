@@ -97,6 +97,17 @@ function editDownloaderSiteFilter(downloaderId: TDownloaderKey) {
 }
 
 const toDeleteIds = ref<TDownloaderKey[]>([]);
+const deleteAffectedSiteIds = computed(() => {
+  const downloaderIds = new Set(toDeleteIds.value);
+  return Object.entries(metadataStore.siteDownloadProfiles)
+    .filter(([, profile]) => Object.keys(profile.byDownloader).some((downloaderId) => downloaderIds.has(downloaderId)))
+    .map(([siteId]) => siteId);
+});
+const deleteAffectedSiteNames = computedAsync(
+  async () => await Promise.all(deleteAffectedSiteIds.value.map((siteId) => metadataStore.getSiteName(siteId))),
+  [],
+);
+
 function deleteDownloader(downloaderId: TDownloaderKey[]) {
   toDeleteIds.value = downloaderId.filter((i) => i !== metadataStore.defaultDownloader?.id); // 默认下载器不允许删除（防止多选时选中）
   showDeleteDialog.value = true;
@@ -312,7 +323,13 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
   <DefaultDownloaderEditDialog v-model="showDefaultDownloaderEditDialog" />
   <SiteFilterDialog v-model="showSiteFilterDialog" :client-id="toEditDownloaderId!" />
   <PathAndTagSuggestDialog v-model="showPathAndTagSuggestDialog" :client-id="toEditDownloaderId!" />
-  <DeleteDialog v-model="showDeleteDialog" :to-delete-ids="toDeleteIds" :confirm-delete="confirmDeleteDownloader" />
+  <DeleteDialog v-model="showDeleteDialog" :to-delete-ids="toDeleteIds" :confirm-delete="confirmDeleteDownloader">
+    <template #append-text>
+      <v-alert v-if="deleteAffectedSiteNames.length > 0" class="mt-3" density="compact" type="warning">
+        {{ t("SetDownloader.index.deleteAffectedSites", { sites: deleteAffectedSiteNames.join("、") }) }}
+      </v-alert>
+    </template>
+  </DeleteDialog>
 </template>
 
 <style scoped lang="scss"></style>
