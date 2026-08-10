@@ -8,7 +8,7 @@ overrides:
   git-rev-sync>shelljs: 0.10.0
 
 patchedDependencies:
-  git-rev-sync: 3d9c4d584af1267020d909cdabbeb70f980a70f49789c9391c199648c693158e
+  git-rev-sync: db22ca24cadb27948e43c3f9b186c4847d57dd26aeedd86221d8fa1a5f7998a4
   jszip: 0d9ab5867509cc0f242c76c8d42fbd0bbc5390abfea97b83bb0dc4b2ce5014bb
 
 importers:
@@ -144,7 +144,7 @@ importers:
         version: 10.1.0
       git-rev-sync:
         specifier: ^3.0.2
-        version: 3.0.2(patch_hash=3d9c4d584af1267020d909cdabbeb70f980a70f49789c9391c199648c693158e)
+        version: 3.0.2(patch_hash=db22ca24cadb27948e43c3f9b186c4847d57dd26aeedd86221d8fa1a5f7998a4)
       prettier:
         specifier: ^3.9.5
         version: 3.9.6
@@ -5383,7 +5383,7 @@ snapshots:
 
   get-stream@6.0.1: {}
 
-  git-rev-sync@3.0.2(patch_hash=3d9c4d584af1267020d909cdabbeb70f980a70f49789c9391c199648c693158e):
+  git-rev-sync@3.0.2(patch_hash=db22ca24cadb27948e43c3f9b186c4847d57dd26aeedd86221d8fa1a5f7998a4):
     dependencies:
       escape-string-regexp: 1.0.5
       graceful-fs: 4.1.15
