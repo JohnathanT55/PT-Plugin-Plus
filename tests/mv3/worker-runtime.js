@@ -23,6 +23,8 @@ const offscreenHtml = read("src/entries/offscreen/offscreen.html");
 
 assert(worker.includes("openOptionsPage"), "action worker contains options-page behavior");
 assert(worker.includes("onMessage"), "service worker contains message listeners");
+assert(worker.includes("Runtime migration ready"), "service worker bundles the PTPP-to-PTD migration bridge");
+assert(worker.includes("siteDownloadProfiles"), "service worker bundles site-specific download profiles");
 assert(contentScript.includes("pt-plugin-plus-mv3.css"), "content script loads the generated shadow-DOM stylesheet");
 assert(optionsHtml.includes('type="module"'), "options page loads its module entry");
 assert(offscreenHtml.includes('type="module"'), "offscreen page loads its module entry");

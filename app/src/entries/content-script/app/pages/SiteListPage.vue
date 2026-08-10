@@ -6,6 +6,7 @@ import { type ITorrent } from "@ptd/site";
 import { sendMessage } from "@/messages.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { canDirectSendToSite } from "@/shared/downloadTarget.ts";
 
 import type { IRemoteDownloadDialogData } from "../types.ts";
 import { copyTextToClipboard, doKeywordSearch, siteInstance, wrapperConfirmFn, type IPtdData } from "../utils.ts";
@@ -21,6 +22,7 @@ const ptdData = inject<IPtdData>("ptd_data", {});
 const enabledDownloadersBySite = computed(() => {
   return metadataStore.getEnabledDownloadersBySite(ptdData.siteId ?? "");
 });
+const canDefaultSend = computed(() => canDirectSendToSite(metadataStore, ptdData.siteId));
 
 async function parseListPage(showNoTorrentError = true) {
   // 使用克隆的文档，避免污染原始文档
@@ -140,7 +142,7 @@ async function handleSearch() {
   />
   <SpeedDialBtn
     key="download_default"
-    v-if="metadataStore.defaultDownloader?.id"
+    v-if="canDefaultSend"
     :disabled="enabledDownloadersBySite.length === 0"
     color="light-blue"
     icon="mdi-download"

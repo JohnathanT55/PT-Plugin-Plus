@@ -47,6 +47,12 @@ const tableHeader = computed(() => {
       minWidth: "8rem",
     },
     { title: t("SetSite.common.url"), key: "url", align: "start", sortable: false },
+    {
+      title: t("SetSite.downloadProfile.defaultDownloader"),
+      key: "defaultDownloader",
+      align: "start",
+      sortable: false,
+    },
     { title: t("SetSite.common.isOffline"), key: "userConfig.isOffline", align: "center" },
     { title: t("SetSite.common.allowSearch"), key: "userConfig.allowSearch", align: "center" },
     {
@@ -260,6 +266,15 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
           {{ item.userConfig?.url ?? item.metadata?.urls?.[0] }}
           <v-icon icon="mdi-open-in-new" size="x-small"></v-icon>
         </a>
+      </template>
+      <template #item.defaultDownloader="{ item }">
+        <span v-if="metadataStore.getSiteDefaultDownloaderId(item.id)">
+          {{
+            metadataStore.downloaders[metadataStore.getSiteDefaultDownloaderId(item.id)!]?.name ??
+            metadataStore.getSiteDefaultDownloaderId(item.id)
+          }}
+        </span>
+        <span v-else class="text-medium-emphasis">—</span>
       </template>
       <template #item.userConfig.isOffline="{ item }">
         <v-switch

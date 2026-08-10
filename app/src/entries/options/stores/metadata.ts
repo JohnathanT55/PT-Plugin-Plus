@@ -23,6 +23,7 @@ import {
   TSearchSnapshotKey,
   TSolutionKey,
   ISearchSolutionMetadata,
+  ISiteDownloadProfile,
 } from "@/shared/types.ts";
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
@@ -45,6 +46,7 @@ export const useMetadataStore = defineStore("metadata", {
 
     defaultSolutionId: "default",
     defaultDownloader: {},
+    siteDownloadProfiles: {},
 
     lastSearchFilter: "",
     lastUserInfo: {},
@@ -326,6 +328,16 @@ export const useMetadataStore = defineStore("metadata", {
       };
     },
 
+    getSiteDownloadProfile(state) {
+      return (siteId: string): ISiteDownloadProfile =>
+        state.siteDownloadProfiles[siteId] ?? { siteId, byDownloader: {} };
+    },
+
+    getSiteDefaultDownloaderId(state) {
+      return (siteId: string): string | undefined =>
+        state.siteDownloadProfiles[siteId]?.defaultDownloaderId || state.defaultDownloader?.id;
+    },
+
     getMediaServerIds(state) {
       return Object.keys(state.mediaServers);
     },
@@ -374,6 +386,7 @@ export const useMetadataStore = defineStore("metadata", {
       const { reBuildMap = true } = options ?? {};
 
       delete this.sites[siteId];
+      delete this.siteDownloadProfiles[siteId];
 
       if (reBuildMap) {
         await this.buildSiteMapCache(false);
@@ -483,6 +496,34 @@ export const useMetadataStore = defineStore("metadata", {
 
     async removeDownloader(downloaderId: TDownloaderKey) {
       delete this.downloaders[downloaderId];
+      if (this.defaultDownloader?.id === downloaderId) {
+        this.defaultDownloader = {};
+      }
+      for (const profile of Object.values(this.siteDownloadProfiles)) {
+        delete profile.byDownloader[downloaderId];
+        if (profile.defaultDownloaderId === downloaderId) {
+          delete profile.defaultDownloaderId;
+        }
+      }
+      await this.$save();
+    },
+
+    async setSiteDownloadProfile(siteId: TSiteID, profile: ISiteDownloadProfile) {
+      const byDownloader = Object.fromEntries(
+        Object.entries(profile.byDownloader).filter(
+          ([, target]) =>
+            target.directories.length > 0 ||
+            target.tags.length > 0 ||
+            target.defaultDirectory !== undefined ||
+            target.defaultTag !== undefined ||
+            target.autoStart !== undefined,
+        ),
+      );
+      if (!profile.defaultDownloaderId && Object.keys(byDownloader).length === 0) {
+        delete this.siteDownloadProfiles[siteId];
+      } else {
+        this.siteDownloadProfiles[siteId] = { ...profile, siteId, byDownloader };
+      }
       await this.$save();
     },
 

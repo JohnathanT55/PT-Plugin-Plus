@@ -411,6 +411,7 @@
     }
   },
   "SentToDownloaderDialog": {
+    "defaultNeedsSelection": "有 {count} 个任务没有可直接使用的站点默认配置，请手动选择下载器或目录。",
     "isSending": "正在向下载器 {name} [{address}] 发送种子，请稍候...",
     "label": "种子标签",
     "labelHint": "（如果该下载服务器支持）",
@@ -813,6 +814,18 @@
     "delete": {
       "text": "确认删除这 {0} 个站点吗？"
     },
+    "downloadProfile": {
+      "autoStart": "添加后自动开始任务",
+      "defaultDirectory": "默认保存目录",
+      "defaultDownloader": "站点默认下载器",
+      "defaultTag": "默认标签",
+      "description": "这里的设置优先于全局默认下载器。可以为同一站点在不同下载器下分别维护目录和标签。",
+      "directories": "候选保存目录",
+      "noDownloader": "请先在下载服务器设置中添加并启用至少一个下载器。",
+      "siteDefault": "本站默认",
+      "tags": "候选标签",
+      "title": "下载服务器与目录"
+    },
     "edit": {
       "title": "编辑站点配置"
     },
@@ -1140,6 +1153,7 @@
     "contextMenuSearchWithDouban": "使用 PT 助手 Plus 搜索当前豆瓣链接相关种子",
     "contextMenuSearchWithIMDb": "使用 PT 助手 Plus 搜索 IMDb 链接相关种子",
     "contextMenuSendToDownloader": "使用 PT 助手 Plus 下载链接",
+    "contextMenuSendToSiteDefault": "按站点默认配置发送到 $1（$2）",
     "contextMenuSendToDownloaderAdvanced": "高级推送",
     "contextMenuSendToDownloaderDefaultFolder": "默认路径",
     "contextMenuSendToDownloaderIn": "推送到 $1 -> $2",

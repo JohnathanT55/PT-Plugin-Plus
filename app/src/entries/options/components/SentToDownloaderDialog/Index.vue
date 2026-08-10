@@ -14,8 +14,9 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import type { IDownloaderMetadata } from "@/shared/types.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
-import { sendTorrentToDownloader } from "./utils.ts";
+import { sendTorrentAssignments, sendTorrentToDownloader } from "./utils.ts";
 
 const showDialog = defineModel<boolean>();
 const { torrentItems, isDefaultSend } = defineProps<{
@@ -58,6 +59,12 @@ const enabledDownloadersBySite = computed(() => {
 });
 const sortedEnabledDownloadersBySite = computed(() =>
   [...enabledDownloadersBySite.value].sort((a, b) => (b.sortIndex ?? 0) - (a.sortIndex ?? 0)),
+);
+const resolvedDefaultTargets = computed(() =>
+  torrentItems.map((torrent) => ({
+    torrent,
+    target: resolveSiteDownloadTarget(metadataStore, torrent.site),
+  })),
 );
 
 const downloaderTitle = (downloader: IDownloaderMetadata) => `${downloader.name} [${downloader.address}]`;
@@ -121,20 +128,43 @@ function quickSendToDownloader(downloader: IDownloaderMetadata, path: string = "
   return sendToDownloader();
 }
 
-function dialogEnter() {
+async function sendToResolvedDefaults() {
+  const unresolved = resolvedDefaultTargets.value.filter(({ target }) => target.requiresSelection);
+  if (unresolved.length > 0) {
+    runtimeStore.showSnakebar(t("SentToDownloaderDialog.defaultNeedsSelection", { count: unresolved.length }), {
+      color: "warning",
+    });
+    quickSendToClient.value = true;
+    return;
+  }
+
+  isSending.value = true;
+  try {
+    await sendTorrentAssignments(
+      resolvedDefaultTargets.value.map(({ torrent, target }) => ({
+        torrent,
+        downloaderId: target.downloaderId!,
+        addTorrentOptions: {
+          localDownload: true,
+          addAtPaused: !target.autoStart,
+          savePath: target.savePath,
+          label: target.label,
+          uploadSpeedLimit: 0,
+          advanceAddTorrentOptions: target.downloader?.advanceAddTorrentOptions ?? {},
+        },
+      })),
+    );
+    showDialog.value = false;
+    emit("done");
+  } finally {
+    isSending.value = false;
+  }
+}
+
+async function dialogEnter() {
   // 如果是默认下载发送，则直接设置为快速发送到客户端模式
   if (isDefaultSend) {
-    const downloader = metadataStore.downloaders[metadataStore.defaultDownloader.id!];
-    restoreAddTorrentOptions(downloader);
-    quickSendToClient.value = true;
-
-    // 加载默认下载器设置中的 folder, tags 信息
-    selectedDownloader.value = downloader;
-    addTorrentOptions.value.savePath = metadataStore.defaultDownloader.folder ?? "";
-    addTorrentOptions.value.label = metadataStore.defaultDownloader.tags ?? "";
-
-    // 直接调用发送函数
-    sendToDownloader();
+    await sendToResolvedDefaults();
   } else {
     restoreAddTorrentOptions(); // 先重置所有选项，然后如果需要则从uiStore中获取历史情况
     quickSendToClient.value = configStore.download.useQuickSendToClient;

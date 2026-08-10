@@ -1,4 +1,5 @@
 import { onMessage } from "@/messages.ts";
+import { initializePtppRuntimeMigration } from "@/integration/ptppMigration.ts";
 import { fixAllStoredUserInfo } from "./utils/fixer.ts";
 
 import "./utils/base.ts";
@@ -9,6 +10,16 @@ import "./utils/omnibox.ts";
 import "./utils/alarms.ts";
 import "./utils/webRequest.ts";
 import "./utils/nativeMessaging.ts";
+
+initializePtppRuntimeMigration()
+  .then((report) => {
+    console.info("[PTPP MV3] Runtime migration ready", {
+      schemaVersion: report.schemaVersion,
+      importedCounts: report.importedCounts,
+      warningCount: report.warningCount,
+    });
+  })
+  .catch((error) => console.error("[PTPP MV3] Runtime migration failed", error));
 
 // 监听 点击图标 事件
 chrome.action.onClicked.addListener(async () => {

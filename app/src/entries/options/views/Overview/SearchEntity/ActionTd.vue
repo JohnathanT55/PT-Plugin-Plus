@@ -6,6 +6,7 @@ import { sendMessage } from "@/messages.ts";
 import type { ISearchResultTorrent } from "@/shared/types.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
 import SentToDownloaderDialog from "@/options/components/SentToDownloaderDialog/Index.vue";
 import KeepUploadDialog from "./KeepUploadDialog.vue";
@@ -27,6 +28,11 @@ const btnSize = computed(() => {
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
+const canDefaultSend = computed(
+  () =>
+    torrentItems.length > 0 &&
+    torrentItems.every((torrent) => !resolveSiteDownloadTarget(metadataStore, torrent.site).requiresSelection),
+);
 
 async function getTorrentDownloadLinks() {
   const downloadUrls = [];
@@ -86,7 +92,7 @@ function openKeepUploadDialog() {
 <template>
   <v-btn-group :density="density" class="table-action" color="grey" variant="text">
     <v-btn
-      v-if="metadataStore.defaultDownloader?.id"
+      v-if="canDefaultSend"
       :disabled="torrentItems.length == 0"
       :size="btnSize"
       icon="mdi-download"

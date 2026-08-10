@@ -28,7 +28,8 @@
       "~/../package.json": ["./package.json"],
       "~/*": ["./app/src/*"],
       "@/*": ["./app/src/entries/*"],
-      "@ptd/*": ["./app/src/packages/*"]
+      "@ptd/*": ["./app/src/packages/*"],
+      "@foundation/*": ["./src/*"]
     }
   },
   "include": ["app/src/**/*.ts", "app/src/**/*.d.ts", "app/src/**/*.tsx", "app/src/**/*.vue"],

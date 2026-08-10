@@ -91,5 +91,9 @@ for (const siteId of requiredSiteChunks) {
 
 const zhMessages = JSON.parse(fs.readFileSync(path.join(output, "_locales/zh_CN/messages.json"), "utf8"));
 assert(zhMessages.extName?.message === "PT 助手 Plus MV3", "Chinese extension name was not generated");
+assert(
+  zhMessages.contextMenuSendToSiteDefault?.message?.includes("站点默认配置"),
+  "Site-default downloader context-menu localization was not generated",
+);
 
 console.log(`Validated ${files.length} MV3 output files in dist-chrome.`);

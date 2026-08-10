@@ -215,6 +215,7 @@ export default defineConfig({
       "~": base_path("./src"),
       "@": base_path("./src/entries"),
       "@ptd": base_path("./src/packages"),
+      "@foundation": path.resolve(__dirname, "src"),
     },
   },
   define: {

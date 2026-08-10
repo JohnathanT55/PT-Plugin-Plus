@@ -1,114 +1,125 @@
 import type { ITorrent } from "@ptd/site";
-import type { TDownloaderKey } from "@/shared/types/storages/metadata.ts";
 import type { CAddTorrentOptions } from "@ptd/downloader";
+import type { TDownloaderKey } from "@/shared/types/storages/metadata.ts";
 import { formatDate } from "@/options/utils.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { sendMessage } from "@/messages.ts";
 
-export function sendTorrentToDownloader(
-  torrentItems: ITorrent[],
-  downloaderId: TDownloaderKey,
-  addTorrentOptions: CAddTorrentOptions,
-): Promise<void> {
-  const runtimeStore = useRuntimeStore();
-  const metadataStore = useMetadataStore();
+export interface TorrentDownloadAssignment {
+  torrent: ITorrent;
+  downloaderId: TDownloaderKey;
+  addTorrentOptions: CAddTorrentOptions;
+}
 
-  // 预处理自定义输入
-  for (const key of ["savePath", "label"] as (keyof typeof addTorrentOptions)[]) {
-    if ((addTorrentOptions[key] as string).includes("<...>")) {
-      // 此处允许空字符 ""， 但不允许用户取消（即取消动态替换操作则认为取消推送任务）
+function replaceInteractivePlaceholders(addTorrentOptions: CAddTorrentOptions): CAddTorrentOptions {
+  const result = { ...addTorrentOptions };
+  for (const key of ["savePath", "label"] as (keyof CAddTorrentOptions)[]) {
+    const value = result[key];
+    if (typeof value === "string" && value.includes("<...>")) {
       const userInput = prompt(`请输入替换 ${key} 中的 <...> 的内容：`);
-      if (userInput !== null) {
-        // @ts-ignore
-        addTorrentOptions[key] = (addTorrentOptions[key] as string).replace("<...>", userInput.trim());
-      } else {
-        return Promise.reject(`因取消输入 ${key} 中的 <...> 的内容而停止推送`); // 用户取消输入，则跳过该任务
+      if (userInput === null) {
+        throw new Error(`因取消输入 ${key} 中的 <...> 的内容而停止推送`);
       }
+      (result[key] as string) = value.replace("<...>", userInput.trim());
     }
   }
+  return result;
+}
 
-  // 预构造动态替换映射表
+async function buildTorrentOptions(
+  assignment: TorrentDownloadAssignment,
+  baseReplaceMap: Record<string, string>,
+): Promise<CAddTorrentOptions> {
+  const metadataStore = useMetadataStore();
+  const { torrent } = assignment;
+  const realAddTorrentOptions = replaceInteractivePlaceholders(assignment.addTorrentOptions);
+  const replaceMap: Record<string, string> = {
+    "torrent.title": torrent.title ?? "",
+    "torrent.subTitle": torrent.subTitle ?? "",
+    "torrent.category": (torrent.category as string) ?? "",
+    ...baseReplaceMap,
+  };
+
+  if (torrent.site) {
+    replaceMap["torrent.site"] = torrent.site;
+    replaceMap["torrent.siteName"] = await metadataStore.getSiteName(torrent.site);
+  }
+
+  for (const key of ["savePath", "label"] as (keyof CAddTorrentOptions)[]) {
+    const value = realAddTorrentOptions[key];
+    if (typeof value !== "string") continue;
+    if (value === "") {
+      delete realAddTorrentOptions[key];
+      continue;
+    }
+    let replaced = value;
+    for (const [replaceKey, replacement] of Object.entries(replaceMap)) {
+      replaced = replaced.replaceAll(`$${replaceKey}$`, replacement);
+    }
+    (realAddTorrentOptions[key] as string) = replaced;
+  }
+  return realAddTorrentOptions;
+}
+
+export async function sendTorrentAssignments(assignments: TorrentDownloadAssignment[]): Promise<void> {
+  const runtimeStore = useRuntimeStore();
+  const metadataStore = useMetadataStore();
   const nowDate = new Date();
   const baseReplaceMap: Record<string, string> = {
     "date:YYYY": formatDate(nowDate, "yyyy"),
     "date:MM": formatDate(nowDate, "MM"),
     "date:DD": formatDate(nowDate, "dd"),
   };
-
-  // 搜索相关动态替换
   if (runtimeStore.search.searchKey !== "") {
     baseReplaceMap["search:keyword"] = runtimeStore.search.searchKey;
   }
-
   if (runtimeStore.search.searchPlanKey !== "") {
     baseReplaceMap["search:plan"] = metadataStore.getSearchSolutionName(runtimeStore.search.searchPlanKey);
   }
 
-  return new Promise(async (resolve) => {
-    const promises = [];
-
-    for (const torrent of torrentItems) {
-      const realAddTorrentOptions: Partial<CAddTorrentOptions> = { ...addTorrentOptions };
-
-      const replaceMap: Record<string, string> = {
-        "torrent.title": torrent.title ?? "",
-        "torrent.subTitle": torrent.subTitle ?? "",
-        "torrent.category": (torrent.category as string) ?? "",
-        ...baseReplaceMap,
-      };
-
-      if (torrent.site) {
-        replaceMap["torrent.site"] = torrent.site;
-        replaceMap["torrent.siteName"] = await metadataStore.getSiteName(torrent.site);
+  const status = await Promise.all(
+    assignments.map(async (assignment) => {
+      try {
+        const addTorrentOptions = await buildTorrentOptions(assignment, baseReplaceMap);
+        return await sendMessage("downloadTorrent", {
+          torrent: assignment.torrent,
+          downloaderId: assignment.downloaderId,
+          addTorrentOptions,
+        });
+      } catch (error) {
+        runtimeStore.showSnakebar(`[${assignment.torrent.title}] 发送到下载器失败！错误信息： ${error}`, {
+          color: "error",
+        });
+        return undefined;
       }
+    }),
+  );
 
-      for (const key of ["savePath", "label"] as (keyof typeof realAddTorrentOptions)[]) {
-        if (realAddTorrentOptions[key]) {
-          if (realAddTorrentOptions[key] === "") {
-            delete realAddTorrentOptions[key];
-          } else {
-            for (const [replaceKey, value] of Object.entries(replaceMap)) {
-              // @ts-ignore
-              realAddTorrentOptions[key] = (realAddTorrentOptions[key]! as string).replace(`$${replaceKey}$`, value);
-            }
-          }
-        }
-      }
+  const failedCount = status.filter((item) => !item || item.downloadStatus === "failed").length;
+  const pendingCount = status.filter((item) => item?.downloadStatus === "pending").length;
+  if (status.length === 0) {
+    runtimeStore.showSnakebar("似乎并没有任务发送到下载器", { color: "warning" });
+    return;
+  }
+  runtimeStore.showSnakebar(
+    `成功发送 ${status.length - failedCount} 个任务到下载器` +
+      (pendingCount > 0 ? `（${pendingCount}在下载队列中）` : "") +
+      (failedCount > 0 ? `，有 ${failedCount} 个任务发送失败` : ""),
+    { color: failedCount > 0 ? "warning" : "success" },
+  );
+}
 
-      promises.push(
-        sendMessage("downloadTorrent", {
-          torrent,
-          downloaderId: downloaderId,
-          addTorrentOptions: realAddTorrentOptions as CAddTorrentOptions,
-        }).catch((x) => {
-          runtimeStore.showSnakebar(`[${torrent.title}] 发送到下载器失败！错误信息： ${x}`, { color: "error" });
-        }),
-      );
-    }
-
-    Promise.all(promises)
-      .then((status) => {
-        if (status.length > 0) {
-          const pendingCount = status.filter((x) => x?.downloadStatus === "pending").length;
-          const failedCount = status.filter((x) => x?.downloadStatus === "failed").length;
-          const color = failedCount > 0 ? "warning" : "success";
-
-          runtimeStore.showSnakebar(
-            `成功发送 ${status.length - failedCount} 个任务到下载器` +
-              (pendingCount > 0 ? `（${pendingCount}在下载队列中）` : "") +
-              (failedCount > 0 ? `，有 ${failedCount} 个任务发送失败` : ""),
-            { color },
-          );
-        } else {
-          runtimeStore.showSnakebar("似乎并没有任务发送到下载器", { color: "warning" });
-        }
-      })
-      .catch((x) => {
-        runtimeStore.showSnakebar("有任务发送到下载器失败，请在下载历史页面重试", { color: "error" });
-      })
-      .finally(() => {
-        resolve();
-      });
-  });
+export function sendTorrentToDownloader(
+  torrentItems: ITorrent[],
+  downloaderId: TDownloaderKey,
+  addTorrentOptions: CAddTorrentOptions,
+): Promise<void> {
+  return sendTorrentAssignments(
+    torrentItems.map((torrent) => ({
+      torrent,
+      downloaderId,
+      addTorrentOptions: { ...addTorrentOptions },
+    })),
+  );
 }

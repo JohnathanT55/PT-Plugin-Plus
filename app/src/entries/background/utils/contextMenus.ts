@@ -8,6 +8,7 @@ import { type ITorrent } from "@ptd/site/types/torrent.ts";
 import { extStorage } from "@/storage.ts";
 import { onMessage, sendMessage } from "@/messages.ts";
 import { type IDownloaderMetadata } from "@/shared/types/storages/metadata.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
 import { openOptionsPage } from "./base.ts";
 
@@ -65,6 +66,8 @@ async function downloadLinkPush(
   folder?: string,
   title?: string,
   url?: string,
+  label?: string,
+  autoStart?: boolean,
 ) {
   // 从链接中提取站点信息，与 ContextMenuLinkPush.vue 保持一致
   const torrent: Partial<ITorrent> = {
@@ -91,8 +94,9 @@ async function downloadLinkPush(
     torrent, // 组装包含标题、URL和站点信息的种子对象
     downloaderId: downloader.id,
     addTorrentOptions: {
-      addAtPaused: !(downloader?.feature?.DefaultAutoStart ?? true),
+      addAtPaused: !(autoStart ?? downloader?.feature?.DefaultAutoStart ?? true),
       savePath: folder!,
+      label,
     } as CAddTorrentOptions,
   })
     .then((result) => {
@@ -338,6 +342,30 @@ async function initContextMenus(tab: chrome.tabs.Tab) {
           openOptionsPage({ path: "/link-push", query: { link: info.linkUrl! } });
         },
       });
+
+      const resolvedDefaultTarget = resolveSiteDownloadTarget(metadataStore, thisTabSiteId);
+      if (!resolvedDefaultTarget.requiresSelection && resolvedDefaultTarget.downloader) {
+        addContextMenu({
+          id: `${baseLinkDownloadPushMenuId}**Link-Push-Site-Default`,
+          parentId: baseLinkDownloadPushMenuId,
+          title: chrome.i18n.getMessage("contextMenuSendToSiteDefault", [
+            resolvedDefaultTarget.downloader.name,
+            resolvedDefaultTarget.savePath,
+          ]),
+          contexts: ["link"],
+          onclick: (info, tab) => {
+            downloadLinkPush(
+              info.linkUrl!,
+              resolvedDefaultTarget.downloader!,
+              resolvedDefaultTarget.savePath,
+              tab?.title,
+              tab?.url,
+              resolvedDefaultTarget.label,
+              resolvedDefaultTarget.autoStart,
+            );
+          },
+        });
+      }
 
       // 在 contextMenus 环境下，很多动态参数无法获取，因此要在生成的菜单栏中滤去
       const EXCLUDE_FOLDER_KEYWORDS = [

@@ -66,6 +66,30 @@ export interface IDefaultDownloaderConfig {
   tags?: string;
 }
 
+export interface ISiteDownloadTarget {
+  directories: string[];
+  tags: string[];
+  defaultDirectory?: string;
+  defaultTag?: string;
+  autoStart?: boolean;
+}
+
+export interface ISiteDownloadProfile {
+  siteId: TSiteKey;
+  defaultDownloaderId?: TDownloaderKey;
+  byDownloader: Record<TDownloaderKey, ISiteDownloadTarget>;
+}
+
+export interface IPtppMigrationMetadata {
+  schemaVersion: number;
+  sourceRevision?: string;
+  migratedAt: number;
+  warningCount: number;
+  importedCounts: Record<string, number>;
+  skippedSiteIds: string[];
+  skippedDownloaderIds: string[];
+}
+
 export type TMediaServerKey = string;
 export interface IMediaServerMetadata extends IMediaServerBaseConfig {
   id: TMediaServerKey;
@@ -121,6 +145,12 @@ export interface IMetadataPiniaStorageSchema {
 
   // 默认下载器配置
   defaultDownloader: IDefaultDownloaderConfig;
+
+  // PTPP 差异能力：每个站点在不同下载器下使用独立目录和标签
+  siteDownloadProfiles: Record<TSiteKey, ISiteDownloadProfile>;
+
+  // 从旧版 PTPP storage 合并到 PTD 运行时存储的幂等标记
+  ptppMigration?: IPtppMigrationMetadata;
 
   // 上一次搜索时在结果页面的筛选词，需要启用 configStore.searchEntity.saveLastFilter
   lastSearchFilter?: string;

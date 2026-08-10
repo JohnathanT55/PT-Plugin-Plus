@@ -9,6 +9,7 @@ import { formatDate, formatSize } from "@/options/utils.ts";
 import { sendMessage } from "@/messages.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
 import type { IRemoteDownloadDialogData } from "../types.ts";
 
@@ -43,6 +44,13 @@ const tableHeaders = computed(
 
 const selectedTorrentIds = ref<ITorrent["id"][]>([]);
 const selectedTorrents = computed(() => torrentItems.filter((x) => selectedTorrentIds.value.includes(x.id)));
+const canDefaultSend = computed(
+  () =>
+    selectedTorrents.value.length > 0 &&
+    selectedTorrents.value.every(
+      (torrent) => !resolveSiteDownloadTarget(metadataStore, torrent.site).requiresSelection,
+    ),
+);
 const hasSelectedTorrent = computed(() => selectedTorrentIds.value.length > 0);
 const selectedTorrentsCount = computed(() => selectedTorrentIds.value.length);
 const selectedTorrentsSize = computed(() =>
@@ -195,7 +203,7 @@ function enterDialog() {
         />
 
         <NavButton
-          v-if="metadataStore.defaultDownloader?.id"
+          v-if="canDefaultSend"
           key="remote_download_multi_default"
           :disabled="!hasSelectedTorrent"
           color="light-blue"

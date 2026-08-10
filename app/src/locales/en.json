@@ -411,6 +411,7 @@
     }
   },
   "SentToDownloaderDialog": {
+    "defaultNeedsSelection": "{count} task(s) do not have a complete site default. Select a downloader or directory manually.",
     "isSending": "Sending torrents to downloader {name} [{address}], please wait...",
     "label": "Torrent Label",
     "labelHint": "(If supported by the downloader)",
@@ -813,6 +814,18 @@
     "delete": {
       "text": "Are you sure to delete these {0} Site?"
     },
+    "downloadProfile": {
+      "autoStart": "Start task after adding",
+      "defaultDirectory": "Default save directory",
+      "defaultDownloader": "Site default downloader",
+      "defaultTag": "Default tag",
+      "description": "These settings take priority over the global default downloader. Each site can use different directories and tags for each downloader.",
+      "directories": "Suggested save directories",
+      "noDownloader": "Add and enable at least one downloader first.",
+      "siteDefault": "Site default",
+      "tags": "Suggested tags",
+      "title": "Downloader and directories"
+    },
     "edit": {
       "title": "Edit Site Config"
     },
@@ -1143,6 +1156,7 @@
     "contextMenuSearchWithDouban": "Use PT-Plugin-Plus to search this Douban link",
     "contextMenuSearchWithIMDb": "Use PT-Plugin-Plus to search this IMDb link",
     "contextMenuSendToDownloader": "Use PT-Plugin-Plus to send this download link",
+    "contextMenuSendToSiteDefault": "Send with site default to $1 ($2)",
     "contextMenuSendToDownloaderAdvanced": "Advanced push",
     "contextMenuSendToDownloaderDefaultFolder": "Default path",
     "contextMenuSendToDownloaderIn": "Push to $1 -> $2",

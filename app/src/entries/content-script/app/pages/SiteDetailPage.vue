@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import { sendMessage } from "@/messages.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { canDirectSendToSite } from "@/shared/downloadTarget.ts";
 
 import type { IRemoteDownloadDialogData } from "../types.ts";
 import { copyTextToClipboard, doKeywordSearch, siteInstance, type IPtdData } from "../utils.ts";
@@ -19,6 +20,7 @@ const ptdData = inject<IPtdData>("ptd_data", {});
 const enabledDownloadersBySite = computed(() => {
   return metadataStore.getEnabledDownloadersBySite(ptdData.siteId ?? "");
 });
+const canDefaultSend = computed(() => canDirectSendToSite(metadataStore, ptdData.siteId));
 
 async function parseDetailPage() {
   const parsedResult = await siteInstance.value?.transformDetailPage(document);
@@ -81,7 +83,7 @@ function handleSearch() {
   />
   <SpeedDialBtn
     key="download_default"
-    v-if="metadataStore.defaultDownloader?.id"
+    v-if="canDefaultSend"
     :disabled="enabledDownloadersBySite.length === 0"
     color="light-blue"
     icon="mdi-download"

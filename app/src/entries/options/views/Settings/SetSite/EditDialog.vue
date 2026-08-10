@@ -1,11 +1,14 @@
 <script lang="ts" setup>
 import { provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { cloneDeep } from "es-toolkit";
 import { type ISiteUserConfig, type TSiteID } from "@ptd/site";
 
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import type { ISiteDownloadProfile } from "@/shared/types.ts";
 
 import Editor from "./Editor.vue";
+import SiteDownloadProfileEditor from "./SiteDownloadProfileEditor.vue";
 
 const showDialog = defineModel<boolean>();
 const props = defineProps<{
@@ -19,9 +22,14 @@ const isFormValid = ref<boolean>(false);
 
 const storedSiteUserConfig = ref<ISiteUserConfig & { valid?: boolean }>({ valid: false });
 provide("storedSiteUserConfig", storedSiteUserConfig);
+const storedSiteDownloadProfile = ref<ISiteDownloadProfile>({
+  siteId: props.siteId,
+  byDownloader: {},
+});
 
 async function patchSite() {
   await metadataStore.addSite(props.siteId, storedSiteUserConfig.value);
+  await metadataStore.setSiteDownloadProfile(props.siteId, storedSiteDownloadProfile.value);
   showDialog.value = false;
 }
 
@@ -30,6 +38,7 @@ function dialogEnter() {
     valid: false,
     ...(metadataStore.sites[props.siteId] ?? {}),
   };
+  storedSiteDownloadProfile.value = cloneDeep(metadataStore.getSiteDownloadProfile(props.siteId));
 }
 </script>
 
@@ -47,6 +56,7 @@ function dialogEnter() {
       <v-divider />
       <v-card-text>
         <Editor v-model="props.siteId" @update:form-valid="(v) => (isFormValid = v)" />
+        <SiteDownloadProfileEditor v-model="storedSiteDownloadProfile" />
       </v-card-text>
       <v-divider />
       <v-card-actions>
