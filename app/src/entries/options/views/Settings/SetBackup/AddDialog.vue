@@ -29,7 +29,7 @@ const isBackupServerConfigValid = ref<boolean>(false);
 
 const allBackupServerMetaData = computedAsync(async () => {
   const clientMetaData: Record<string, IBackupMetadata<any> & { type: string }> = {};
-  for (const type of entityList) {
+  for (const type of entityList.filter((type) => type === "WebDAV")) {
     clientMetaData[type] = { type, ...(await getBackupServerMetaData(type)) };
   }
   return clientMetaData;
@@ -42,7 +42,6 @@ async function updateStoredDownloaderConfigByDefault(type: IBackupServerMetadata
     id: nanoid(),
     backupFields: [...BackupFields],
   } as IBackupServerMetadata;
-  console.log("storedBackupServerConfig", storedBackupServerConfig.value);
 }
 
 async function saveStoredBackupServerConfig() {

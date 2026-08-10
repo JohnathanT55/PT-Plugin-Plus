@@ -27,12 +27,6 @@ export const setBaseChildren: RouteRecordRaw[] = [
     component: () => import("../views/Settings/SetBase/UserInfoWindow.vue"),
   },
   {
-    path: "native-bridge",
-    name: "SetBaseNativeBridge",
-    meta: { icon: "mdi-connection", usesGlobalSave: false },
-    component: () => import("../views/Settings/SetBase/NativeBridgeWindow.vue"),
-  },
-  {
     path: "backup",
     name: "SetBaseBackup",
     meta: { icon: "mdi-backup-restore" },
@@ -72,18 +66,6 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../views/Overview/SearchResultSnapshot/Index.vue"),
       },
       {
-        path: "/media-server-entity",
-        name: "MediaServerEntity",
-        meta: { icon: "mdi-play-network" },
-        component: () => import("../views/Overview/MediaServerEntity/Index.vue"),
-      },
-      {
-        path: "/my-client",
-        name: "MyClient",
-        meta: { icon: "mdi-download-network" },
-        component: () => import("../views/Overview/MyClient/Index.vue"),
-      },
-      {
         path: "/download-history",
         name: "DownloadHistory",
         meta: { icon: "mdi-history" },
@@ -104,6 +86,12 @@ export const routes: RouteRecordRaw[] = [
     meta: { isMainMenu: true },
     children: [
       {
+        path: "/set-downloader",
+        name: "SetDownloader",
+        meta: { icon: "mdi-cloud-download" },
+        component: () => import("../views/Settings/SetDownloader/Index.vue"),
+      },
+      {
         path: "/set-base",
         name: "SetBase",
         meta: { icon: "mdi-cog" },
@@ -117,22 +105,16 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../views/Settings/SetSite/Index.vue"),
       },
       {
+        path: "/set-download-paths",
+        name: "SetDownloadPaths",
+        meta: { icon: "mdi-folder-open" },
+        component: () => import("../views/Settings/SetDownloadPaths/Index.vue"),
+      },
+      {
         path: "/set-search-solution",
         name: "SetSearchSolution",
         meta: { icon: "mdi-widgets" },
         component: () => import("../views/Settings/SetSearchSolution/Index.vue"),
-      },
-      {
-        path: "/set-downloader",
-        name: "SetDownloader",
-        meta: { icon: "mdi-cloud-download" },
-        component: () => import("../views/Settings/SetDownloader/Index.vue"),
-      },
-      {
-        path: "/set-media-server",
-        name: "SetMediaServer",
-        meta: { icon: "mdi-video-input-svideo" },
-        component: () => import("../views/Settings/SetMediaServer/Index.vue"),
       },
       {
         path: "/set-backup",
@@ -205,13 +187,6 @@ export const routes: RouteRecordRaw[] = [
 
   { path: "/:pathMatch(.*)*", name: "NotFound", redirect: "/" },
 ];
-
-if (localStorage.getItem("enable_devtools") !== null) {
-  const devRouteIndex = routes.findIndex((x) => x.name == "Devtools");
-  routes[devRouteIndex].meta!.isMainMenu = true;
-} else {
-  console.info('[PTD] Input `localStorage.setItem("enable_devtools", 1)` in console to enable devtools.');
-}
 
 export const routerInstance = createRouter({
   history: createWebHashHistory(),

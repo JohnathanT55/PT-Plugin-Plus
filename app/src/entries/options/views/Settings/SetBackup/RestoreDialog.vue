@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { ref, shallowRef } from "vue";
-import { isEmpty } from "es-toolkit/compat";
+import { computed, ref, shallowRef } from "vue";
 import { jsZipBlobToBackupData } from "@ptd/backupServer/utils.ts";
 import type { IBackupData } from "@ptd/backupServer";
-import { useRouter } from "vue-router";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { sendMessage } from "@/messages.ts";
 import { BackupFields, type TBackupFields, type IRestoreOptions } from "@/shared/types.ts";
+import { parsePtppBackup, type IParsedPtppBackup } from "@/shared/ptppBackup.ts";
 
 const showDialog = defineModel<boolean>();
 const { t } = useI18n();
-const router = useRouter();
 
 type TRestoreMetaData = { type: "file" } | { type: "remote"; server: string; path: string };
 
@@ -27,6 +25,7 @@ const showDecryptKey = ref<boolean>(false);
 const isDecryptKeyValid = ref<boolean>(true);
 
 const restoreData = shallowRef<IBackupData>();
+const legacyBackup = shallowRef<IParsedPtppBackup>();
 const restoreOptions = ref<IRestoreOptions>({
   fields: [],
   expandCookieMinutes: 0,
@@ -45,24 +44,49 @@ function buildBackupOptions() {
   currentStep.value = "restore";
 }
 
+function buildLegacyBackupOptions(data: IParsedPtppBackup) {
+  restoreOptions.value = {
+    fields: [...data.availableFields],
+    expandCookieMinutes: 0,
+    keepExistUserInfo: true,
+  };
+  currentStep.value = "restore";
+}
+
+const availableRestoreFields = computed(() =>
+  legacyBackup.value
+    ? new Set<TBackupFields>(legacyBackup.value.availableFields)
+    : new Set<TBackupFields>(Object.keys(restoreData.value?.manifest?.files ?? {}) as TBackupFields[]),
+);
+const hasLoadedBackup = computed(() => Boolean(restoreData.value || legacyBackup.value));
+
 /**
  * 如果是本地的文件，我们直接在 options 中解析，如果是服务器的文件，我们则在 offscreen 中解析
  */
 
 const backupFile = shallowRef<File>();
-function loadLocalBackupFile() {
-  jsZipBlobToBackupData(backupFile.value as Blob, decryptKey.value)
-    .then((data) => {
-      restoreData.value = data;
-      isDecryptKeyValid.value = true;
-      buildBackupOptions();
-    })
-    .catch((err) => {
-      console.error(err);
-      restoreData.value = undefined;
-      isDecryptKeyValid.value = false;
-      runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.loadFailure", { error: err }), { color: "error" });
-    });
+async function loadLocalBackupFile() {
+  if (!backupFile.value) return;
+  restoreData.value = undefined;
+  legacyBackup.value = undefined;
+  try {
+    restoreData.value = await jsZipBlobToBackupData(backupFile.value, decryptKey.value);
+    isDecryptKeyValid.value = true;
+    buildBackupOptions();
+    return;
+  } catch {
+    // The normal PTD parser rejects legacy manifests. Try the PTPP parser next.
+  }
+
+  try {
+    legacyBackup.value = await parsePtppBackup(backupFile.value, decryptKey.value);
+    isDecryptKeyValid.value = true;
+    buildLegacyBackupOptions(legacyBackup.value);
+  } catch (err) {
+    console.error(err);
+    isDecryptKeyValid.value = false;
+    runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.loadFailure", { error: err }), { color: "error" });
+  }
 }
 
 const isLoadingRemoteBackupFile = ref<boolean>(false);
@@ -129,6 +153,36 @@ const isDoingRestore = ref<boolean>(false);
 function doRestore() {
   isDoingRestore.value = true;
 
+  if (legacyBackup.value) {
+    sendMessage("importPtppLegacyBackup", {
+      ...legacyBackup.value.payload,
+      fields: restoreOptions.value.fields ?? [],
+      expandCookieMinutes: restoreOptions.value.expandCookieMinutes,
+    })
+      .then((result) => {
+        runtimeStore.showSnakebar(
+          t("SetBackup.RestoreDialog.legacyImportSuccess", {
+            sites: result.importedCounts.sites ?? 0,
+            downloaders: result.importedCounts.downloaders ?? 0,
+            userHistory: result.importedCounts.userHistory ?? 0,
+            downloadHistory: result.importedCounts.downloadHistory ?? 0,
+            cookies: result.restoredCookies,
+            skipped: result.skippedSiteIds.length,
+          }),
+          { color: result.failedCookies > 0 || result.warningCount > 0 ? "warning" : "success" },
+        );
+        showDialog.value = false;
+      })
+      .catch((err) => {
+        runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.failure", { error: err }), { color: "error" });
+        console.error(err);
+      })
+      .finally(() => {
+        isDoingRestore.value = false;
+      });
+    return;
+  }
+
   // 检查 version 字段
   if (!restoreData.value?.manifest?.version) {
     runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.missingVersion"), { color: "error" });
@@ -189,16 +243,12 @@ function resetDialog() {
   decryptKey.value = configStore.backup.encryptionKey ?? "";
 
   restoreData.value = undefined;
+  legacyBackup.value = undefined;
   if (restoreMetadata.type === "file") {
     backupFile.value = undefined;
   } else if (restoreMetadata.type == "remote") {
     loadRemoteBackupFile();
   }
-}
-
-function goToPtppImport() {
-  router.push({ name: "SetBaseBackup" });
-  showDialog.value = false;
 }
 </script>
 
@@ -213,12 +263,7 @@ function goToPtppImport() {
       <v-divider />
       <v-card-text>
         <v-alert class="mb-3" type="info" variant="tonal">
-          <span>{{ t("SetBackup.RestoreDialog.ptppPrompt") }}</span>
-          <template #append>
-            <v-btn color="primary" size="small" variant="outlined" prepend-icon="mdi-import" @click="goToPtppImport">
-              {{ t("SetBackup.RestoreDialog.ptppImport") }}
-            </v-btn>
-          </template>
+          {{ t("SetBackup.RestoreDialog.autoDetectBackup") }}
         </v-alert>
         <v-window v-model="currentStep">
           <v-window-item value="file" eager>
@@ -266,6 +311,12 @@ function goToPtppImport() {
             />
           </v-window-item>
           <v-window-item value="restore">
+            <v-alert v-if="legacyBackup" class="mb-3" type="success" variant="tonal">
+              {{ t("SetBackup.RestoreDialog.legacyDetected", { version: legacyBackup.manifest.version ?? "-" }) }}
+              <div v-if="legacyBackup.hasCollections" class="mt-1 text-caption">
+                {{ t("SetBackup.RestoreDialog.legacyCollectionsNotice") }}
+              </div>
+            </v-alert>
             <v-label>{{ t("SetBackup.RestoreDialog.restoreOptions") }}</v-label>
             <v-row no-gutters>
               <v-col v-for="backupField in BackupFields" :key="backupField" cols="12" md="4">
@@ -274,7 +325,7 @@ function goToPtppImport() {
                   :label="t(`SetBackup.fields.${backupField}`)"
                   :value="backupField"
                   color="success"
-                  :disabled="!restoreData?.manifest?.files?.[backupField]"
+                  :disabled="!availableRestoreFields.has(backupField)"
                   hide-details
                 />
               </v-col>
@@ -332,7 +383,7 @@ function goToPtppImport() {
         </v-btn>
         <v-btn
           v-if="currentStep != 'restore'"
-          :disabled="isEmpty(restoreData)"
+          :disabled="!hasLoadedBackup"
           append-icon="mdi-chevron-right"
           color="blue-darken-1"
           variant="text"

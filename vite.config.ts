@@ -34,7 +34,7 @@ const permissions = [
   "notifications",
 ];
 
-const optionalPermissions = ["nativeMessaging"];
+const optionalPermissions: string[] = [];
 
 // @ts-ignore
 const git_count = git.count("HEAD");

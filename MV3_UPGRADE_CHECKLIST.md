@@ -1,27 +1,28 @@
 # PT-Plugin-Plus Manifest V3 升级范围与验收清单
 
 更新日期：2026-08-10
-依据：`usable_function/` 中的实际使用截图、PT-Plugin-Plus 现有代码、PT-depiler 当前实现，以及 PT-depiler issue [#454](https://github.com/pt-plugins/PT-depiler/issues/454)。
+依据：`usable_function/` 中的实际使用截图、归档版 [pt-plugins/PT-Plugin-Plus](https://github.com/pt-plugins/PT-Plugin-Plus)（本仓库 `legacy-mv2/`），以及 PT-depiler 中与 PTPP 既有功能重合的实现。
 
 ## 1. 已确定的产品方向
 
-- 站点定义、站点设置、完整搜索能力优先仿照 PT-depiler 的数据模型和交互，不继续维护 PTPP 的动态 JS 站点插件体系。
-- MV3 架构参考 PT-depiler：Chrome service worker + offscreen document + 类型化消息 + alarms + storage/IndexedDB。
+- **归档版 PTPP 是产品功能、导航和界面的唯一基准。** PT-depiler 只可作为 PTPP 已有同类功能的 MV3 实现来源，不能因为已经导入 PTD 代码就把 PTD 独有功能加入产品。
+- 站点定义、站点设置和完整搜索可复用 PT-depiler 的数据模型与实现，但外部功能范围和主要交互必须与 PTPP 对齐；不继续维护 PTPP 的动态 JS 站点插件体系。
+- MV3 底层架构可参考 PT-depiler：Chrome service worker + offscreen document + 类型化消息 + alarms + storage/IndexedDB。架构复用不等于产品功能继承。
 - 保留 PTPP 最有价值的差异能力：**按站点绑定下载服务器、保存目录和标签，并能快速直推**。
-- 第一版只为实际使用功能负责；未使用的旧功能不阻塞 MV3 首发。
+- 第一版只为实际使用的 PTPP 功能负责；未使用的旧功能不阻塞 MV3 首发，PTD 独有功能暂不实现也不显示入口。
 - 配置迁移必须保留用户现有站点、下载器、站点目录映射、历史、收藏、快照和 WebDAV 设置。
 
-### PT-depiler 官方计划与迁移 FAQ 的最终核对
+### PT-depiler 可复用部分的边界
 
 2026-08-10 核对了 PT-depiler 的[开发计划](https://github.com/orgs/pt-plugins/projects/1/views/1)和[迁移常见问题 #316](https://github.com/pt-plugins/PT-depiler/discussions/316)：
 
 - PTD 已完成默认下载器、下载器候选目录/标签、快速推送和“记住上一次推送设置”。这些能力直接复用，不重新造基础下载器选择器。
 - PTD 的目录属于下载器，不与站点绑定；本项目只在其上增加 `siteId → downloader/profile` 映射层。
-- PTD 当前只能导入 PTPP 用户历史数据，不能导入站点、下载器、目录、收藏等配置。本项目的完整迁移器属于明确新增能力。
+- PTD 当前只能导入 PTPP 用户历史数据，不能导入站点、下载器、目录、收藏等配置。本项目的完整迁移器是升级 PTPP 所必需的兼容能力。
 - PTD 搜索和用户信息使用可配置并发队列，默认并发为 1；官方建议根据机器性能调到 5–10，过大会触发浏览器同 tab 并发限制。
 - PTD 已完成高级筛选、多列排序、搜索方案自定义内容和多个内建搜索入口启停。应沿用这些实现。
 - issue #327 的“完成”是允许编辑搜索方案中的请求内容，仍不是恢复 PTPP 任意动态 JS 插件；本项目继续禁止可执行脚本，只接受可验证、可序列化的请求配置。
-- 开发计划当前 P0 包含站点适配和辅种任务，P1 包含统一查看下载服务器种子列表；相关实现成熟时优先复用。
+- PTD 的媒体服务器、下载器任务总览、原生通信桥、额外备份服务、Ask AI 等 PTPP 没有的产品功能，不进入当前版本的导航、设置或验收范围。
 
 ### 基础架构与数据模型阶段验收（已完成）
 
@@ -44,7 +45,7 @@
 
 - [x] 以 PT-depiler 提交 `9dd9ee1e10f4f2633c886f265a7aad0e1c52cab6` 为基线，将 Vue 3、Vite、Vuetify、Pinia 应用导入 `app/`。
 - [x] 接入 options UI、content script、Chrome service worker、offscreen document 和类型化消息入口。
-- [x] 导入 PTD 的站点、搜索、下载器、备份、社交/影片信息等静态 TypeScript 包。
+- [x] 导入 PTD 的应用框架和可供重合功能使用的静态 TypeScript 包；导入源码不代表对外启用 PTD 独有产品功能。
 - [x] 10 个指定站点定义和 qBittorrent、Transmission 下载器均进入生产 bundle。
 - [x] Chrome 生产输出切换为 `dist-chrome/`，CI 使用 Node.js 24 并上传该目录。
 - [x] 修补依赖中的 `new Function`，完整产物扫描不含 `unsafe-eval`、`eval()`、`new Function()` 或远程脚本。
@@ -248,27 +249,18 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 - [ ] 详情页支持复制链接、默认配置直推、展开选择其他配置和快速搜索。
 - [ ] 默认推送的交互目标是“一次点击完成”，不能强制把鼠标移动到页面中央再确认。
 
-### 2.11 TMDb 与影片信息
+### 2.11 PTPP 原有影片信息
 
-- [ ] 保留 IMDb/豆瓣影片信息、评分和 ID 搜索。
-- [ ] 新增 TMDb 影片及电视剧支持。
-- [ ] TMDb 页面可以直接用标题、IMDb ID 或 TMDb ID 搜索种子。
-- [ ] 搜索候选和搜索结果可展示 TMDb 海报、年份、类型、简介、评分和评分人数。
-- [ ] 支持电影、剧集、季度和单集 URL。
-- [ ] 对外部数据做缓存、超时和失败回退，TMDb 失败不能阻塞种子搜索。
-- [ ] 优先借用 PT-depiler 的 `packages/social/entity/tmdb.ts`。
-- [ ] 可先使用 PT-depiler 现有的 TMDb 页面解析；若增加 TMDb API，则新增 API Token 设置，并避免写入日志和明文非加密备份。
+- [ ] 保留 PTPP 已有的 IMDb/豆瓣影片信息、评分和 ID 搜索。
+- [ ] 对外部数据做缓存、超时和失败回退，影片信息失败不能阻塞种子搜索。
+- [ ] TMDb 属于用户曾提出的候选增强，但不是 PTPP 原有功能；本轮不实现、不显示设置入口，另行确认后再排期。
 
 ## 3. P1：按 PT-depiler 重做或在 P0 稳定后补齐
 
 - [ ] 右键菜单：选中文本搜索、豆瓣/IMDb/TMDb 链接搜索、下载链接推送。
 - [ ] 地址栏关键词搜索。
-- [ ] 下载器内任务查看、暂停、恢复和删除。
-- [ ] 更丰富的影片来源：Bangumi、AniDB、TVmaze。
 - [ ] 深色/浅色/跟随系统主题；迁移截图使用深色主题。
 - [ ] 系统日志、调试器和更新日志。
-- [ ] Cookie 自动延长等 PT-depiler 新功能，默认关闭。
-- [ ] 更多备份服务和媒体服务器，仅在复用成本低时随架构继承。
 
 ## 4. P2：可延后或首版移除
 
@@ -287,6 +279,11 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 | 独立权限设置页                   | 可移除；改为功能触发时请求最小必要权限。                          |
 | OWSS                             | 非必需；WebDAV 稳定后再决定。                                     |
 | 老版捐赠、团队、技术栈等静态页面 | 不阻塞首发，可简化。                                              |
+| PTD 媒体服务器/媒体库            | 当前移除入口；PTPP 原版没有该产品功能。                            |
+| PTD“我的下载器”任务总览          | 当前移除入口；只保留 PTPP 下载服务器设置和推送能力。               |
+| PTD 原生通信桥                    | 当前移除入口；不属于 PTPP MV3 升级所需功能。                       |
+| PTD 额外备份服务                  | 当前不显示；本阶段只实现用户实际使用的 WebDAV。                    |
+| PTD Ask AI 与额外影片来源         | 当前移除入口；另行明确需求后再评估。                               |
 
 ## 5. 数据迁移清单
 
@@ -304,7 +301,7 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 - [x] 自动刷新、重试、批量下载阈值和页面工具栏等旧选项已保留在版本化配置；后续业务 UI 再接入强类型字段。
 - [ ] 对凭据迁移显示明确提示；不在日志中输出原文。
 - [x] 纯迁移函数可重复执行且结果确定；自动迁移成功后仍不删除任何旧 key。
-- [ ] 新扩展 ID 无法直接读取旧扩展 storage 时，提供 PTPP ZIP/JSON 导入器。
+- [x] 新扩展 ID 无法直接读取旧扩展 storage 时，普通恢复入口可自动识别并迁移完整 PTPP ZIP；独立 `userdatas.json` 仍可按需补充。
 
 说明：`PT-Plugin-Plus-Cache-Contents` 是可重新生成的页面/API 运行缓存，本阶段有意不迁移；它不是用户配置或历史数据。旧动态站点/下载器脚本也只保留在未删除的 MV2 key 中，不进入 MV3 可消费状态。
 

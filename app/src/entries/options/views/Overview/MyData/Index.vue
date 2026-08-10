@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -18,9 +18,7 @@ import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import ResultParseStatus from "@/options/components/ResultParseStatus.vue";
 import NavButton from "@/options/components/NavButton.vue";
 import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
-import HistoryDataViewDialog from "./HistoryDataViewDialog.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
-import ExportUserInfoDialog from "./ExportUserInfoDialog.vue";
 
 import { formatRatio } from "./utils/format.ts";
 import { tableData, initTableData, cancelFlushSiteLastUserInfo, flushSiteLastUserInfo } from "./utils/lastUserData.ts";
@@ -30,8 +28,6 @@ const router = useRouter();
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
-
-const currentDate = new Date();
 
 type TExtendDataTableHeader = DataTableHeader & { props?: any };
 
@@ -58,7 +54,7 @@ const fullTableHeader = reactive([
   { title: t("MyData.table.joinTime"), key: "joinTime", align: "center" },
   { title: t("MyData.table.lastAccessAt"), key: "lastAccessAt", align: "center" }, // 默认不显示
   { title: t("MyData.table.updateAt"), key: "updateAt", align: "center" },
-  { title: t("common.action"), key: "action", align: "center", sortable: false, props: { disabled: true } },
+  { title: t("MyData.table.status"), key: "status", align: "center", sortable: false, props: { disabled: true } },
 ] as TExtendDataTableHeader[]);
 
 const tableHeader = computed(() => {
@@ -90,10 +86,7 @@ const {
   tableWaitFilterRef,
   tableFilterRef,
   tableFilterFn,
-  advanceFilterDictRef,
-  updateTableFilterValueFn,
   buildFilterDictFn,
-  toggleKeywordStateFn,
 } = useTableCustomFilter<IUserInfoItem>({
   parseOptions: {
     keywords: ["site", "status", "siteUserConfig.groups"],
@@ -105,10 +98,21 @@ const {
   },
 });
 
-const tableSelected = ref<TSiteID[]>([]); // 选中的站点行
+async function initPtppTable() {
+  const columns = configStore.tableBehavior.MyData.columns ?? [];
+  // The imported PTD defaults used an action column and absolute dates. Treat
+  // that exact marker as an old UI preference and switch it to the PTPP view.
+  if (columns.includes("action")) {
+    configStore.tableBehavior.MyData.columns = [...columns.filter((column) => column !== "action"), "bonusPerHour"];
+    configStore.tableBehavior.MyData.itemsPerPage = -1;
+    configStore.myDataTableControl.joinTimeFormat = "alive";
+    configStore.myDataTableControl.updateAtFormatAsAlive = true;
+    await configStore.$save();
+  }
+  await initTableData();
+}
 
-// 挂载时加载表格数据
-onMounted(() => initTableData());
+onMounted(() => void initPtppTable());
 
 // 监听用户信息变化（ offscreen 直接定时刷新的情况 ）
 watchDebounced(
@@ -122,28 +126,8 @@ watchDebounced(
   { debounce: 5e3, deep: true },
 );
 
-const showHistoryDataViewDialog = ref<boolean>(false);
-const historyDataViewDialogSiteId = ref<TSiteID | null>(null);
-function viewHistoryData(siteId: TSiteID) {
-  showHistoryDataViewDialog.value = true;
-  historyDataViewDialogSiteId.value = siteId;
-}
-
-async function multiOpen() {
-  for (const siteId of tableSelected.value) {
-    const siteUrl = await metadataStore.getSiteUrl(siteId);
-    if (siteUrl) {
-      window.open(siteUrl, "_blank", "noopener noreferrer");
-    }
-  }
-}
-
 async function multiFlush() {
-  let flushSiteIds: TSiteID[] = tableSelected.value;
-  if (flushSiteIds.length === 0) {
-    flushSiteIds = tableData.value.map((item) => item.site);
-    runtimeStore.showSnakebar(t("MyData.index.noSiteSelectedRefreshAll"), { color: "info" });
-  }
+  const flushSiteIds: TSiteID[] = tableData.value.map((item) => item.site);
 
   if (flushSiteIds.length > 0) {
     flushSiteLastUserInfo(flushSiteIds);
@@ -153,31 +137,19 @@ async function multiFlush() {
 }
 
 function viewTimeline() {
-  router.push({
-    name: "UserDataTimeline",
-    query: {
-      sites: tableSelected.value,
-    },
-  });
+  router.push({ name: "UserDataTimeline" });
 }
 
 function viewStatistic() {
-  router.push({
-    name: "UserDataStatistic",
-    query: {
-      sites: tableSelected.value,
-    },
-  });
+  router.push({ name: "UserDataStatistic" });
 }
-
-const showExportDialog = ref(false);
 </script>
 
 <template>
-  <v-alert :title="t('route.Overview.MyData')" type="info" />
-  <v-card>
-    <v-card-title>
-      <v-row class="ma-0">
+  <v-alert class="ptpp-section-title" :title="t('route.Overview.MyData')" type="info" />
+  <v-card class="ptpp-my-data-card">
+    <v-card-title class="ptpp-my-data-toolbar">
+      <v-row align="center" class="ma-0 ga-2">
         <!-- 刷新，取消刷新 -->
         <NavButton
           v-if="runtimeStore.isUserInfoFlush"
@@ -195,35 +167,13 @@ const showExportDialog = ref(false);
           @click="multiFlush"
         />
 
-        <NavButton
-          :disabled="tableSelected.length === 0"
-          color="indigo"
-          icon="mdi-open-in-new"
-          :text="t('MyData.index.multiOpen')"
-          @click="multiOpen"
-        />
-
-        <v-divider class="mx-2" vertical />
-
-        <NavButton
+        <v-btn
           color="green"
           icon="mdi-chart-timeline-variant"
-          :text="t('MyData.index.viewTimeline')"
+          :title="t('MyData.index.viewTimeline')"
           @click="viewTimeline"
         />
-        <NavButton color="green" icon="mdi-equalizer" :text="t('MyData.index.viewStatistic')" @click="viewStatistic" />
-
-        <v-divider class="mx-2" vertical />
-
-        <!-- 导出按钮 -->
-        <NavButton
-          color="orange-darken-3"
-          icon="mdi-export"
-          :text="t('MyData.index.exportData')"
-          @click="showExportDialog = true"
-        />
-
-        <v-divider class="mx-2" vertical />
+        <v-btn color="green" icon="mdi-equalizer" :title="t('MyData.index.viewStatistic')" @click="viewStatistic" />
 
         <v-menu :close-on-content-clicks="false">
           <template v-slot:activator="{ props }">
@@ -290,7 +240,7 @@ const showExportDialog = ref(false);
           density="compact"
           hide-details
           item-value="key"
-          max-width="200"
+          max-width="240"
           multiple
           prepend-inner-icon="mdi-filter-cog"
           @update:model-value="(v) => configStore.updateTableBehavior('MyData', 'columns', v)"
@@ -314,83 +264,13 @@ const showExportDialog = ref(false);
           density="compact"
           hide-details
           :label="t('common.search')"
-          max-width="500"
+          max-width="460"
           single-line
           @click:clear="buildFilterDictFn('')"
-        >
-          <template #prepend-inner>
-            <v-menu min-width="100">
-              <template v-slot:activator="{ props }">
-                <v-icon v-bind="props" icon="mdi-filter" variant="plain" />
-              </template>
-              <v-list class="pa-0">
-                <v-list-item-subtitle class="ma-2">
-                  {{ t("MyData.index.siteStatus") }}
-                </v-list-item-subtitle>
-
-                <v-list-item
-                  :title="t('MyData.index.filter.todayNotUpdated')"
-                  @click.stop="
-                    () => {
-                      advanceFilterDictRef.updateAt = ['', formatDate(currentDate, 'yyyyMMdd')];
-                      updateTableFilterValueFn();
-                    }
-                  "
-                />
-
-                <v-list-item
-                  :title="t('MyData.index.filter.lastUpdateError')"
-                  @click.stop="
-                    () => {
-                      advanceFilterDictRef.status.required = [
-                        EResultParseStatus.parseError,
-                        EResultParseStatus.unknownError,
-                        EResultParseStatus.needLogin,
-                      ].map((item) => item.toString());
-                      updateTableFilterValueFn();
-                    }
-                  "
-                />
-
-                <v-list-item
-                  :title="t('MyData.index.filter.unreadMessage')"
-                  @click.stop="
-                    () => {
-                      advanceFilterDictRef.messageCount = [1, ' '];
-                      updateTableFilterValueFn();
-                    }
-                  "
-                />
-
-                <v-list-item-subtitle class="ma-2">
-                  {{ t("MyData.index.siteCategory") }}
-                </v-list-item-subtitle>
-
-                <v-list-item
-                  v-for="(item, index) in metadataStore.getSitesGroupData"
-                  :key="index"
-                  :value="index"
-                  class="pr-6"
-                >
-                  <v-checkbox
-                    v-model="advanceFilterDictRef[`siteUserConfig.groups`].required"
-                    :label="`${index} (${item.length})`"
-                    :value="index"
-                    density="compact"
-                    hide-details
-                    indeterminate
-                    @click.stop="(v: any) => toggleKeywordStateFn(`siteUserConfig.groups`, index)"
-                    @update:model-value="() => updateTableFilterValueFn()"
-                  />
-                </v-list-item>
-              </v-list>
-            </v-menu>
-          </template>
-        </v-text-field>
+        />
       </v-row>
     </v-card-title>
     <v-data-table
-      v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['site'] /* 对每个item值只检索一次 */"
       :headers="tableHeader"
@@ -399,11 +279,8 @@ const showExportDialog = ref(false);
       :multi-sort="configStore.enableTableMultiSort"
       :search="tableFilterRef"
       :sort-by="configStore.tableBehavior.MyData.sortBy"
-      class="table-stripe table-header-no-wrap table-no-ext-padding"
+      class="ptpp-my-data-table table-stripe table-header-no-wrap"
       hover
-      item-selectable="selectable"
-      item-value="site"
-      show-select
       @update:itemsPerPage="(v) => configStore.updateTableBehavior('MyData', 'itemsPerPage', v)"
       @update:sortBy="(v) => configStore.updateTableBehavior('MyData', 'sortBy', v)"
     >
@@ -607,7 +484,12 @@ const showExportDialog = ref(false);
       <!-- 更新时间 -->
       <template #item.updateAt="{ item }">
         <template v-if="item.status === EResultParseStatus.success">
-          <span class="text-wrap" :title="item.updateAt ? (formatDate(item.updateAt) as string) : '-'">
+          <v-btn
+            :to="{ name: 'UserDataStatistic', query: { sites: [item.site] } }"
+            size="small"
+            variant="tonal"
+            :title="item.updateAt ? (formatDate(item.updateAt) as string) : '-'"
+          >
             {{
               item.updateAt
                 ? configStore.myDataTableControl.updateAtFormatAsAlive
@@ -615,45 +497,44 @@ const showExportDialog = ref(false);
                   : formatDate(item.updateAt)
                 : "-"
             }}
-          </span>
-        </template>
-        <template v-else>
-          <v-chip label>
-            <ResultParseStatus :status="item.status" />
-          </v-chip>
+          </v-btn>
         </template>
       </template>
 
-      <!-- 操作 -->
-      <template #item.action="{ item }">
-        <v-btn-group class="table-action" density="compact" variant="plain">
-          <v-btn
-            :title="t('MyData.table.action.viewHistoryData')"
-            color="blue"
-            icon="mdi-view-list"
-            size="small"
-            @click="() => viewHistoryData(item.site)"
-          >
-          </v-btn>
-          <v-btn
-            :disabled="runtimeStore.userInfo.flushPlan[item.site]"
-            :loading="runtimeStore.userInfo.flushPlan[item.site]"
-            :title="t('MyData.table.action.flushData')"
-            color="green"
-            icon="mdi-cached"
-            size="small"
-            @click="() => flushSiteLastUserInfo([item.site])"
-          ></v-btn>
-        </v-btn-group>
+      <template #item.status="{ item }">
+        <ResultParseStatus v-if="item.status !== EResultParseStatus.success" :status="item.status" />
       </template>
     </v-data-table>
   </v-card>
-
-  <HistoryDataViewDialog v-model="showHistoryDataViewDialog" :site-id="historyDataViewDialogSiteId!" />
-  <ExportUserInfoDialog v-model="showExportDialog" :selected-site-ids="tableSelected" />
 </template>
 
 <style scoped lang="scss">
+.ptpp-section-title {
+  margin-bottom: 8px;
+}
+
+.ptpp-my-data-card {
+  overflow: hidden;
+}
+
+.ptpp-my-data-toolbar {
+  padding: 18px 16px;
+}
+
+.ptpp-my-data-table {
+  width: 100%;
+}
+
+.ptpp-my-data-table:deep(.v-data-table__th),
+.ptpp-my-data-table:deep(.v-data-table__td) {
+  padding-inline: 8px !important;
+  font-size: 0.8125rem;
+}
+
+.ptpp-my-data-table:deep(tbody .v-data-table__tr) {
+  height: 56px;
+}
+
 .favicon-hover-wrapper {
   cursor: pointer;
 }

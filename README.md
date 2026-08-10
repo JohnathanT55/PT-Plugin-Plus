@@ -4,11 +4,13 @@
 
 ## 当前阶段
 
-当前版本已经接入 PT-depiler 的 Vite、Vue 3、Vuetify、Pinia 应用框架以及 options、content script、service worker、offscreen 等 MV3 入口，并导入其站点、搜索、下载器、备份和影片信息模块。PTPP 的版本化迁移结果现已接入 PTD 运行时存储；站点设置页可以配置默认下载器、候选/默认目录、候选/默认标签和自动开始策略。
+当前版本以归档版 PT-Plugin-Plus 的功能、导航和主要界面为产品基准，使用 Vue 3、Vite、Vuetify、Pinia 重建 options、content script、service worker 和 offscreen 等 MV3 入口。PT-depiler 只作为 PTPP 已有同类功能的实现来源；媒体服务器、下载器任务总览、原生通信桥、额外备份服务和 Ask AI 等 PTD 独有功能不进入当前版本。PTPP 的版本化迁移结果现已接入新的运行时存储；站点及独立“下载目录设置”页面可以配置默认下载器、候选/默认目录、候选/默认标签和自动开始策略。
 
 运行时迁移目前覆盖站点、下载器及地址/认证、站点下载配置、WebDAV、用户历史与最新数据、搜索快照、辅种任务和下载历史。下载历史写入 PTD IndexedDB；其他数据进入 PTD 对应的 `chrome.storage.local` 字段。迁移使用带版本号的完成标记并在所有数据域成功后才提交，重复启动不会覆盖已有 PTD 数据或重复导入下载历史。
 
 自动化验证已经覆盖类型检查、跨存储迁移与失败恢复测试、生产构建、MV3 manifest/入口检查、动态代码扫描以及 service worker/offscreen 冒烟测试。真实站点登录、下载器连接和浏览器加载扩展仍需按 [`MV3_UPGRADE_CHECKLIST.md`](./MV3_UPGRADE_CHECKLIST.md) 逐项实机验收，因此当前构建还不能称为旧版 PTPP 的完整替代品。收藏/收藏分组以及部分旧设置仍只保存在底层迁移状态中，尚未接入 PTD 页面。
+
+普通“从备份文件中恢复”入口现在会自动识别 MV3 备份和旧版 PT-Plugin-Plus ZIP。旧版 ZIP 可直接迁移站点、下载器及地址、默认下载器、站点目录映射、WebDAV、用户历史、搜索快照、辅种任务、下载历史和 Cookies，不再要求先手动添加站点；未受当前静态站点定义支持的项目会在导入结果中明确列为跳过。收藏及分组会先保存在兼容迁移层，待对应页面接入。
 
 站点设置和完整搜索以 PT-depiler 的数据模型与交互为基线，同时继续实现 PTPP 的差异功能。导入基线和许可说明见 [`PTD_UPSTREAM.md`](./PTD_UPSTREAM.md)。
 

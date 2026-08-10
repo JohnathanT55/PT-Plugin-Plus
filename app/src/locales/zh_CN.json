@@ -278,6 +278,7 @@
       "lastAccessAt": "最近访问时间",
       "lastAccessDurationNote": "已经 {0} 天未访问了",
       "levelName": "等级",
+      "status": "状态",
       "trueUserData": "真实数据量",
       "updateAt": "更新时间",
       "userData": "数据量"
@@ -456,6 +457,10 @@
       "failure": "恢复失败: {error}",
       "keepExistUserInfo": "保留本地已获取过的用户信息",
       "loadFailure": "加载失败: {error}",
+      "autoDetectBackup": "这里可直接选择当前 MV3 备份或旧版 PT-Plugin-Plus ZIP 备份，系统会自动识别格式。",
+      "legacyCollectionsNotice": "备份中的收藏与分组会先保存在兼容迁移层；“我的收藏”页面接入后即可继续使用。",
+      "legacyDetected": "已识别为旧版 PT-Plugin-Plus 备份（{version}），将直接迁移站点、下载器、目录、用户数据及其他已选择内容。",
+      "legacyImportSuccess": "旧版备份导入完成：站点 {sites}、下载器 {downloaders}、用户历史 {userHistory}、下载历史 {downloadHistory}、Cookie {cookies}；跳过未支持站点 {skipped}。",
       "missingVersion": "备份数据缺少版本信息，无法恢复",
       "ptppImport": "PT-Plugin-Plus 备份导入",
       "ptppPrompt": "需要导入 PT-Plugin-Plus 备份？",
@@ -1157,8 +1162,8 @@
     "contextMenuSendToDownloaderAdvanced": "高级推送",
     "contextMenuSendToDownloaderDefaultFolder": "默认路径",
     "contextMenuSendToDownloaderIn": "推送到 $1 -> $2",
-    "extDesc": "PT-Plugin-Plus 的 Manifest V3 延续版本",
-    "extName": "PT 助手 Plus MV3",
+    "extDesc": "PT-Plugin-Plus 的 Manifest V3 延续版本，保留聚合搜索、用户数据、下载服务器、站点专用目录、历史、收藏、辅种与 WebDAV 备份。",
+    "extName": "PT 助手 Plus",
     "notificationSendLinkToDownloaderFailure": "将链接发送到下载器 [$1] 失败",
     "notificationSendLinkToDownloaderSuccess": "已成功将链接发送到下载器 [$1]",
     "omniboxSearch": "在 [ $1 ] 中搜索 $2",
@@ -1167,6 +1172,7 @@
     "searchPlanSingleSite": "单个站点"
   },
   "ptppSettings": {
+    "unifiedImportNotice": "旧版 PT-Plugin-Plus 完整 ZIP 备份已经并入普通恢复入口，无需预先手动添加站点，也不再只导入用户历史。",
     "RestorePtppUserDataDialog": {
       "importCancelled": "导入操作已取消。",
       "importFailure": "导入失败。",
@@ -1233,7 +1239,8 @@
     "Settings": {
       "SetBackup": "参数备份与恢复",
       "SetBase": "常规设置",
-      "SetDownloader": "下载器设置",
+      "SetDownloader": "下载服务器",
+      "SetDownloadPaths": "下载目录设置",
       "SetMediaServer": "媒体服务器设置",
       "SetSearchSolution": "搜索方案定义",
       "SetSite": "站点设置",

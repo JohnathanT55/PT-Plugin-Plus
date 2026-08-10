@@ -46,6 +46,8 @@ import {
   IKeepUploadTask,
   TKeepUploadTaskKey,
   BridgeStatus,
+  IPtppLegacyBackupImportPayload,
+  IPtppLegacyBackupImportResult,
 } from "@/shared/types.ts";
 
 import { isDebug } from "~/helper.ts";
@@ -154,6 +156,7 @@ interface ProtocolMap extends TMessageMap {
   getBackupHistory(data: string): IBackupFileInfo[];
   deleteBackupHistory(data: { backupServerId: string; path: string }): boolean;
   restoreBackupData(data: { restoreData: IBackupData; restoreOptions?: IRestoreOptions }): boolean;
+  importPtppLegacyBackup(data: IPtppLegacyBackupImportPayload): IPtppLegacyBackupImportResult;
   getRemoteBackupData(data: { backupServerId: string; path: string; decryptKey?: string }): IBackupData;
 
   // 2.7 辅种任务 ( utils/keepUploadTask )

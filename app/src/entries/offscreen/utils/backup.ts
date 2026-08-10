@@ -13,10 +13,17 @@ import type {
   TBackupServerKey,
   IConfigPiniaStorageSchema,
   TUserInfoStorageSchema,
+  TSearchResultSnapshotStorageSchema,
+  TKeepUploadTaskStorageSchema,
 } from "@/shared/types.ts";
 
 import { logger } from "./logger.ts";
 import { ptdIndexDb } from "../adapter/indexdb.ts";
+import { migrateLegacyStorage } from "@foundation/migration/legacy";
+import { MV3Repository } from "@foundation/storage/repository";
+import { LEGACY_STORAGE_KEYS } from "@foundation/storage/keys";
+import { mergePtppStateIntoRuntimeStores, persistPtppRuntimeMigration } from "@/integration/ptppMigration.ts";
+import type { IPtppLegacyBackupImportPayload, IPtppLegacyBackupImportResult } from "@/shared/types.ts";
 
 export const storageKey = [
   "config",
@@ -165,6 +172,114 @@ export async function restoreBackupData(
 onMessage("restoreBackupData", async ({ data: { restoreData, restoreOptions = {} } }) => {
   return await restoreBackupData(restoreData, restoreOptions);
 });
+
+function selectLegacyImportData(data: IPtppLegacyBackupImportPayload): Record<string, unknown> {
+  const selected = new Set(data.fields);
+  const source = data.legacy;
+  const result: Record<string, unknown> = {};
+
+  // options.json is also needed to map legacy hosts to stable PTD site IDs.
+  if (source[LEGACY_STORAGE_KEYS.config]) result[LEGACY_STORAGE_KEYS.config] = source[LEGACY_STORAGE_KEYS.config];
+  if (selected.has("userInfo") && source[LEGACY_STORAGE_KEYS.userHistory]) {
+    result[LEGACY_STORAGE_KEYS.userHistory] = source[LEGACY_STORAGE_KEYS.userHistory];
+  }
+  if (selected.has("metadata") && source[LEGACY_STORAGE_KEYS.collections]) {
+    result[LEGACY_STORAGE_KEYS.collections] = source[LEGACY_STORAGE_KEYS.collections];
+  }
+  if (selected.has("searchResultSnapshot") && source[LEGACY_STORAGE_KEYS.searchSnapshots]) {
+    result[LEGACY_STORAGE_KEYS.searchSnapshots] = source[LEGACY_STORAGE_KEYS.searchSnapshots];
+  }
+  if (selected.has("keepUploadTask") && source[LEGACY_STORAGE_KEYS.keepUploadTasks]) {
+    result[LEGACY_STORAGE_KEYS.keepUploadTasks] = source[LEGACY_STORAGE_KEYS.keepUploadTasks];
+  }
+  if (selected.has("downloadHistory") && source[LEGACY_STORAGE_KEYS.downloadHistory]) {
+    result[LEGACY_STORAGE_KEYS.downloadHistory] = source[LEGACY_STORAGE_KEYS.downloadHistory];
+  }
+  return result;
+}
+
+async function restorePtppCookies(
+  data: IPtppLegacyBackupImportPayload,
+): Promise<{ restoredCookies: number; failedCookies: number }> {
+  if (!data.fields.includes("cookies")) return { restoredCookies: 0, failedCookies: 0 };
+  const allowedKeys = ["name", "value", "domain", "path", "secure", "httpOnly", "expirationDate"] as const;
+  const now = Date.now() / 1000;
+  const jobs: Promise<unknown>[] = [];
+
+  for (const group of data.cookies) {
+    for (const sourceCookie of group.cookies) {
+      const cookie = { url: group.url } as chrome.cookies.SetDetails;
+      for (const key of allowedKeys) {
+        if (typeof sourceCookie[key] !== "undefined") {
+          (cookie as unknown as Record<string, unknown>)[key] = sourceCookie[key];
+        }
+      }
+      if (!cookie.name || typeof cookie.value !== "string") continue;
+      if (cookie.expirationDate && cookie.expirationDate < now) {
+        cookie.expirationDate = now + Math.max(data.expandCookieMinutes ?? 0, 24 * 60) * 60;
+      } else if ((data.expandCookieMinutes ?? 0) > 0) {
+        cookie.expirationDate = Math.max(cookie.expirationDate ?? now, now) + data.expandCookieMinutes! * 60;
+      }
+      jobs.push(sendMessage("setCookie", cookie));
+    }
+  }
+
+  const results = await Promise.allSettled(jobs);
+  const restoredCookies = results.filter((result) => result.status === "fulfilled").length;
+  return { restoredCookies, failedCookies: results.length - restoredCookies };
+}
+
+export async function importPtppLegacyBackup(
+  data: IPtppLegacyBackupImportPayload,
+): Promise<IPtppLegacyBackupImportResult> {
+  const now = Date.now();
+  const migrated = migrateLegacyStorage(selectLegacyImportData(data), now);
+
+  // Keep the complete compatibility state (including collections) for the
+  // remaining legacy pages that will be connected later.
+  const repository = new MV3Repository();
+  await repository.writeState(migrated.state);
+
+  const runtimeState = JSON.parse(JSON.stringify(migrated.state)) as typeof migrated.state;
+  runtimeState.metadata.storageRevision = data.sourceRevision;
+  if (!data.fields.includes("metadata")) {
+    runtimeState.sites = {};
+    runtimeState.downloaders = {};
+    runtimeState.siteDownloadProfiles = {};
+    runtimeState.backupServers = {};
+  }
+
+  const current = await chrome.storage.local.get(["metadata", "userInfo", "searchResultSnapshot", "keepUploadTask"]);
+  const database = await ptdIndexDb;
+  const currentHistory = await database.getAll("download_history");
+  const result = mergePtppStateIntoRuntimeStores(runtimeState, {
+    metadata: current.metadata as IMetadataPiniaStorageSchema | undefined,
+    userInfo: current.userInfo as TUserInfoStorageSchema | undefined,
+    searchResultSnapshot: current.searchResultSnapshot as TSearchResultSnapshotStorageSchema | undefined,
+    keepUploadTask: current.keepUploadTask as TKeepUploadTaskStorageSchema | undefined,
+    downloadHistory: currentHistory,
+  });
+  await persistPtppRuntimeMigration(result, {
+    setStorage: async (values) => await chrome.storage.local.set(values),
+    addDownloadHistory: async (items) => {
+      if (items.length === 0) return;
+      const transaction = database.transaction("download_history", "readwrite");
+      for (const item of items) await transaction.store.add(item);
+      await transaction.done;
+    },
+  });
+
+  const cookieResult = await restorePtppCookies(data);
+  return {
+    importedCounts: { ...migrated.migratedCounts, ...result.report.importedCounts },
+    warningCount: result.report.warningCount,
+    skippedSiteIds: result.report.skippedSiteIds,
+    skippedDownloaderIds: result.report.skippedDownloaderIds,
+    ...cookieResult,
+  };
+}
+
+onMessage("importPtppLegacyBackup", async ({ data }) => await importPtppLegacyBackup(data));
 
 export async function getBackupHistory(backupServerId: string): Promise<IBackupFileInfo[]> {
   const backupServerInstance = await getBackupServerInstance(backupServerId);

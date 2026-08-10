@@ -45,3 +45,26 @@ export interface IPtppDumpUserInfo {
     [key: `${string}-${string}-${string}`]: IPtppUserInfo;
   };
 }
+
+export interface IPtppLegacyCookieGroup {
+  host?: string;
+  url: string;
+  cookies: Array<Record<string, unknown>>;
+}
+
+export interface IPtppLegacyBackupImportPayload {
+  legacy: Record<string, unknown>;
+  cookies: IPtppLegacyCookieGroup[];
+  sourceRevision: string;
+  fields: string[];
+  expandCookieMinutes?: number;
+}
+
+export interface IPtppLegacyBackupImportResult {
+  importedCounts: Record<string, number>;
+  warningCount: number;
+  skippedSiteIds: string[];
+  skippedDownloaderIds: string[];
+  restoredCookies: number;
+  failedCookies: number;
+}

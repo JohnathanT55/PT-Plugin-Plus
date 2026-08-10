@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { watch } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
@@ -15,10 +15,12 @@ const year = new Date().getFullYear();
 const { t } = useI18n();
 const configStore = useConfigStore();
 
-// 当页面窗口大小发生变化时，调整 Navigation 的显示
 const display = useDisplay();
-watch(display.mdAndUp, () => {
-  configStore.isNavBarOpen = display.mdAndUp.value;
+const drawerOpen = computed({
+  get: () => display.mdAndUp.value || configStore.isNavBarOpen,
+  set: (value: boolean) => {
+    if (display.smAndDown.value) configStore.isNavBarOpen = value;
+  },
 });
 
 // 自动从router.ts生成目录
@@ -49,7 +51,7 @@ function clickMenuItem() {
 </script>
 
 <template>
-  <v-navigation-drawer id="ptd-navigation" v-model="configStore.isNavBarOpen" :width="220" expand-on-hover permanent>
+  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :permanent="display.mdAndUp.value" :width="220">
     <!-- 侧边栏导航标题 -->
     <v-list density="compact" nav>
       <template v-for="(group, groupIndex) in menuOptions" :key="groupIndex">

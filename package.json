@@ -15,7 +15,7 @@
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
     "typecheck:foundation": "tsc --project tsconfig.foundation.json",
-    "test": "tsx tests/mv3/run.ts && tsx tests/mv3/ptd-integration.ts",
+    "test": "tsx tests/mv3/run.ts && tsx tests/mv3/ptd-integration.ts && tsx tests/mv3/ptpp-backup.ts",
     "build": "vite build",
     "build:firefox": "cross-env TARGET=firefox vite build",
     "validate": "node scripts/validate-mv3.js",

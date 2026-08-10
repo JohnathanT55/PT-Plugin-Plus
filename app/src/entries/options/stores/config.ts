@@ -94,7 +94,7 @@ export const useConfigStore = defineStore("config", {
 
     tableBehavior: {
       MyData: {
-        itemsPerPage: 20,
+        itemsPerPage: -1,
         columns: [
           "siteUserConfig.sortIndex",
           "name",
@@ -105,9 +105,9 @@ export const useConfigStore = defineStore("config", {
           "seeding",
           "seedingSize",
           "bonus",
+          "bonusPerHour",
           "joinTime",
           "updateAt",
-          "action",
         ],
         sortBy: [{ key: "siteUserConfig.sortIndex", order: "desc" }],
       },
@@ -178,8 +178,8 @@ export const useConfigStore = defineStore("config", {
       showHnR: true,
       showSeedingBonus: true,
       //joinTimeWeekOnly: false,
-      joinTimeFormat: "added",
-      updateAtFormatAsAlive: false,
+      joinTimeFormat: "alive",
+      updateAtFormatAsAlive: true,
       showIntervalAsDate: false,
       simplifyBonusNumbers: false,
       showBonusNeededInterval: true,
