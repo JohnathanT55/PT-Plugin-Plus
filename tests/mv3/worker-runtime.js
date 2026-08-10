@@ -25,6 +25,8 @@ assert(worker.includes("openOptionsPage"), "action worker contains options-page 
 assert(worker.includes("onMessage"), "service worker contains message listeners");
 assert(worker.includes("Runtime migration ready"), "service worker bundles the PTPP-to-PTD migration bridge");
 assert(worker.includes("siteDownloadProfiles"), "service worker bundles site-specific download profiles");
+assert(worker.includes("ptppMigrationKey"), "service worker bundles idempotent PTPP download-history migration");
+assert(worker.includes("userHistorySites"), "service worker bundles PTPP user-history runtime migration");
 assert(contentScript.includes("pt-plugin-plus-mv3.css"), "content script loads the generated shadow-DOM stylesheet");
 assert(optionsHtml.includes('type="module"'), "options page loads its module entry");
 assert(offscreenHtml.includes('type="module"'), "offscreen page loads its module entry");

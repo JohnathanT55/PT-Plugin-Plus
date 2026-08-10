@@ -81,6 +81,7 @@ export interface ISiteDownloadProfile {
 }
 
 export interface IPtppMigrationMetadata {
+  bridgeVersion: number;
   schemaVersion: number;
   sourceRevision?: string;
   migratedAt: number;

@@ -61,6 +61,11 @@
 - [x] 建立统一下载目标解析器，并接入搜索结果、站点列表页、详情页、高级批量选择和右键菜单。
 - [x] 跨站批量默认推送按每条种子的 `siteId` 独立解析目标；配置不完整时回到手动选择。
 - [x] 自动测试覆盖运行时合并、类型标准化、地址与 WebDAV 保留、目标解析、多候选歧义和同 revision 幂等。
+- [x] 用户历史合并到 PTD `userInfo`，最新记录合并到 `metadata.lastUserInfo`；体积、状态、时间和旧字段名完成转换。
+- [x] 搜索快照同时写入 PTD snapshot 元信息和内容存储，并转换 PTPP/PTD 相反的 `url` / `link` 语义。
+- [x] 辅种任务进入 PTD `keepUploadTask`，保留下载器、目录、暂停/自动开始和任务项。
+- [x] 下载历史以稳定迁移键写入 PTD IndexedDB；保留旧版重复记录，同时保证重启和新版 revision 不会重复导入。
+- [x] 运行时迁移完成标记升级到 bridge v2，并在 storage 与 IndexedDB 全部成功后才提交；任一数据域失败会安全重试。
 - [ ] 在加载 `dist-chrome/` 的 Chrome/Edge 中验证站点编辑 UI、service worker 启动和真实下载器推送。
 
 ## 2. P0：首个可用 MV3 版本必须保留
@@ -290,11 +295,11 @@ PT-depiler 已有 WebDAV、`backupInterval` 和 alarms 自动备份实现，可�
 - [x] 迁移 qBittorrent、Transmission 等旧下载器的地址和认证配置。
 - [x] 迁移 `client.paths[host]` 为新的站点下载配置，并保留每个路径数组及顺序。
 - [x] 迁移默认下载服务器和各站点默认下载服务器。
-- [x] 迁移下载历史（不按 URL 再次去重，失败记录也保留）。
-- [x] 迁移用户历史数据，并将 host 键映射为 `siteId`。
+- [x] 迁移下载历史（不按 URL 再次去重，失败记录也保留），并接入 PTD IndexedDB。
+- [x] 迁移用户历史数据，将 host 键映射为 `siteId`，并接入 PTD `userInfo` / `lastUserInfo`。
 - [x] 迁移收藏项目和收藏分组，重算分组计数。
-- [x] 迁移搜索结果快照，并为结果追加 `siteId`。
-- [x] 迁移辅种任务，并保留下载器、目录和任务明细。
+- [x] 迁移搜索结果快照，为结果追加 `siteId`，并接入 PTD 快照列表与内容存储。
+- [x] 迁移辅种任务，保留下载器、目录和任务明细，并接入 PTD 辅种任务存储。
 - [x] 迁移 WebDAV/OWSS 服务器设置。
 - [x] 自动刷新、重试、批量下载阈值和页面工具栏等旧选项已保留在版本化配置；后续业务 UI 再接入强类型字段。
 - [ ] 对凭据迁移显示明确提示；不在日志中输出原文。

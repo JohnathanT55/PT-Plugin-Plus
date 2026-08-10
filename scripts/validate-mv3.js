@@ -69,6 +69,11 @@ for (const file of files.filter((candidate) => /\.(js|html|json)$/i.test(candida
   }
 }
 
+const workerSource = fs.readFileSync(outputPath(manifest.background.service_worker), "utf8");
+assert(workerSource.includes("ptppMigrationKey"), "PTPP download-history migration is missing from worker bundle");
+assert(workerSource.includes("searchResultSnapshot"), "PTPP search-snapshot migration is missing from worker bundle");
+assert(workerSource.includes("keepUploadTask"), "PTPP keep-upload migration is missing from worker bundle");
+
 const requiredSiteChunks = [
   "audiences",
   "azusa",

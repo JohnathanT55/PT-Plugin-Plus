@@ -14,13 +14,28 @@ import type {
   IPtppMigrationMetadata,
   ISiteDownloadProfile,
   ISiteDownloadTarget,
+  ITorrentDownloadMetadata,
+  TKeepUploadTaskStorageSchema,
+  TSearchResultSnapshotStorageSchema,
+  TUserInfoStorageSchema,
 } from "@/shared/types.ts";
+import { getPtdIndexDb } from "@/shared/indexdb.ts";
+import { mergePtppRuntimeData, type PtppRuntimeDataMergeResult } from "./ptppRuntimeData.ts";
 
 export interface PtppRuntimeMergeResult {
   metadata: IMetadataPiniaStorageSchema;
   report: IPtppMigrationMetadata;
   changed: boolean;
 }
+
+export interface PtppRuntimeStorageMergeResult extends PtppRuntimeMergeResult, PtppRuntimeDataMergeResult {}
+
+export interface PtppRuntimePersistence {
+  setStorage(values: Record<string, unknown>): Promise<void>;
+  addDownloadHistory(items: ITorrentDownloadMetadata[]): Promise<void>;
+}
+
+export const PTPP_RUNTIME_BRIDGE_VERSION = 2;
 
 export const SUPPORTED_PTD_SITE_IDS = [
   "audiences",
@@ -198,11 +213,22 @@ export function mergePtppStateIntoRuntimeMetadata(
   now: number = Date.now(),
 ): PtppRuntimeMergeResult {
   const metadata = Object.assign(createEmptyMetadata(), clone(existingMetadata ?? {}));
+  metadata.sites ??= {};
+  metadata.snapshots ??= {};
+  metadata.downloaders ??= {};
+  metadata.backupServers ??= {};
+  metadata.lastUserInfo ??= {};
+  metadata.siteHostMap ??= {};
+  metadata.siteNameMap ??= {};
   metadata.siteDownloadProfiles ??= {};
   const sourceRevision = state.metadata.storageRevision;
 
   const existingMarker = metadata.ptppMigration;
-  if (existingMarker && existingMarker.sourceRevision === sourceRevision) {
+  if (
+    existingMarker &&
+    existingMarker.bridgeVersion === PTPP_RUNTIME_BRIDGE_VERSION &&
+    existingMarker.sourceRevision === sourceRevision
+  ) {
     return { metadata, report: existingMarker, changed: false };
   }
 
@@ -271,6 +297,7 @@ export function mergePtppStateIntoRuntimeMetadata(
   }
 
   const report: IPtppMigrationMetadata = {
+    bridgeVersion: PTPP_RUNTIME_BRIDGE_VERSION,
     schemaVersion: state.metadata.schemaVersion,
     sourceRevision,
     migratedAt: now,
@@ -288,16 +315,114 @@ export function mergePtppStateIntoRuntimeMetadata(
   return { metadata, report, changed: true };
 }
 
+export function mergePtppStateIntoRuntimeStores(
+  state: MV3State,
+  existing: {
+    metadata?: Partial<IMetadataPiniaStorageSchema>;
+    userInfo?: TUserInfoStorageSchema;
+    searchResultSnapshot?: TSearchResultSnapshotStorageSchema;
+    keepUploadTask?: TKeepUploadTaskStorageSchema;
+    downloadHistory?: ITorrentDownloadMetadata[];
+  },
+  supportedSiteIds: string[] = SUPPORTED_PTD_SITE_IDS,
+  supportedDownloaderTypes: string[] = SUPPORTED_PTD_DOWNLOADER_TYPES,
+  now: number = Date.now(),
+): PtppRuntimeStorageMergeResult {
+  const metadataMerge = mergePtppStateIntoRuntimeMetadata(
+    state,
+    existing.metadata,
+    supportedSiteIds,
+    supportedDownloaderTypes,
+    now,
+  );
+  const input = {
+    metadata: metadataMerge.metadata,
+    userInfo: clone(existing.userInfo ?? {}),
+    searchResultSnapshot: clone(existing.searchResultSnapshot ?? {}),
+    keepUploadTask: clone(existing.keepUploadTask ?? {}),
+    downloadHistory: clone(existing.downloadHistory ?? []),
+  };
+  if (!metadataMerge.changed) {
+    return {
+      ...metadataMerge,
+      ...input,
+      downloadHistoryAdditions: [],
+      importedCounts: metadataMerge.report.importedCounts,
+    };
+  }
+
+  const runtimeData = mergePtppRuntimeData(state, input);
+  const report: IPtppMigrationMetadata = {
+    ...metadataMerge.report,
+    importedCounts: {
+      ...metadataMerge.report.importedCounts,
+      ...runtimeData.importedCounts,
+    },
+  };
+  runtimeData.metadata.ptppMigration = report;
+  return {
+    ...metadataMerge,
+    ...runtimeData,
+    metadata: runtimeData.metadata,
+    report,
+  };
+}
+
+export async function persistPtppRuntimeMigration(
+  result: PtppRuntimeStorageMergeResult,
+  persistence: PtppRuntimePersistence,
+): Promise<void> {
+  if (!result.changed) return;
+  const metadataWithoutMarker = clone(result.metadata);
+  delete metadataWithoutMarker.ptppMigration;
+  await persistence.setStorage({
+    metadata: metadataWithoutMarker,
+    userInfo: result.userInfo,
+    searchResultSnapshot: result.searchResultSnapshot,
+    keepUploadTask: result.keepUploadTask,
+  });
+  await persistence.addDownloadHistory(result.downloadHistoryAdditions);
+  await persistence.setStorage({ metadata: result.metadata });
+}
+
 export async function initializePtppRuntimeMigration(): Promise<IPtppMigrationMetadata> {
   const repository = new MV3Repository();
   const state = await repository.initialize();
-  const current = await chrome.storage.local.get("metadata");
-  const result = mergePtppStateIntoRuntimeMetadata(
+  const current = await chrome.storage.local.get(["metadata", "userInfo", "searchResultSnapshot", "keepUploadTask"]);
+  const now = Date.now();
+  const probe = mergePtppStateIntoRuntimeMetadata(
     state,
     current.metadata as Partial<IMetadataPiniaStorageSchema> | undefined,
+    SUPPORTED_PTD_SITE_IDS,
+    SUPPORTED_PTD_DOWNLOADER_TYPES,
+    now,
   );
-  if (result.changed) {
-    await chrome.storage.local.set({ metadata: result.metadata });
-  }
+  if (!probe.changed) return probe.report;
+
+  const ptdIndexDb = getPtdIndexDb();
+  const currentHistory = await (await ptdIndexDb).getAll("download_history");
+  const result = mergePtppStateIntoRuntimeStores(
+    state,
+    {
+      metadata: current.metadata as Partial<IMetadataPiniaStorageSchema> | undefined,
+      userInfo: current.userInfo as TUserInfoStorageSchema | undefined,
+      searchResultSnapshot: current.searchResultSnapshot as TSearchResultSnapshotStorageSchema | undefined,
+      keepUploadTask: current.keepUploadTask as TKeepUploadTaskStorageSchema | undefined,
+      downloadHistory: currentHistory,
+    },
+    SUPPORTED_PTD_SITE_IDS,
+    SUPPORTED_PTD_DOWNLOADER_TYPES,
+    now,
+  );
+  await persistPtppRuntimeMigration(result, {
+    setStorage: async (values) => await chrome.storage.local.set(values),
+    addDownloadHistory: async (items) => {
+      if (items.length === 0) return;
+      const database = await ptdIndexDb;
+      const transaction = database.transaction("download_history", "readwrite");
+      for (const item of items) await transaction.store.add(item);
+      await transaction.done;
+    },
+  });
   return result.report;
 }

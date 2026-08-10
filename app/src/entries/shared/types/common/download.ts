@@ -47,6 +47,9 @@ export interface ITorrentDownloadMetadata extends Pick<ITorrent, "title" | "subT
 
   downloadRequestConfig?: AxiosRequestConfig;
   addTorrentResult?: CAddTorrentResult;
+
+  // Stable content key used to make legacy PTPP history imports idempotent.
+  ptppMigrationKey?: string;
 }
 
 export interface IDownloadTorrentResult {
