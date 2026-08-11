@@ -44,6 +44,10 @@
     "AdvanceFilterGenerateDialog": {
       "downloader": "Downloader"
     },
+    "clearAll": "Clear All",
+    "clearConfirm": "Clear all {count} download history records? This cannot be undone.",
+    "clearError": "Failed to clear download history",
+    "clearSuccess": "Download history cleared",
     "ReDownloadSelectDialog": {
       "oldMethod": "Retry with original method",
       "selectDownloader": "Select Downloader",
@@ -454,6 +458,10 @@
       "snapshotName": "Snapshot Name",
       "title": "Rename Search Snapshot"
     },
+    "clearAll": "Clear All",
+    "clearConfirm": "Clear all {count} search snapshots? This cannot be undone.",
+    "clearError": "Failed to clear search snapshots",
+    "clearSuccess": "Search snapshots cleared",
     "table": {
       "action": {
         "editTitle": "Edit Title",

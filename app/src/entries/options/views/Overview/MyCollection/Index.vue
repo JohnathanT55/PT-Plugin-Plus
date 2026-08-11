@@ -664,7 +664,7 @@ onMounted(loadCollection);
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
 }
 
 .ptpp-collection-title-cell {
@@ -777,6 +777,14 @@ onMounted(loadCollection);
 
   .ptpp-collection-group {
     flex-basis: 250px;
+  }
+}
+
+@media (min-width: 961px) {
+  .ptpp-collection-toolbar__actions {
+    flex-wrap: nowrap;
+    height: 36px;
+    max-height: 36px;
   }
 }
 </style>

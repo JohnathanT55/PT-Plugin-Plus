@@ -117,6 +117,7 @@ interface ProtocolMap extends TMessageMap {
   getSearchResultSnapshotData(snapshotId: TSearchSnapshotKey): ISearchData;
   saveSearchResultSnapshotData(data: { snapshotId: TSearchSnapshotKey; data: ISearchData }): void;
   removeSearchResultSnapshotData(snapshotId: TSearchSnapshotKey): void;
+  clearSearchResultSnapshotData(): void;
 
   // 2.3 下载器、下载历史 ( utils/download )
   getDownloaderConfig(downloaderId: string): IDownloaderMetadata;

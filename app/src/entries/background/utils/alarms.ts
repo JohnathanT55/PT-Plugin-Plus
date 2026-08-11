@@ -5,15 +5,22 @@ import { EResultParseStatus, type TSiteID } from "@ptd/site/types/base.ts";
 import { extStorage } from "@/storage.ts";
 import { onMessage, sendMessage } from "@/messages.ts";
 import { IDownloadTorrentOption, IMetadataPiniaStorageSchema } from "@/shared/types.ts";
+import type { TDurableTaskPayload } from "@/shared/types.ts";
+import {
+  createDurableTaskCoordinator,
+  createEmptyDurableTaskStore,
+  durableTaskIdFromAlarm,
+  type IDurableTask,
+} from "@foundation/tasks/durable";
 
 import { setupOffscreenDocument } from "./offscreen.ts";
-import { sleep } from "~/helper.ts";
-
 export enum EJobType {
   FlushUserInfo = "flushUserInfo",
-  ReDownloadTorrent = "reDownloadTorrent",
   AutoBackup = "autoBackup",
 }
+
+const DOWNLOAD_TASK_PREFIX = "download:";
+const USER_INFO_RETRY_TASK_ID = "user-info-retry";
 
 const jobs = defineJobScheduler();
 
@@ -112,11 +119,14 @@ function autoFlushUserInfo(retryIndex: number = 0) {
       sendMessage("logger", {
         msg: `Retrying auto-refresh for ${failFlushSites.length} failed sites in ${retryInterval} minutes (Retry #${retryIndex + 1})`,
       }).catch();
-      await jobs.scheduleJob({
-        id: EJobType.FlushUserInfo + "-Retry-" + retryIndex,
-        type: "once",
-        date: +curDate + retryInterval * 60 * 1000, // retryInterval in minutes
-        execute: autoFlushUserInfo(retryIndex + 1),
+      const runAt = +curDate + retryInterval * 60 * 1000;
+      await durableTasks.schedule({
+        id: `${USER_INFO_RETRY_TASK_ID}:${retryIndex + 1}:${runAt}`,
+        runAt,
+        payload: {
+          type: "userInfoRetry",
+          retryIndex: retryIndex + 1,
+        },
       });
     }
   };
@@ -191,31 +201,80 @@ jobs.scheduleJob({
   execute: autoBackup(),
 });
 
-function doReDownloadTorrent(downloadOption: IDownloadTorrentOption) {
-  return async () => {
-    await setupOffscreenDocument();
-    // 按照相同的方式重新下载种子到下载器
-    await sendMessage("downloadTorrent", downloadOption);
-  };
+async function executeDurableTask(task: IDurableTask<TDurableTaskPayload>): Promise<void> {
+  if (task.payload.type === "userInfoRetry") {
+    await autoFlushUserInfo(task.payload.retryIndex)();
+    return;
+  }
+
+  await setupOffscreenDocument();
+  const { downloadId, downloadOption } = task.payload;
+  const history = await sendMessage("getDownloadHistoryById", downloadId).catch(() => undefined);
+  if (history?.downloadStatus === "completed") {
+    return;
+  }
+
+  try {
+    const result = await sendMessage("downloadTorrent", {
+      ...downloadOption,
+      downloadId,
+      leftInterval: 0,
+    });
+    if (result.downloadStatus === "failed") {
+      throw new Error(result.errorMessage || "Delayed download failed");
+    }
+  } catch (error) {
+    await sendMessage("setDownloadHistoryStatus", { downloadId, status: "failed" }).catch(() => undefined);
+    throw error;
+  }
 }
 
+const durableTasks = createDurableTaskCoordinator<TDurableTaskPayload>({
+  async load() {
+    return (await extStorage.getItem("pendingOneShotTasks")) ?? createEmptyDurableTaskStore<TDurableTaskPayload>();
+  },
+  async save(store) {
+    await extStorage.setItem("pendingOneShotTasks", store);
+  },
+  async createAlarm(name, when) {
+    await chrome.alarms.create(name, { when });
+  },
+  async clearAlarm(name) {
+    await chrome.alarms.clear(name);
+  },
+  execute: executeDurableTask,
+  now: () => Date.now(),
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (!durableTaskIdFromAlarm(alarm.name)) return;
+  durableTasks.handleAlarm(alarm.name).catch(() => {
+    sendMessage("logger", { msg: `A durable one-shot task failed; see its download history status.` }).catch();
+  });
+});
+
+durableTasks.restore().catch((error) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  sendMessage("logger", { msg: `Restoring durable one-shot tasks failed: ${errorMessage}` }).catch();
+});
+
 onMessage("reDownloadTorrent", async ({ data }) => {
-  // 如果需要等待的时间小于 30s，那么直接在 service worker 中等待
-  if (data.leftInterval < 30 * 1000) {
-    await sleep(data.leftInterval);
-    doReDownloadTorrent(data)().catch(() => {
-      sendMessage("setDownloadHistoryStatus", { downloadId: data.downloadId, status: "failed" }).catch();
+  const runAt = Date.now() + Math.max(0, data.leftInterval);
+  const taskKey = data.downloadId > 0 ? String(data.downloadId) : crypto.randomUUID();
+  try {
+    await durableTasks.schedule({
+      id: `${DOWNLOAD_TASK_PREFIX}${taskKey}`,
+      runAt,
+      payload: {
+        type: "download",
+        downloadId: data.downloadId,
+        downloadOption: { ...data, leftInterval: 0 },
+      },
     });
-  } else {
-    jobs
-      .scheduleJob({
-        id: EJobType.ReDownloadTorrent + "-" + data.downloadId,
-        type: "once",
-        date: Date.now() + 1000 * 30, // 0.5 minute later
-        execute: doReDownloadTorrent(data),
-      })
-      .catch(() => {
-        sendMessage("setDownloadHistoryStatus", { downloadId: data.downloadId, status: "failed" }).catch();
-      });
+  } catch (error) {
+    await sendMessage("setDownloadHistoryStatus", { downloadId: data.downloadId, status: "failed" }).catch(
+      () => undefined,
+    );
+    throw error;
   }
 });

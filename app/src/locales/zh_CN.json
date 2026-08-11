@@ -44,6 +44,10 @@
     "AdvanceFilterGenerateDialog": {
       "downloader": "下载器"
     },
+    "clearAll": "清空全部",
+    "clearConfirm": "确定清空全部 {count} 条下载历史吗？此操作无法撤销。",
+    "clearError": "清空下载历史失败",
+    "clearSuccess": "下载历史已清空",
     "ReDownloadSelectDialog": {
       "oldMethod": "按原下载方式重试",
       "selectDownloader": "选择下载服务器",
@@ -454,6 +458,10 @@
       "snapshotName": "快照名称",
       "title": "搜索快照重命名"
     },
+    "clearAll": "清空全部",
+    "clearConfirm": "确定清空全部 {count} 个搜索快照吗？此操作无法撤销。",
+    "clearError": "清空搜索快照失败",
+    "clearSuccess": "搜索快照已清空",
     "table": {
       "action": {
         "editTitle": "编辑标题",

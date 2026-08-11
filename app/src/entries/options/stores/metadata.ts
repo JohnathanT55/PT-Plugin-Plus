@@ -28,10 +28,7 @@ import {
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
-import {
-  hasSiteDownloadDirectoryBinding,
-  normalizeSiteDownloadTarget,
-} from "@/shared/downloadTarget.ts";
+import { hasSiteDownloadDirectoryBinding, normalizeSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 
 type TSimplePatchFieldKey = keyof Pick<
   IMetadataPiniaStorageSchema,
@@ -487,6 +484,11 @@ export const useMetadataStore = defineStore("metadata", {
       await this.$save();
     },
 
+    async clearSearchSnapshotData() {
+      await sendMessage("clearSearchResultSnapshotData", undefined);
+      this.snapshots = {};
+    },
+
     async addDownloader(downloaderConfig: IDownloaderMetadata) {
       delete downloaderConfig.valid;
       this.downloaders[downloaderConfig.id] = downloaderConfig;
@@ -512,8 +514,7 @@ export const useMetadataStore = defineStore("metadata", {
         Object.entries(profile.byDownloader)
           .map(([downloaderId, target]) => [downloaderId, normalizeSiteDownloadTarget(target)] as const)
           .filter(
-            ([, target]) =>
-              target.directories.length > 0 || target.tags.length > 0 || target.autoStart !== undefined,
+            ([, target]) => target.directories.length > 0 || target.tags.length > 0 || target.autoStart !== undefined,
           ),
       );
       const defaultDownloaderId =

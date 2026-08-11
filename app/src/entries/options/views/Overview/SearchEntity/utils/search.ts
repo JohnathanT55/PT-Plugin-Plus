@@ -13,6 +13,7 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import type { ISearchResultTorrent, TSearchSolutionKey } from "@/shared/types.ts";
+import { createSearchRunGuard } from "@foundation/search/runGuard";
 
 import { tableCustomFilter } from "./filter.ts";
 
@@ -20,13 +21,25 @@ const runtimeStore = useRuntimeStore();
 const configStore = useConfigStore();
 const metadataStore = useMetadataStore();
 
-const { advanceFilterDictRef, buildAdvanceItemPropsFn, updateTableFilterValueFn, advanceItemPropsRef } =
-  tableCustomFilter;
+const { buildAdvanceItemPropsFn, clearTableFilterFn, advanceItemPropsRef } = tableCustomFilter;
 
 // 模块级别的 Set，用于跟踪已存在的搜索结果 ID，避免并发时的重复
 const globalExistingIds = new Set<string>();
+const searchRunGuard = createSearchRunGuard();
 
 export const searchQueue = new PQueue({ concurrency: 1 }); // 默认设置为 1，避免并发搜索
+
+/** Cancel queued work and invalidate responses that are already in flight. */
+export function beginSearchRun(): number {
+  const runId = searchRunGuard.begin();
+  searchQueue.clear();
+  globalExistingIds.clear();
+  return runId;
+}
+
+export function isCurrentSearchRun(runId: number): boolean {
+  return searchRunGuard.isCurrent(runId);
+}
 
 searchQueue.on("active", () => {
   runtimeStore.search.isSearching = true;
@@ -94,7 +107,11 @@ export async function doSearchEntity(
   searchEntryName: string,
   searchEntry: IAdvanceKeywordSearchConfig,
   flush: boolean = false,
+  runId: number = searchRunGuard.current(),
+  searchKeyword: string = runtimeStore.search.searchKey ?? "",
 ) {
+  if (!searchRunGuard.isCurrent(runId)) return;
+
   const solutionKey = `${siteId}|$|${searchEntryName}` as TSearchSolutionKey;
   let queuePriority = runtimeStore.search.searchPlan[solutionKey]?.queuePriority ?? 1;
 
@@ -126,18 +143,22 @@ export async function doSearchEntity(
   // noinspection ES6MissingAwait
   searchQueue.add(
     async () => {
-      const startAt = (runtimeStore.search.searchPlan[solutionKey].startAt = Date.now());
-      console.log(`search ${solutionKey} start at ${startAt}`);
-      runtimeStore.search.searchPlan[solutionKey].status = EResultParseStatus.working;
+      if (!searchRunGuard.isCurrent(runId)) return;
+      const currentPlan = runtimeStore.search.searchPlan[solutionKey];
+      if (!currentPlan) return;
 
-      let searchKeyword = runtimeStore.search.searchKey ?? "";
-      if (configStore.searchEntity.treatTTQueryAsImdbSearch && searchKeyword.match(/^tt\d{7,8}/)) {
-        searchKeyword = "imdb|" + searchKeyword;
+      const startAt = (currentPlan.startAt = Date.now());
+      console.log(`search ${solutionKey} start at ${startAt}`);
+      currentPlan.status = EResultParseStatus.working;
+
+      let requestKeyword = searchKeyword;
+      if (configStore.searchEntity.treatTTQueryAsImdbSearch && requestKeyword.match(/^tt\d{7,8}/)) {
+        requestKeyword = "imdb|" + requestKeyword;
       }
 
       let imdbSearchKeywords;
-      if (searchKeyword.startsWith("imdb|")) {
-        imdbSearchKeywords = definedFilters.extImdbId(searchKeyword.replace("imdb|", ""));
+      if (requestKeyword.startsWith("imdb|")) {
+        imdbSearchKeywords = definedFilters.extImdbId(requestKeyword.replace("imdb|", ""));
       }
 
       const {
@@ -145,16 +166,20 @@ export async function doSearchEntity(
         statusMsg: searchStatusMsg,
         data: searchResult,
       } = await sendMessage("getSiteSearchResult", {
-        keyword: searchKeyword,
+        keyword: requestKeyword,
         siteId,
         searchEntry,
       });
+      if (!searchRunGuard.isCurrent(runId)) return;
+
+      const activePlan = runtimeStore.search.searchPlan[solutionKey];
+      if (!activePlan) return;
       console.log(
         `success get search ${solutionKey} result, with code ${searchStatus}: ${searchStatusMsg ?? ""}`,
         searchResult,
       );
-      runtimeStore.search.searchPlan[solutionKey].status = searchStatus;
-      searchStatusMsg && (runtimeStore.search.searchPlan[solutionKey].statusMsg = searchStatusMsg);
+      activePlan.status = searchStatus;
+      searchStatusMsg && (activePlan.statusMsg = searchStatusMsg);
 
       // 优化：批量处理搜索结果，减少响应式更新次数
       const newItems: ISearchResultTorrent[] = [];
@@ -186,9 +211,9 @@ export async function doSearchEntity(
 
       // 更新计数状态
       const endAt = Date.now();
-      runtimeStore.search.searchPlan[solutionKey].count = newItems.length;
-      runtimeStore.search.searchPlan[solutionKey].endAt = endAt;
-      runtimeStore.search.searchPlan[solutionKey].costTime = endAt - startAt;
+      activePlan.count = newItems.length;
+      activePlan.endAt = endAt;
+      activePlan.costTime = endAt - startAt;
 
       // 直接向 advanceItemPropsRef.site 添加 siteId，而不是重新构造全部字典，以便于站点快速选择器更新
       const sites = advanceItemPropsRef.value.site;
@@ -203,15 +228,14 @@ export async function doSearchEntity(
 export async function doSearch(search: string, plan?: string, flush: boolean = true) {
   const searchKey = search ?? runtimeStore.search.searchKey ?? "";
   const searchPlanKey = plan ?? runtimeStore.search.searchPlanKey ?? "default";
+  const runId = flush ? beginSearchRun() : searchRunGuard.current();
 
   if (flush) {
     runtimeStore.resetSearchData();
 
     try {
-      // 清除过滤器中的站点关键词，但保留其他过滤器
-      advanceItemPropsRef.value.site = [];
-      advanceFilterDictRef.value.site = { required: [], exclude: [] };
-      updateTableFilterValueFn();
+      // 新一轮搜索不得继承上一轮的文本、站点、标签或范围筛选。
+      clearTableFilterFn();
     } catch (e) {
       console.error("Failed to reset table filter site field: ", e);
     }
@@ -224,6 +248,7 @@ export async function doSearch(search: string, plan?: string, flush: boolean = t
 
   // Expand search plan
   const searchSolution = await metadataStore.getSearchSolution(runtimeStore.search.searchPlanKey);
+  if (!searchRunGuard.isCurrent(runId)) return;
 
   if (!searchSolution) {
     runtimeStore.showSnakebar(`搜索方案 [${searchPlanKey}] 不存在`, { color: "error" });
@@ -243,7 +268,8 @@ export async function doSearch(search: string, plan?: string, flush: boolean = t
 
   for (const { siteId, searchEntries } of searchSolution.solutions) {
     for (const [searchEntryName, searchEntry] of Object.entries(searchEntries)) {
-      await doSearchEntity(siteId, searchEntryName, searchEntry);
+      if (!searchRunGuard.isCurrent(runId)) return;
+      await doSearchEntity(siteId, searchEntryName, searchEntry, false, runId, searchKey);
     }
   }
 }

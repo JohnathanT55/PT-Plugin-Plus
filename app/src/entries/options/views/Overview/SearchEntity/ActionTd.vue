@@ -15,6 +15,8 @@ import { formatSize } from "@/options/utils.ts";
 import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 import CollectionGroupMenu from "./CollectionGroupMenu.vue";
 import KeepUploadDialog from "./KeepUploadDialog.vue";
+import { getCollectionLinks } from "./favoriteState.ts";
+import { normalizeCollectionLink } from "@foundation/collection/model";
 
 const {
   torrentItems,
@@ -146,7 +148,8 @@ watch(
     singleFavoriteState.value = null;
     if (!showFavoriteBtn || collectionTorrentItems.value.length !== 1 || !collectionTorrentItems.value[0]?.url) return;
     try {
-      const collected = Boolean(await sendMessage("getPtppCollectionItem", collectionTorrentItems.value[0].url));
+      const collectionLinks = await getCollectionLinks(collectionRevision.value);
+      const collected = collectionLinks.has(normalizeCollectionLink(collectionTorrentItems.value[0].url));
       if (request === favoriteStateRequest) singleFavoriteState.value = collected;
     } catch {
       if (request === favoriteStateRequest) singleFavoriteState.value = null;

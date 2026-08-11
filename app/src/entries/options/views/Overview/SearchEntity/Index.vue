@@ -24,7 +24,14 @@ import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
 
 // 主要助手方法
 import { tableCustomFilter } from "./utils/filter";
-import { doSearch, retrySearch, searchPlanStatus, searchQueue } from "./utils/search";
+import {
+  beginSearchRun,
+  doSearch,
+  isCurrentSearchRun,
+  retrySearch,
+  searchPlanStatus,
+  searchQueue,
+} from "./utils/search";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -79,8 +86,9 @@ const { tableFilterRef, tableWaitFilterRef, tableFilterFn, buildAdvanceItemProps
 
 // 使用 shallowRef 优化：种子对象数组不需要深度响应式，提升性能
 const tableSelectedRaw = shallowRef<ISearchResultTorrent[]>([]);
+const selectedTorrentIds = computed(() => new Set(tableSelectedRaw.value.map((torrent) => torrent.uniqueId)));
 function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
-  const selected = tableSelectedRaw.value.some((torrent) => torrent.uniqueId === item.uniqueId);
+  const selected = selectedTorrentIds.value.has(item.uniqueId);
   return {
     class: selected ? "ptpp-selected-row" : undefined,
     "aria-selected": selected ? "true" : "false",
@@ -91,8 +99,11 @@ watch(
   () => route.query,
   (newParams, oldParams) => {
     if (newParams.snapshot) {
+      const snapshotRunId = beginSearchRun();
+      tableSelectedRaw.value = [];
       metadataStore.getSearchSnapshotData(newParams.snapshot as string).then((data) => {
-        data && (runtimeStore.search = { ...data, snapshot: newParams.snapshot as string });
+        if (!data || !isCurrentSearchRun(snapshotRunId)) return;
+        runtimeStore.search = { ...data, snapshot: newParams.snapshot as string };
         // 如果启用了快速站点筛选，则重置一下筛选器，以防止快速站点筛选中无站点数据
         if (configStore.searchEntity.quickSiteFilter) {
           buildAdvanceItemPropsFn();
@@ -130,15 +141,12 @@ function startSearchQueue() {
 
 function cancelSearchQueue() {
   console.log("cancelSearchQueue", searchQueue);
-  searchQueue.clear(); // 清空搜索队列
+  beginSearchRun(); // 清空搜索队列，并使已经发出的旧请求结果失效
   // 将搜索队列中状态设置为跳过
-  for (const key of Object.keys(runtimeStore.search.searchPlan)) {
-    // @ts-ignore
-    if (runtimeStore.search.searchPlan[key]!.status === EResultParseStatus.waiting) {
-      // @ts-ignore
-      runtimeStore.search.searchPlan[key]!.status = EResultParseStatus.passParse;
-      // @ts-ignore
-      runtimeStore.search.searchPlan[key]!.statusMsg = "i18n.userCancel";
+  for (const plan of Object.values(runtimeStore.search.searchPlan)) {
+    if (plan.status === EResultParseStatus.waiting || plan.status === EResultParseStatus.working) {
+      plan.status = EResultParseStatus.passParse;
+      plan.statusMsg = "i18n.userCancel";
     }
   }
 
@@ -379,6 +387,7 @@ const hiddenTagNamesText = computed({
       :headers="tableHeader"
       :items="runtimeStore.search.searchResult"
       :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
+      :items-per-page-options="[10, 25, 50]"
       :multi-sort="configStore.enableTableMultiSort"
       :search="tableFilterRef"
       :sort-by="configStore.tableBehavior.SearchEntity.sortBy"

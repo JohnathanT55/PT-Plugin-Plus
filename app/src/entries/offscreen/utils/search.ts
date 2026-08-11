@@ -2,7 +2,12 @@ import { uniqBy } from "es-toolkit";
 import { normalizedTorrentTagMap, sortTorrentTags, type TPatterns } from "@ptd/site";
 
 import { onMessage, sendMessage } from "@/messages.ts";
-import type { IConfigPiniaStorageSchema, TSearchResultSnapshotStorageSchema } from "@/shared/types.ts";
+import { clearSearchSnapshotsWithRollback } from "@foundation/storage/clearSnapshots";
+import type {
+  IConfigPiniaStorageSchema,
+  IMetadataPiniaStorageSchema,
+  TSearchResultSnapshotStorageSchema,
+} from "@/shared/types.ts";
 
 import { logger } from "./logger.ts";
 import { getSiteInstance } from "./site.ts";
@@ -75,4 +80,21 @@ onMessage("removeSearchResultSnapshotData", async ({ data: snapshotId }) => {
   delete snapshotData[snapshotId];
   await sendMessage("setExtStorage", { key: "searchResultSnapshot", value: snapshotData });
   logger({ msg: `SearchResult Snapshot ${snapshotId} is removed.` });
+});
+
+onMessage("clearSearchResultSnapshotData", async () => {
+  const count = await clearSearchSnapshotsWithRollback<TSearchResultSnapshotStorageSchema, IMetadataPiniaStorageSchema>(
+    {
+      loadSnapshotData: getSnapshotData,
+      loadMetadata: async () => (await sendMessage("getExtStorage", "metadata")) as IMetadataPiniaStorageSchema,
+      saveSnapshotData: async (value) => {
+        await sendMessage("setExtStorage", { key: "searchResultSnapshot", value });
+      },
+      saveMetadata: async (value) => {
+        await sendMessage("setExtStorage", { key: "metadata", value });
+      },
+      emptySnapshotData: () => ({}),
+    },
+  );
+  logger({ msg: `All ${count} Search Result Snapshots are removed.` });
 });

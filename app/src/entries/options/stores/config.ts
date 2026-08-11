@@ -50,6 +50,15 @@ export const useConfigStore = defineStore("config", {
         }
       }
 
+      // Rich search rows create favicons, tags, action controls and optional
+      // social metadata. Old persisted values of 100/All can make the options
+      // page unresponsive, so migrate them to the largest supported page.
+      const searchItemsPerPage = state.tableBehavior?.SearchEntity?.itemsPerPage;
+      if (state.tableBehavior?.SearchEntity && ![10, 25, 50].includes(searchItemsPerPage)) {
+        state.tableBehavior.SearchEntity.itemsPerPage = 50;
+        needsSave = true;
+      }
+
       if (needsSave) {
         context.store.$save();
       }

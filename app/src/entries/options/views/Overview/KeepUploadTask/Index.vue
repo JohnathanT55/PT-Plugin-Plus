@@ -297,7 +297,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
 
       <NavButton
         color="info"
-        icon="mdi-help"
+        icon="mdi-help-circle"
         :text="t('common.howToUse')"
         href="https://github.com/pt-plugins/PT-Plugin-Plus/wiki/keep-upload-task"
         target="_blank"

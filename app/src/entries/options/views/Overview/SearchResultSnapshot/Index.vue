@@ -8,6 +8,7 @@ import type { DataTableHeader } from "vuetify";
 import { formatDate } from "@/options/utils.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
+import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { type TSearchSnapshotKey } from "@/shared/types.ts";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
@@ -18,9 +19,11 @@ const { t } = useI18n();
 const router = useRouter();
 const configStore = useConfigStore();
 const metadataStore = useMetadataStore();
+const runtimeStore = useRuntimeStore();
 
 const showEditNameDialog = ref<boolean>(false);
 const showDeleteDialog = ref<boolean>(false);
+const isClearingAll = ref(false);
 
 const tableHeader = [
   { title: t("SearchResultSnapshot.table.header.name"), key: "name", align: "start" },
@@ -70,6 +73,28 @@ function tryToDeleteSearchSnapshot(searchSnapshotId: TSearchSnapshotKey[]) {
 async function confirmDeleteSearchSnapshot(searchSnapshotId: TSearchSnapshotKey) {
   return await metadataStore.removeSearchSnapshotData(searchSnapshotId);
 }
+
+function handleSnapshotsDeleted() {
+  const deletedIds = new Set(toDeleteIds.value);
+  tableSelected.value = tableSelected.value.filter((id) => !deletedIds.has(id));
+  toDeleteIds.value = [];
+}
+
+async function clearAllSearchSnapshots() {
+  const count = metadataStore.getSearchSnapshotList.length;
+  if (!count || !confirm(t("SearchResultSnapshot.clearConfirm", { count }))) return;
+
+  isClearingAll.value = true;
+  try {
+    await metadataStore.clearSearchSnapshotData();
+    tableSelected.value = [];
+    runtimeStore.showSnakebar(t("SearchResultSnapshot.clearSuccess"), { color: "success" });
+  } catch (error) {
+    runtimeStore.showSnakebar(t("SearchResultSnapshot.clearError"), { color: "error" });
+  } finally {
+    isClearingAll.value = false;
+  }
+}
 </script>
 
 <template>
@@ -83,6 +108,15 @@ async function confirmDeleteSearchSnapshot(searchSnapshotId: TSearchSnapshotKey)
           icon="mdi-minus"
           :text="t('common.remove')"
           @click="tryToDeleteSearchSnapshot(tableSelected)"
+        />
+
+        <NavButton
+          :disabled="metadataStore.getSearchSnapshotList.length === 0"
+          :loading="isClearingAll"
+          color="error"
+          icon="mdi-delete-sweep"
+          :text="t('SearchResultSnapshot.clearAll')"
+          @click="clearAllSearchSnapshots"
         />
 
         <v-spacer />
@@ -147,7 +181,12 @@ async function confirmDeleteSearchSnapshot(searchSnapshotId: TSearchSnapshotKey)
   </v-card>
 
   <EditNameDialog v-model="showEditNameDialog" :edit-id="toEditId!" />
-  <DeleteDialog v-model="showDeleteDialog" :to-delete-ids="toDeleteIds" :confirm-delete="confirmDeleteSearchSnapshot" />
+  <DeleteDialog
+    v-model="showDeleteDialog"
+    :to-delete-ids="toDeleteIds"
+    :confirm-delete="confirmDeleteSearchSnapshot"
+    @all-delete="handleSnapshotsDeleted"
+  />
 </template>
 
 <style scoped lang="scss"></style>

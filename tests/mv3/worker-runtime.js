@@ -71,9 +71,11 @@ const requiredSourceModules = [
   "app/src/entries/options/views/Layout/Topbar.vue",
   "app/src/entries/background/main.ts",
   "app/src/entries/background/utils/collection.ts",
+  "app/src/entries/background/utils/alarms.ts",
   "app/src/entries/options/views/Overview/MyCollection/Index.vue",
   "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue",
   "app/src/entries/options/views/Overview/SearchEntity/CollectionGroupMenu.vue",
+  "app/src/entries/options/views/Overview/SearchEntity/favoriteState.ts",
   "app/src/entries/options/composables/collectionState.ts",
   "src/collection/searchContext.ts",
   "app/src/entries/content-script/index.ts",
@@ -153,6 +155,37 @@ const collectionWorkerSource = fs.readFileSync(
 );
 const collectionSearchContextSource = fs.readFileSync(path.join(root, "src/collection/searchContext.ts"), "utf8");
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
+const alarmsSource = fs.readFileSync(path.join(root, "app/src/entries/background/utils/alarms.ts"), "utf8");
+const offscreenDownloadSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/download.ts"), "utf8");
+const snapshotSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchResultSnapshot/Index.vue"),
+  "utf8",
+);
+const searchUtilitySource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchEntity/utils/search.ts"),
+  "utf8",
+);
+const searchPageSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchEntity/Index.vue"),
+  "utf8",
+);
+const quickFilterSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchEntity/QuickFilterNotice.vue"),
+  "utf8",
+);
+const torrentTitleSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/components/TorrentTitleTd.vue"),
+  "utf8",
+);
+const favoriteStateSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchEntity/favoriteState.ts"),
+  "utf8",
+);
+const keepUploadTaskSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/KeepUploadTask/Index.vue"),
+  "utf8",
+);
+const navButtonSource = fs.readFileSync(path.join(root, "app/src/entries/options/components/NavButton.vue"), "utf8");
 assert(
   optionsTopbarSource.includes('class="ptpp-nav-toggle"') &&
     optionsTopbarSource.includes('type="button"') &&
@@ -307,6 +340,62 @@ assert(
   setDownloaderSource.includes("deleteAffectedSiteNames") &&
     setDownloaderSource.includes("SetDownloader.index.deleteAffectedSites"),
   "deleting a downloader warns about site bindings before the confirmed cascade",
+);
+assert(
+  alarmsSource.includes("pendingOneShotTasks") &&
+    alarmsSource.includes("durableTasks.restore()") &&
+    alarmsSource.includes("chrome.alarms.onAlarm.addListener") &&
+    alarmsSource.includes("Date.now() + Math.max(0, data.leftInterval)") &&
+    alarmsSource.includes("data.downloadId > 0 ? String(data.downloadId) : crypto.randomUUID()") &&
+    !alarmsSource.includes("await sleep(data.leftInterval)") &&
+    !alarmsSource.includes("Date.now() + 1000 * 30"),
+  "delayed downloads use exact, persisted alarms that can be restored after worker eviction",
+);
+assert(
+  offscreenDownloadSource.includes('await sendMessage("reDownloadTorrent"'),
+  "a delayed download does not return before its durable task has been persisted",
+);
+assert(
+  downloadHistorySource.includes('sendMessage("clearDownloadHistory"') &&
+    downloadHistorySource.includes("clearAllDownloadHistory") &&
+    snapshotSource.includes("clearAllSearchSnapshots") &&
+    snapshotSource.includes("clearSearchSnapshotData"),
+  "download history and search snapshots expose clear-all actions backed by their storage handlers",
+);
+assert(
+  searchUtilitySource.includes("clearTableFilterFn()") &&
+    searchUtilitySource.includes("beginSearchRun()") &&
+    searchUtilitySource.includes("searchRunGuard.isCurrent(runId)") &&
+    searchPageSource.includes("isCurrentSearchRun(snapshotRunId)"),
+  "a new search clears prior result filters and stale in-flight searches cannot append into it",
+);
+assert(
+  snapshotSource.includes('@all-delete="handleSnapshotsDeleted"') &&
+    snapshotSource.includes("tableSelected.value.filter((id) => !deletedIds.has(id))"),
+  "snapshot deletion immediately removes stale selected IDs",
+);
+assert(
+  navButtonSource.includes("max-height: 36px !important") &&
+    navButtonSource.includes(".nav-button-full.v-btn--variant-elevated") &&
+    navButtonSource.includes("position: relative !important") &&
+    !navButtonSource.includes("position: static !important") &&
+    navButtonSource.includes("transform: none !important") &&
+    optionsShellStyleSource.includes("column-gap: 8px") &&
+    optionsShellStyleSource.includes("max-height: 36px !important"),
+  "page toolbar buttons keep one geometry while their overlays stay bounded to each button",
+);
+assert(
+  keepUploadTaskSource.includes('icon="mdi-help-circle"') && !keepUploadTaskSource.includes('icon="mdi-help"'),
+  "keep-upload help uses the same circled icon as the favorites page",
+);
+assert(
+  searchPageSource.includes(':items-per-page-options="[10, 25, 50]"') &&
+    searchPageSource.includes("selectedTorrentIds.value.has(item.uniqueId)") &&
+    !torrentTitleSource.includes("useElementSize") &&
+    favoriteStateSource.includes('sendMessage("getPtppCollectionState", undefined)') &&
+    quickFilterSource.includes("const resultCounts = computed") &&
+    !quickFilterSource.includes("searchResult.filter"),
+  "large search pages cap row count and avoid repeated result scans, resize observers, and favorite-state requests",
 );
 
 console.log("MV3 application manifest, entries, and imported framework modules passed smoke checks.");

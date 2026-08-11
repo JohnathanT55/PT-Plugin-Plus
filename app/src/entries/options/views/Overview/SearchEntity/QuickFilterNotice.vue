@@ -19,6 +19,27 @@ const { advanceFilterDictRef, advanceItemPropsRef, updateTableFilterValueFn } = 
 const selectedSite = ref<string>("");
 const selectedTags = ref<string[]>([]);
 
+// Build all quick-filter counts in one pass. Calling Array#filter once for
+// every rendered site and tag multiplied the work by the number of filter
+// buttons and made large result sets expensive to restore after navigation.
+const resultCounts = computed(() => {
+  const sites = new Map<string, number>();
+  const tags = new Map<string, number>();
+
+  for (const torrent of runtimeStore.search.searchResult) {
+    if (torrent.site) {
+      sites.set(torrent.site, (sites.get(torrent.site) ?? 0) + 1);
+    }
+
+    for (const tag of torrent.tags ?? []) {
+      if (!tag.name) continue;
+      tags.set(tag.name, (tags.get(tag.name) ?? 0) + 1);
+    }
+  }
+
+  return { sites, tags };
+});
+
 const siteIds = computed<string[]>(() => advanceItemPropsRef.value.site ?? []);
 const tagItems = computed<Array<{ name: string; color?: string }>>(() =>
   (advanceItemPropsRef.value.tags ?? [])
@@ -93,11 +114,11 @@ function tagFilterStyle(tagName: string, color?: string) {
 }
 
 function siteResultCount(siteId: string) {
-  return runtimeStore.search.searchResult.filter((torrent) => torrent.site === siteId).length;
+  return resultCounts.value.sites.get(siteId) ?? 0;
 }
 
 function tagResultCount(tagName: string) {
-  return runtimeStore.search.searchResult.filter((torrent) => torrent.tags?.some((tag) => tag.name === tagName)).length;
+  return resultCounts.value.tags.get(tagName) ?? 0;
 }
 
 function clearSiteFilter() {

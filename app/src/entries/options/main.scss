@@ -338,15 +338,22 @@ body,
 
   /* Keep full-width page toolbars on the archived PTPP geometry. */
   .ptpp-page-toolbar {
+    align-items: center;
     box-sizing: border-box;
     display: flex;
+    gap: 8px;
     min-height: 64px !important;
     padding: 14px 16px !important;
 
     > .v-row {
       align-items: center;
+      column-gap: 8px;
       flex: 1 1 auto;
       min-height: 36px;
+    }
+
+    .nav-button-full + .nav-button-full {
+      margin-left: 0;
     }
 
     .v-input--density-compact,
@@ -382,7 +389,10 @@ body,
   .ptpp-toolbar-button--fixed.v-btn {
     align-self: center;
     box-sizing: border-box;
+    flex: 0 0 auto;
     height: 36px !important;
+    margin-block: 0 !important;
+    max-height: 36px !important;
     min-height: 36px !important;
   }
 

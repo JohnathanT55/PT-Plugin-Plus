@@ -6,6 +6,7 @@ import { useDisplay, type DataTableHeader } from "vuetify";
 import { sendMessage } from "@/messages.ts";
 import { formatDate } from "@/options/utils.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
+import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import type { ITorrentDownloadMetadata, TTorrentDownloadKey } from "@/shared/types.ts";
 
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -28,6 +29,7 @@ import {
 
 const { t } = useI18n();
 const configStore = useConfigStore();
+const runtimeStore = useRuntimeStore();
 const display = useDisplay();
 
 const { tableFilterRef, tableWaitFilterRef, tableFilterFn } = tableCustomFilter;
@@ -70,6 +72,7 @@ function reDownloadTorrent(downloadHistoryIds: TTorrentDownloadKey[]) {
 
 const showDeleteDialog = ref<boolean>(false);
 const toDeleteIds = ref<TTorrentDownloadKey[]>([]);
+const isClearingAll = ref(false);
 
 async function deleteDownloadHistory(downloadHistoryIds: TTorrentDownloadKey[]) {
   toDeleteIds.value = downloadHistoryIds;
@@ -78,6 +81,26 @@ async function deleteDownloadHistory(downloadHistoryIds: TTorrentDownloadKey[]) 
 
 async function confirmDeleteDownloadHistory(downloadHistoryId: TTorrentDownloadKey) {
   return await sendMessage("deleteDownloadHistoryById", downloadHistoryId);
+}
+
+async function clearAllDownloadHistory() {
+  const count = downloadHistoryList.value.length;
+  if (!count || !confirm(t("DownloadHistory.clearConfirm", { count }))) return;
+
+  isClearingAll.value = true;
+  try {
+    clearWatchingMap();
+    await sendMessage("clearDownloadHistory", undefined);
+    downloadHistory.value = {};
+    tableSelected.value = [];
+    tableCustomFilter.buildAdvanceItemPropsFn();
+    runtimeStore.showSnakebar(t("DownloadHistory.clearSuccess"), { color: "success" });
+  } catch (error) {
+    runtimeStore.showSnakebar(t("DownloadHistory.clearError"), { color: "error" });
+    throttleLoadDownloadHistory();
+  } finally {
+    isClearingAll.value = false;
+  }
 }
 
 const showDownloadDetailDialog = ref<boolean>(false);
@@ -143,6 +166,15 @@ onUnmounted(() => {
           color="error"
           icon="mdi-minus"
           @click="deleteDownloadHistory(tableSelected)"
+        />
+
+        <NavButton
+          :disabled="downloadHistoryList.length === 0"
+          :loading="isClearingAll"
+          :text="t('DownloadHistory.clearAll')"
+          color="error"
+          icon="mdi-delete-sweep"
+          @click="clearAllDownloadHistory"
         />
 
         <v-spacer />

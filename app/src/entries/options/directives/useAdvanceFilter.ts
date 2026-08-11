@@ -1,6 +1,6 @@
 import { filesize } from "filesize";
 import { get } from "es-toolkit/compat";
-import { refDebounced } from "@vueuse/core";
+import { watchDebounced } from "@vueuse/core";
 import { computed, type Ref, ref, unref, watch, isRef } from "vue";
 import { flatten, flattenDeep, isEqual, uniq, uniqBy } from "es-toolkit";
 import { startOfDay, startOfMonth, startOfQuarter, startOfWeek, startOfYear } from "date-fns";
@@ -276,7 +276,8 @@ export function useTableCustomFilter<ItemType extends Record<string, any>>(
    * 由于 VDataTable 过滤操作较重，而 用户直接输入的更新操作触发频繁
    * 通过延迟实际使用的搜索过滤词生成来避免不必要的卡顿
    */
-  const tableFilterRef = refDebounced(tableWaitFilterRef, debouncedMs); // 延迟搜索过滤词的生成
+  const tableFilterRef = ref(initialSearchValue);
+  watchDebounced(tableWaitFilterRef, (value) => (tableFilterRef.value = value), { debounce: debouncedMs });
 
   /**
    * 用作 VDataTable 内部比较方法 tableFilterFn
@@ -400,6 +401,13 @@ export function useTableCustomFilter<ItemType extends Record<string, any>>(
     tableWaitFilterRef.value = stringifyFilterDictFn();
   }
 
+  /** Clear both the immediate input and its debounced table value. */
+  function clearTableFilterFn() {
+    buildFilterDictFn("");
+    tableWaitFilterRef.value = "";
+    tableFilterRef.value = "";
+  }
+
   if (autoUpdateFilter) {
     watch(
       advanceFilterDictRef,
@@ -506,6 +514,7 @@ export function useTableCustomFilter<ItemType extends Record<string, any>>(
     reBuildFilterCountRef,
     reBuildAdvanceFilter,
     updateTableFilterValueFn,
+    clearTableFilterFn,
     toggleKeywordStateFn,
   };
 }

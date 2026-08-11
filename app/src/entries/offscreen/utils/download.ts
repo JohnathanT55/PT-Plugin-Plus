@@ -232,7 +232,7 @@ async function downloadTorrent(downloadOption: IDownloadTorrentOption) {
 
       if (leftInterval > 0) {
         logger({ msg: `Site ${torrent.site} download interval not reached, waiting...` });
-        sendMessage("reDownloadTorrent", { ...downloadOption, downloadId, leftInterval }).catch();
+        await sendMessage("reDownloadTorrent", { ...downloadOption, downloadId, leftInterval });
         return {
           downloadId,
           downloadStatus: await setDownloadStatus(downloadId, "pending"),
