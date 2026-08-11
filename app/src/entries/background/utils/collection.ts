@@ -14,9 +14,10 @@ import {
   updateCollectionGroup,
   updateCollectionItem,
 } from "@foundation/collection/model";
+import { applyCollectionMovieInformation, getCollectionMovieLookup } from "@foundation/collection/movieInfo";
 import type { ITorrent } from "@ptd/site";
 
-import { onMessage } from "@/messages.ts";
+import { onMessage, sendMessage } from "@/messages.ts";
 
 // Offscreen documents expose chrome.runtime but not chrome.storage. Keep this
 // compatibility store in the service worker, which owns extension storage.
@@ -55,15 +56,31 @@ function buildCollectionItem(torrent: ITorrent, detailUrl?: string): CollectionI
   };
 }
 
+async function enrichCollectionItem(item: CollectionItemRecord): Promise<CollectionItemRecord> {
+  const lookup = getCollectionMovieLookup(item);
+  if (!lookup) return item;
+
+  try {
+    const information = await sendMessage("getSocialInformation", lookup);
+    return applyCollectionMovieInformation(item, lookup, information);
+  } catch {
+    // Match archived PTPP: a failed movie lookup must never prevent a
+    // favorite from being added or its manually entered IDs from being saved.
+    return item;
+  }
+}
+
 async function readCollectionState(): Promise<MV3State> {
   await mutationQueue;
   return await repository.reload();
 }
 
-async function mutateCollection<T>(mutation: (state: MV3State) => T): Promise<{ state: MV3State; result: T }> {
+async function mutateCollection<T>(
+  mutation: (state: MV3State) => T | Promise<T>,
+): Promise<{ state: MV3State; result: T }> {
   return await enqueueMutation(async () => {
     const state = await repository.reload();
-    const result = mutation(state);
+    const result = await mutation(state);
     state.collections = reconcileCollectionState(state.collections);
     await repository.writeState(state);
     return { state, result };
@@ -92,19 +109,20 @@ onMessage("getPtppCollectionState", async () => {
 });
 
 onMessage("togglePtppCollection", async ({ data: { torrent, detailUrl } }) => {
+  const baseItem = buildCollectionItem(torrent, detailUrl);
   const { result } = await mutateCollection<{
     collected: boolean;
     item?: CollectionItemRecord;
-  }>((state) => {
-    const item = buildCollectionItem(torrent, detailUrl);
-    const normalizedLink = collectionItemKey(item);
+  }>(async (state) => {
+    const normalizedLink = collectionItemKey(baseItem);
     const existing = state.collections.items.some((candidate) => collectionItemKey(candidate) === normalizedLink);
     if (existing) {
       removeCollectionItems(state.collections, [normalizedLink]);
       return { collected: false as const };
     }
-    addCollectionItem(state.collections, item);
-    return { collected: true as const, item };
+    const collectionItem = await enrichCollectionItem(baseItem);
+    addCollectionItem(state.collections, collectionItem);
+    return { collected: true as const, item: collectionItem };
   });
   return result;
 });
@@ -127,7 +145,25 @@ onMessage("clearPtppCollection", async () => {
 });
 
 onMessage("updatePtppCollectionItem", async ({ data: { link, patch } }) => {
-  const { state } = await mutateCollection((current) => updateCollectionItem(current.collections, link, patch));
+  const { state } = await mutateCollection(async (current) => {
+    const existing = current.collections.items.find(
+      (item) => collectionItemKey(item) === normalizeCollectionLink(link),
+    );
+    if (!existing) throw new Error("Favorite item not found");
+
+    const candidate: CollectionItemRecord = {
+      ...existing,
+      ...patch,
+      movieInfo: patch.movieInfo ? JSON.parse(JSON.stringify(patch.movieInfo)) : existing.movieInfo,
+    };
+    const enriched = await enrichCollectionItem(candidate);
+    return updateCollectionItem(current.collections, link, {
+      title: enriched.title ?? "",
+      subTitle: enriched.subTitle ?? "",
+      imdbId: enriched.imdbId ?? "",
+      movieInfo: enriched.movieInfo ?? {},
+    });
+  });
   return state.collections;
 });
 

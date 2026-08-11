@@ -18,14 +18,20 @@ const {
   density = "default",
   showKeepUploadBtn = true,
   showFavoriteBtn = false,
+  showDefaultSendBtn = true,
+  showManualSendBtn = true,
   showCopyBtn = true,
+  showLocalDownloadBtn = true,
   showLabels = false,
 } = defineProps<{
   torrentItems: ITorrent[];
   density?: "compact" | "default";
   showKeepUploadBtn?: boolean;
   showFavoriteBtn?: boolean;
+  showDefaultSendBtn?: boolean;
+  showManualSendBtn?: boolean;
   showCopyBtn?: boolean;
+  showLocalDownloadBtn?: boolean;
   showLabels?: boolean;
 }>();
 
@@ -196,7 +202,7 @@ function openKeepUploadDialog() {
     :variant="showLabels ? 'elevated' : 'text'"
   >
     <v-btn
-      v-if="canDefaultSend"
+      v-if="showDefaultSendBtn && canDefaultSend"
       :disabled="torrentItems.length === 0"
       :loading="defaultSendLoading"
       :size="btnSize"
@@ -210,7 +216,11 @@ function openKeepUploadDialog() {
       </span>
     </v-btn>
 
-    <DownloadTargetMenu :title="t('SearchEntity.ActionTd.sendToDownloader')" :torrent-items="torrentItems">
+    <DownloadTargetMenu
+      v-if="showManualSendBtn"
+      :title="t('SearchEntity.ActionTd.sendToDownloader')"
+      :torrent-items="torrentItems"
+    >
       <template #activator="{ disabled, loading, openMenu, status }">
         <v-btn
           :disabled="disabled"
@@ -242,6 +252,7 @@ function openKeepUploadDialog() {
     </v-btn>
 
     <v-btn
+      v-if="showLocalDownloadBtn"
       :disabled="torrentItems.length === 0"
       :loading="localDlTorrentDownloadLinkBtnStatus"
       :size="btnSize"

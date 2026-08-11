@@ -187,19 +187,35 @@ assert(
 );
 assert(
   collectionSource.includes(':show-copy-btn="false"') &&
-    collectionSource.includes("width: 180") &&
+    collectionSource.includes(':show-default-send-btn="false"') &&
+    collectionSource.includes("width: 150") &&
     collectionSource.includes('v-if="hasMovieId(item)"'),
-  "favorite rows keep the archived PTPP compact action column without the extra row-level copy action",
+  "favorite rows keep the archived PTPP four-action order without extra default-send or copy actions",
 );
 assert(
   collectionSource.includes(':row-props="collectionRowProps"') &&
     collectionSource.includes("ptpp-selected-row") &&
-    collectionSource.includes("return visibleItems.value.filter"),
-  "favorites retain the PTPP selected-row highlight and never act on hidden selections",
+    collectionSource.includes("return visibleItems.value.filter") &&
+    !collectionSource.includes("ptpp-collection-selection-actions"),
+  "favorites retain the PTPP selected-row highlight without the PTD selected-row action strip",
 );
 assert(
-  collectionGroupSource.includes("min-width: 30px") && collectionGroupSource.includes("width: 30px"),
-  "favorite-group actions stay aligned inside the compact PTPP cards",
+  searchActionSource.includes("showDefaultSendBtn = true") &&
+    searchActionSource.includes("showManualSendBtn = true") &&
+    searchActionSource.includes("showLocalDownloadBtn = true"),
+  "shared search actions keep all download controls unless a PTPP view explicitly hides one",
+);
+assert(
+  collectionSource.includes("douban ? `douban|${douban}`") &&
+    collectionSource.includes("const idsChanged =") &&
+    worker.includes("getSocialInformation"),
+  "favorites restore archived PTPP movie enrichment and ID-based Douban search",
+);
+assert(
+  collectionGroupSource.includes("min-width: 30px") &&
+    collectionGroupSource.includes(':show-default-send-btn="false"') &&
+    collectionGroupSource.includes(':show-local-download-btn="false"'),
+  "favorite-group cards expose only the archived PTPP manual-send and copy actions",
 );
 assert(
   backupSource.includes('backupFields.includes("collection")') &&

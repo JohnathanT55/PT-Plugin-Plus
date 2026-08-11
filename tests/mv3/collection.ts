@@ -11,6 +11,7 @@ import {
   updateCollectionGroup,
   updateCollectionItem,
 } from "../../src/collection/model";
+import { applyCollectionMovieInformation, getCollectionMovieLookup } from "../../src/collection/movieInfo";
 import { COLLECTION_ALL_GROUP_ID, COLLECTION_NO_GROUP_ID, visibleCollectionGroupIds } from "../../src/collection/view";
 import type { CollectionState } from "../../src/model/schema";
 
@@ -71,6 +72,47 @@ assert(
   state.items[0].title === "Edited Movie" && state.items[0].imdbId === "tt1234567",
   "favorite metadata is editable",
 );
+
+const doubanLookup = getCollectionMovieLookup({
+  imdbId: "tt7654321",
+  movieInfo: { doubanId: "1295644" },
+});
+assert(
+  doubanLookup?.site === "douban" && doubanLookup.sid === "1295644",
+  "Douban keeps the archived PTPP movie-information lookup priority",
+);
+const enrichedFavorite = applyCollectionMovieInformation(
+  {
+    title: "Torrent title",
+    link: "https://tracker.invalid/details.php?id=movie",
+    imdbId: "tt7654321",
+    movieInfo: { imdbId: "tt7654321", doubanId: "1295644" },
+  },
+  doubanLookup!,
+  {
+    id: "1295644",
+    title: "肖申克的救赎 / The Shawshank Redemption",
+    poster: "https://img.invalid/poster.jpg",
+    releaseYear: "1994",
+  },
+);
+assert(
+  enrichedFavorite.movieInfo?.title === "肖申克的救赎" &&
+    enrichedFavorite.movieInfo?.alt_title === "The Shawshank Redemption" &&
+    enrichedFavorite.movieInfo?.image === "https://img.invalid/poster.jpg" &&
+    enrichedFavorite.movieInfo?.year === "1994" &&
+    enrichedFavorite.movieInfo?.link === "https://movie.douban.com/subject/1295644/",
+  "PTD social information is converted to the archived PTPP favorite metadata shape",
+);
+const lookupFailureFavorite = applyCollectionMovieInformation(enrichedFavorite, doubanLookup!, undefined);
+assert(
+  lookupFailureFavorite.movieInfo?.title === "肖申克的救赎" &&
+    lookupFailureFavorite.movieInfo?.image === "https://img.invalid/poster.jpg",
+  "an unavailable movie lookup never erases richer imported favorite metadata",
+);
+
+updateCollectionItem(state, state.items[0].link!, { imdbId: "" });
+assert(!state.items[0].imdbId, "clearing a favorite IMDb ID removes the stale top-level field");
 
 updateCollectionGroup(state, groupB.id!, { name: "Series", color: "purple" }, 4_000);
 const editedGroup = state.groups.find((group) => group.id === groupB.id);

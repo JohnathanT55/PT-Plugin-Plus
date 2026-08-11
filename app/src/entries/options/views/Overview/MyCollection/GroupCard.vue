@@ -80,8 +80,10 @@ const cardColor = computed(() => {
       <ActionTd
         :torrent-items="torrentItems"
         density="compact"
+        :show-default-send-btn="false"
         :show-favorite-btn="false"
         :show-keep-upload-btn="false"
+        :show-local-download-btn="false"
       />
       <template v-if="!readOnly">
         <v-btn

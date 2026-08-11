@@ -137,7 +137,11 @@ export function updateCollectionItem(
   if (!item) throw new Error("Favorite item not found");
   if (typeof patch.title === "string") item.title = patch.title.trim();
   if (typeof patch.subTitle === "string") item.subTitle = patch.subTitle.trim();
-  if (typeof patch.imdbId === "string") item.imdbId = patch.imdbId.trim();
+  if (typeof patch.imdbId === "string") {
+    const imdbId = patch.imdbId.trim();
+    if (imdbId) item.imdbId = imdbId;
+    else delete item.imdbId;
+  }
   if (patch.movieInfo) item.movieInfo = clone(patch.movieInfo);
   return item;
 }

@@ -9,6 +9,7 @@ import {
   COLLECTION_NO_GROUP_ID,
   visibleCollectionGroupIds,
 } from "@foundation/collection/view";
+import { getCollectionMovieLookup } from "@foundation/collection/movieInfo";
 
 import {
   sendMessage,
@@ -69,7 +70,7 @@ const headers = computed(
       { title: t("MyCollection.headers.source"), key: "siteId", align: "center", width: 90 },
       { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 100 },
       { title: t("MyCollection.headers.time"), key: "time", align: "center", width: 145 },
-      { title: t("common.action"), key: "action", align: "center", width: 180, sortable: false },
+      { title: t("common.action"), key: "action", align: "center", width: 150, sortable: false },
     ] as DataTableHeader[],
 );
 
@@ -146,8 +147,6 @@ const selectedItems = computed(() => {
   const links = new Set(selectedLinks.value);
   return visibleItems.value.filter((item) => item.link && links.has(item.link));
 });
-const selectedTorrents = computed(() => torrentsFor(selectedItems.value));
-
 const cards = computed(() => {
   const card = (
     id: string,
@@ -306,9 +305,12 @@ function openEditItem(item: IPtppCollectionItem) {
 
 async function saveItem() {
   if (!editingItem.value?.link || !itemFormValid.value) return;
-  const movieInfo = { ...(editingItem.value.movieInfo ?? {}) };
   const imdbId = itemForm.value.imdbId.trim().toLocaleLowerCase();
   const doubanId = itemForm.value.doubanId.trim();
+  const nextLookup = getCollectionMovieLookup({ imdbId, movieInfo: { imdbId, doubanId } });
+  const previousLookup = getCollectionMovieLookup(editingItem.value);
+  const idsChanged = previousLookup?.site !== nextLookup?.site || previousLookup?.sid !== nextLookup?.sid;
+  const movieInfo = idsChanged ? {} : { ...(editingItem.value.movieInfo ?? {}) };
   if (imdbId) movieInfo.imdbId = imdbId;
   else delete movieInfo.imdbId;
   if (doubanId) movieInfo.doubanId = doubanId;
@@ -331,7 +333,8 @@ async function saveItem() {
 function searchItem(item: IPtppCollectionItem) {
   const movieInfo = item.movieInfo ?? {};
   const imdb = item.imdbId || (typeof movieInfo.imdbId === "string" ? movieInfo.imdbId : "");
-  const keyword = imdb ? `imdb|${imdb}` : item.title || "";
+  const douban = typeof movieInfo.doubanId === "string" ? movieInfo.doubanId : "";
+  const keyword = imdb ? `imdb|${imdb}` : douban ? `douban|${douban}` : item.title || "";
   router.push({ name: "SearchEntity", query: { search: keyword, flush: Date.now() } });
 }
 
@@ -411,15 +414,6 @@ onMounted(loadCollection);
           href="https://github.com/pt-plugins/PT-Plugin-Plus/wiki/my-collection"
           target="_blank"
         />
-        <div class="ptpp-collection-selection-actions">
-          <ActionTd
-            v-if="selectedItems.length > 0"
-            :torrent-items="selectedTorrents"
-            density="compact"
-            :show-favorite-btn="false"
-            :show-keep-upload-btn="false"
-          />
-        </div>
       </div>
       <v-spacer />
       <v-text-field
@@ -547,13 +541,6 @@ onMounted(loadCollection);
 
       <template #item.action="{ item }">
         <div class="ptpp-collection-row-actions">
-          <ActionTd
-            :torrent-items="toTorrent(item) ? [toTorrent(item)!] : []"
-            density="compact"
-            :show-copy-btn="false"
-            :show-favorite-btn="false"
-            :show-keep-upload-btn="false"
-          />
           <v-btn
             v-if="hasMovieId(item)"
             color="primary"
@@ -571,6 +558,14 @@ onMounted(loadCollection);
             variant="text"
             :title="t('common.edit')"
             @click="openEditItem(item)"
+          />
+          <ActionTd
+            :torrent-items="toTorrent(item) ? [toTorrent(item)!] : []"
+            density="compact"
+            :show-copy-btn="false"
+            :show-default-send-btn="false"
+            :show-favorite-btn="false"
+            :show-keep-upload-btn="false"
           />
           <v-btn
             color="error"
@@ -670,13 +665,6 @@ onMounted(loadCollection);
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-
-.ptpp-collection-selection-actions {
-  align-items: center;
-  display: flex;
-  min-height: 32px;
-  min-width: 140px;
 }
 
 .ptpp-collection-title-cell {
@@ -789,10 +777,6 @@ onMounted(loadCollection);
 
   .ptpp-collection-group {
     flex-basis: 250px;
-  }
-
-  .ptpp-collection-selection-actions {
-    min-width: 0;
   }
 }
 </style>
