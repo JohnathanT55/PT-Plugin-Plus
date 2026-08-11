@@ -58,6 +58,14 @@ const accessibleResources = manifest.web_accessible_resources.flatMap((entry) =>
 assert(accessibleResources.includes("pt-plugin-plus-mv3.css"), "Content-script stylesheet is not web accessible");
 
 const files = walk(output);
+for (const file of files.filter((candidate) => /\.css$/i.test(candidate))) {
+  const source = fs.readFileSync(file, "utf8");
+  assert(
+    !/\.v-theme--dark\s*\{\s*background\s*:\s*#(?:1f1f1f|4c1a03)\b/i.test(source),
+    `Search table colors leaked onto the global dark theme in ${path.relative(output, file)}`,
+  );
+}
+
 for (const file of files.filter((candidate) => /\.(js|html|json)$/i.test(candidate))) {
   const source = fs.readFileSync(file, "utf8");
   assert(

@@ -70,7 +70,7 @@ watch(
 </script>
 
 <template>
-  <v-app-bar id="ptpp-topbar" app color="amber" density="compact" :height="48">
+  <v-app-bar id="ptpp-topbar" app color="amber" :height="64">
     <template #prepend>
       <v-app-bar-nav-icon
         :title="t('layout.header.navBarTip')"
@@ -94,7 +94,7 @@ watch(
     <v-combobox
       v-model="searchKey"
       :placeholder="t('layout.header.searchTip')"
-      class="ptd-search-input pl-2"
+      class="ptpp-search-input pl-2"
       clearable
       enterkeyhint="search"
       hide-details
@@ -211,7 +211,7 @@ watch(
           v-for="(append, index) in appendMenu"
           :key="index"
           v-bind.prop="append.prop"
-          :append-icon="append.icon"
+          :prepend-icon="append.icon"
           :href="append.href"
           :title="append.title"
           rel="noopener noreferrer nofollow"
@@ -255,7 +255,9 @@ watch(
   margin-inline-end: 16px;
 }
 
-.ptd-search-input:deep(.v-input__append) {
-  padding-top: 4px;
+.ptpp-search-input:deep(.v-input__append) {
+  align-items: center;
+  align-self: stretch;
+  padding-top: 0;
 }
 </style>

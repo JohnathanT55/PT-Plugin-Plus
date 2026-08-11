@@ -57,34 +57,59 @@ a:not(:hover) {
   }
 }
 
-/*
- * PTPP product shell
- *
- * The Vue/Vuetify runtime is retained, while the visible product shell follows
- * the archived PT-Plugin-Plus layout instead of PT-depiler's card dashboard.
- */
+/* The archived MV2 interface is the visual contract. */
 html,
 body,
 #app {
-  background: #292929;
   height: 100%;
   margin: 0;
   min-height: 100%;
 }
 
 #ptpp {
-  background: #292929;
-  color: #eeeeee;
-  font-family: Arial, "Microsoft YaHei", sans-serif;
+  --ptpp-app-background: #fafafa;
+  --ptpp-card-background: #fff;
+  --ptpp-divider: rgba(0, 0, 0, 0.12);
+  --ptpp-hover: rgba(0, 0, 0, 0.04);
+  --ptpp-navigation-active: rgba(0, 0, 0, 0.08);
+  --ptpp-navigation-background: #fff;
+  --ptpp-navigation-footer: #f5f5f5;
+  --ptpp-primary-text: rgba(0, 0, 0, 0.87);
+  --ptpp-secondary-text: rgba(0, 0, 0, 0.6);
+  --ptpp-table-active: #b3e5fc;
+  --ptpp-table-stripe: #f1f1f1;
+
+  background: var(--ptpp-app-background);
+  color: var(--ptpp-primary-text);
+  font-family: Roboto, Arial, "Microsoft YaHei", sans-serif;
   font-size: 13px;
+
+  &.v-theme--dark {
+    --ptpp-app-background: #303030;
+    --ptpp-card-background: #424242;
+    --ptpp-divider: rgba(255, 255, 255, 0.12);
+    --ptpp-hover: rgba(255, 255, 255, 0.08);
+    --ptpp-navigation-active: rgba(255, 255, 255, 0.08);
+    --ptpp-navigation-background: #424242;
+    --ptpp-navigation-footer: #303030;
+    --ptpp-primary-text: #fff;
+    --ptpp-secondary-text: rgba(255, 255, 255, 0.7);
+    --ptpp-table-active: #4c1a03;
+    --ptpp-table-stripe: #1f1f1f;
+  }
 
   #ptpp-topbar {
     background: #ffc107 !important;
-    color: #fff;
     box-shadow: 0 2px 7px rgba(0, 0, 0, 0.42);
+    color: #fff;
 
     .v-toolbar__content {
       padding-inline: 4px 12px;
+    }
+
+    .v-app-bar-nav-icon,
+    .v-app-bar-title {
+      color: #fff !important;
     }
 
     .v-app-bar-title {
@@ -92,16 +117,33 @@ body,
       font-weight: 500;
     }
 
-    .ptd-search-input {
+    .v-toolbar__append .v-btn {
+      color: #616161 !important;
+    }
+
+    .ptpp-search-input {
       align-self: stretch;
       background: rgba(255, 255, 255, 0.12);
       max-width: 860px;
+
+      .v-input__control,
+      .v-field,
+      .v-field__field,
+      .v-field__input {
+        min-height: 64px;
+      }
 
       .v-field {
         background: transparent !important;
         border-radius: 0;
         box-shadow: none !important;
         color: #fff;
+      }
+
+      .v-field__input {
+        align-items: center;
+        line-height: 1.5;
+        padding-block: 0;
       }
 
       .v-field__overlay {
@@ -122,18 +164,33 @@ body,
       input,
       input::placeholder {
         color: #fff !important;
+        line-height: normal;
         opacity: 0.92;
+      }
+      &:focus-within {
+        background: #fff;
+
+        .v-field {
+          background: #fff !important;
+          color: #424242;
+        }
+
+        .v-btn,
+        input,
+        input::placeholder {
+          color: #424242 !important;
+        }
       }
     }
   }
 
   #ptpp-navigation {
-    background: #3b3b3b;
-    border-right: 1px solid #4c4c4c;
-    color: #f1f1f1;
+    background: var(--ptpp-navigation-background);
+    border-right: 1px solid var(--ptpp-divider);
+    color: var(--ptpp-primary-text);
 
     .v-navigation-drawer__content {
-      background: #3b3b3b;
+      background: var(--ptpp-navigation-background);
     }
 
     .v-list {
@@ -142,7 +199,7 @@ body,
     }
 
     .v-list-subheader {
-      color: #7f7f7f !important;
+      color: var(--ptpp-secondary-text) !important;
       font-size: 12px;
       min-height: 30px;
       padding-inline: 12px;
@@ -150,25 +207,31 @@ body,
 
     .v-list-item {
       border-radius: 0;
-      color: #f1f1f1;
+      color: var(--ptpp-primary-text) !important;
       margin: 0;
-      min-height: 38px;
+      min-height: 40px;
       padding-inline: 20px 10px;
 
       &:hover {
-        background: #484848;
+        background: var(--ptpp-hover);
       }
 
       &.v-list-item--active {
-        background: #484848;
-        color: #2196f3;
+        background: var(--ptpp-navigation-active);
+        color: var(--ptpp-primary-text) !important;
+      }
+
+      .v-icon,
+      .v-list-item-title,
+      .v-list-item__content {
+        color: inherit !important;
       }
     }
 
     .v-footer {
-      background: #252525;
-      border-top: 1px solid #151515;
-      color: #9a9a9a;
+      background: var(--ptpp-navigation-footer);
+      border-top: 1px solid var(--ptpp-divider);
+      color: var(--ptpp-secondary-text);
       font-size: 11px;
       min-height: 34px;
       padding: 2px;
@@ -176,12 +239,12 @@ body,
   }
 
   #ptpp-main {
-    background: #292929;
+    background: var(--ptpp-app-background);
     min-height: 100vh;
 
     > .v-container {
       max-width: none;
-      padding: 18px 14px 46px;
+      padding: 12px 12px 46px;
     }
   }
 
@@ -198,43 +261,47 @@ body,
   }
 
   .v-card {
-    background: #424242;
+    background: var(--ptpp-card-background);
     border: 0;
     border-radius: 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
-    color: #eeeeee;
+    color: var(--ptpp-primary-text);
   }
 
   .v-card-title {
-    background: #424242;
-    min-height: 58px;
+    background: var(--ptpp-card-background);
+    min-height: 64px;
   }
 
   .v-data-table {
-    background: #424242;
-    color: #eeeeee;
+    background: var(--ptpp-card-background);
+    color: var(--ptpp-primary-text);
 
     thead th {
-      background: #424242 !important;
-      border-bottom-color: #555 !important;
-      color: #eeeeee !important;
+      background: var(--ptpp-card-background) !important;
+      border-bottom-color: var(--ptpp-divider) !important;
+      color: var(--ptpp-primary-text) !important;
       font-size: 12px;
       font-weight: 600;
     }
 
     tbody td {
-      border-bottom-color: #525252 !important;
-      color: #eeeeee;
+      border-bottom-color: var(--ptpp-divider) !important;
+      color: var(--ptpp-primary-text);
     }
 
     tbody tr:hover td {
-      background: #494949 !important;
+      background: var(--ptpp-hover) !important;
     }
 
     .v-data-table-footer {
-      border-top: 1px solid #555;
-      color: #ddd;
+      border-top: 1px solid var(--ptpp-divider);
+      color: var(--ptpp-secondary-text);
     }
+  }
+
+  .table-stripe tr.v-data-table__tr:nth-child(even) {
+    background-color: var(--ptpp-card-background);
   }
 
   .v-field,
@@ -242,8 +309,8 @@ body,
   .v-menu > .v-overlay__content > .v-list,
   .v-expansion-panel,
   .v-dialog .v-card {
-    background: #424242;
-    color: #eeeeee;
+    background: var(--ptpp-card-background);
+    color: var(--ptpp-primary-text);
   }
 
   .v-dialog .v-toolbar {
@@ -252,11 +319,11 @@ body,
   }
 
   .v-tabs {
-    background: #424242;
-    color: #ddd;
+    background: var(--ptpp-card-background);
+    color: var(--ptpp-secondary-text);
 
     .v-tab--selected {
-      color: #ffeb3b;
+      color: #fbc02d;
     }
   }
 
@@ -266,7 +333,8 @@ body,
   }
 
   .text-primary,
-  a {
+  .v-data-table a,
+  .v-card-text a {
     color: #2196f3 !important;
   }
 }

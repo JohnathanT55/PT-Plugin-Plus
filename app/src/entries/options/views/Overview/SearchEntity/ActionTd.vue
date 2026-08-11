@@ -8,6 +8,7 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
+import { formatSize } from "@/options/utils.ts";
 
 import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 import KeepUploadDialog from "./KeepUploadDialog.vue";
@@ -16,15 +17,18 @@ const {
   torrentItems,
   density = "default",
   showKeepUploadBtn = true,
+  showFavoriteBtn = false,
+  showLabels = false,
 } = defineProps<{
   torrentItems: ISearchResultTorrent[];
   density?: "compact" | "default";
   showKeepUploadBtn?: boolean;
+  showFavoriteBtn?: boolean;
+  showLabels?: boolean;
 }>();
 
-const btnSize = computed(() => {
-  return density === "compact" ? "small" : "default";
-});
+const btnSize = computed(() => (density === "compact" ? "small" : "default"));
+const selectedSize = computed(() => torrentItems.reduce((total, torrent) => total + (torrent.size ?? 0), 0));
 
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
@@ -61,20 +65,23 @@ async function copyTorrentDownloadLink() {
         .trim(),
     );
     runtimeStore.showSnakebar(t("SearchEntity.ActionTd.copyLinkSuccess"), { color: "success" });
-  } catch (e) {
+  } catch {
     runtimeStore.showSnakebar(t("SearchEntity.ActionTd.copyLinkFailed"), { color: "error" });
+  } finally {
+    copyTorrentDownloadLinkBtnStatus.value = false;
   }
-
-  copyTorrentDownloadLinkBtnStatus.value = false;
 }
 
 const localDlTorrentDownloadLinkBtnStatus = ref(false);
 async function localDlTorrentDownloadLink() {
   localDlTorrentDownloadLinkBtnStatus.value = true;
-  await Promise.allSettled(
-    torrentItems.map((torrent) => sendMessage("downloadTorrent", { torrent, downloaderId: "local" })),
-  );
-  localDlTorrentDownloadLinkBtnStatus.value = false;
+  try {
+    await Promise.allSettled(
+      torrentItems.map((torrent) => sendMessage("downloadTorrent", { torrent, downloaderId: "local" })),
+    );
+  } finally {
+    localDlTorrentDownloadLinkBtnStatus.value = false;
+  }
 }
 
 const defaultSendLoading = ref(false);
@@ -113,6 +120,34 @@ async function sendToDefaultDownloader() {
   }
 }
 
+const favoriteLoading = ref(false);
+async function addSelectedToCollection() {
+  favoriteLoading.value = true;
+  let addedCount = 0;
+
+  try {
+    for (const torrent of torrentItems) {
+      if (!torrent.url) continue;
+      const existing = await sendMessage("getPtppCollectionItem", torrent.url);
+      if (existing) continue;
+
+      const result = await sendMessage("togglePtppCollection", { torrent, detailUrl: torrent.url });
+      if (result.collected) addedCount += 1;
+    }
+
+    runtimeStore.showSnakebar(
+      addedCount > 0
+        ? t("SearchEntity.ActionTd.collectionAdded", { count: addedCount })
+        : t("SearchEntity.ActionTd.collectionAlreadyAdded"),
+      { color: "success" },
+    );
+  } catch (error) {
+    runtimeStore.showSnakebar(`${t("SearchEntity.ActionTd.collectionFailed")}: ${String(error)}`, { color: "error" });
+  } finally {
+    favoriteLoading.value = false;
+  }
+}
+
 const showKeepUploadDialog = ref(false);
 
 function openKeepUploadDialog() {
@@ -121,61 +156,125 @@ function openKeepUploadDialog() {
 </script>
 
 <template>
-  <v-btn-group :density="density" class="table-action" color="grey" variant="text">
+  <v-btn-group
+    :density="density"
+    :class="['table-action', { 'ptpp-batch-actions': showLabels }]"
+    :color="showLabels ? 'success' : 'grey'"
+    :variant="showLabels ? 'elevated' : 'text'"
+  >
     <v-btn
       v-if="canDefaultSend"
-      :disabled="torrentItems.length == 0"
+      :disabled="torrentItems.length === 0"
       :loading="defaultSendLoading"
       :size="btnSize"
-      icon="mdi-download"
+      :icon="!showLabels"
       :title="t('SearchEntity.ActionTd.sendToDefault')"
       @click="sendToDefaultDownloader"
-    />
+    >
+      <v-icon icon="mdi-download" />
+      <span v-if="showLabels" class="ptpp-action-label">
+        {{ t("SearchEntity.ActionTd.push") }} ({{ torrentItems.length }}) {{ formatSize(selectedSize) }}
+      </span>
+    </v-btn>
 
-    <!-- 下载到服务器 -->
     <DownloadTargetMenu :title="t('SearchEntity.ActionTd.sendToDownloader')" :torrent-items="torrentItems">
       <template #activator="{ disabled, loading, openMenu, status }">
         <v-btn
           :disabled="disabled"
           :loading="loading"
           :size="btnSize"
-          :icon="status === 'success' ? 'mdi-check' : status === 'error' ? 'mdi-close' : 'mdi-cloud-download'"
+          :icon="!showLabels"
           :title="t('SearchEntity.ActionTd.sendToDownloader')"
           @click="openMenu"
-        />
+        >
+          <v-icon
+            :icon="status === 'success' ? 'mdi-check' : status === 'error' ? 'mdi-close' : 'mdi-cloud-download'"
+          />
+          <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.pushTo") }}</span>
+        </v-btn>
       </template>
     </DownloadTargetMenu>
-    <!-- 复制下载链接 -->
+
     <v-btn
-      :disabled="torrentItems.length == 0"
+      :disabled="torrentItems.length === 0"
       :loading="copyTorrentDownloadLinkBtnStatus"
       :size="btnSize"
-      icon="mdi-content-copy"
+      :icon="!showLabels"
       :title="t('SearchEntity.ActionTd.copyLink')"
-      @click="() => copyTorrentDownloadLink()"
-    />
-    <!-- 下载种子文件到本地 -->
+      @click="copyTorrentDownloadLink"
+    >
+      <v-icon icon="mdi-content-copy" />
+      <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.copy") }}</span>
+    </v-btn>
+
     <v-btn
-      :disabled="torrentItems.length == 0"
+      :disabled="torrentItems.length === 0"
       :loading="localDlTorrentDownloadLinkBtnStatus"
       :size="btnSize"
-      icon="mdi-content-save"
+      :icon="!showLabels"
       :title="t('SearchEntity.ActionTd.localDownload')"
-      @click="() => localDlTorrentDownloadLink()"
-    />
-    <!-- 辅种检测 -->
+      @click="localDlTorrentDownloadLink"
+    >
+      <v-icon icon="mdi-content-save" />
+      <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.save") }}</span>
+    </v-btn>
+
+    <v-btn
+      v-if="showFavoriteBtn"
+      :disabled="torrentItems.length === 0"
+      :loading="favoriteLoading"
+      :size="btnSize"
+      :icon="!showLabels"
+      :title="t('SearchEntity.ActionTd.favorite')"
+      @click="addSelectedToCollection"
+    >
+      <v-icon icon="mdi-heart-outline" />
+      <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.favorite") }}</span>
+    </v-btn>
+
     <v-btn
       v-if="showKeepUploadBtn"
       :disabled="torrentItems.length < 2"
       :size="btnSize"
-      icon="mdi-merge"
+      :icon="!showLabels"
       :title="t('SearchEntity.KeepUploadDialog.keepUpload')"
       @click="openKeepUploadDialog"
-    />
+    >
+      <v-icon icon="mdi-merge" />
+      <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.KeepUploadDialog.keepUpload") }}</span>
+    </v-btn>
   </v-btn-group>
 
-  <!-- 辅种检测对话框 -->
   <KeepUploadDialog v-if="showKeepUploadBtn" v-model="showKeepUploadDialog" :torrent-items="torrentItems" />
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.ptpp-batch-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  height: 32px;
+
+  :deep(.v-btn) {
+    border-radius: 2px !important;
+    box-shadow:
+      0 2px 2px rgba(0, 0, 0, 0.16),
+      0 1px 5px rgba(0, 0, 0, 0.12);
+    color: #fff !important;
+    flex: 0 0 auto;
+    height: 32px !important;
+    min-width: auto;
+    padding-inline: 10px;
+  }
+
+  :deep(.v-btn--disabled) {
+    box-shadow: none;
+  }
+}
+
+.ptpp-action-label {
+  margin-left: 6px;
+  white-space: nowrap;
+}
+</style>

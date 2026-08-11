@@ -61,6 +61,7 @@
     }
   },
   "KeepUploadTask": {
+    "baseTorrent": "Base torrent",
     "clearAll": "Clear All",
     "clearConfirm": "Confirm clearing all reseed tasks?",
     "clearError": "Clear failed",
@@ -250,6 +251,7 @@
       "noSiteSelectedRefreshAll": "No site selected, refreshing all sites by default",
       "normalizeLevelName": "Use Site-defined Level Name",
       "onlyShowUserLevelRequirement": "Only show the upgrade queue in level requirements",
+      "selectColumns": "Select Columns",
       "setting": "Settings",
       "showBonusNeededInterval": "Show estimated bonus time in level requirements",
       "showHnR": "Show H&R",
@@ -286,10 +288,18 @@
   },
   "SearchEntity": {
     "ActionTd": {
+      "collectionAdded": "Added {count} torrents to favorites",
+      "collectionAlreadyAdded": "The selected torrents are already in favorites",
+      "collectionFailed": "Failed to add favorites",
+      "copy": "Copy",
       "copyLink": "Copy Download Link",
       "copyLinkFailed": "Failed to copy download link",
       "copyLinkSuccess": "Download link copied to clipboard",
+      "favorite": "Favorite",
       "localDownload": "Download Torrent File Locally",
+      "push": "Push",
+      "pushTo": "Push to…",
+      "save": "Save",
       "sendToDefault": "Send to Default Downloader",
       "sendToDownloader": "Send to Downloader"
     },

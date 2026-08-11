@@ -44,10 +44,16 @@ const rows = computed(() => {
 const headers = computed(
   () =>
     [
-      { title: t("common.site"), key: "site", align: "start" },
-      { title: t("SetSite.downloadProfile.directories"), key: "directories", align: "start", sortable: false },
-      { title: t("SetSite.downloadProfile.tags"), key: "tags", align: "start", sortable: false },
-      { title: t("common.action"), key: "action", align: "center", sortable: false },
+      { title: t("common.site"), key: "site", align: "start", width: "28%" },
+      {
+        title: t("SetSite.downloadProfile.directories"),
+        key: "directories",
+        align: "start",
+        sortable: false,
+        width: "34%",
+      },
+      { title: t("SetSite.downloadProfile.tags"), key: "tags", align: "start", sortable: false, width: "24%" },
+      { title: t("common.action"), key: "action", align: "center", sortable: false, width: "14%" },
     ] as DataTableHeader[],
 );
 
@@ -145,10 +151,17 @@ async function removeTarget(siteId: string) {
       />
     </v-card-title>
 
-    <v-data-table :headers="headers" :items="rows" item-value="id" class="table-stripe table-header-no-wrap">
+    <v-data-table
+      :headers="headers"
+      :items="rows"
+      item-value="id"
+      class="ptpp-download-path-table table-stripe table-header-no-wrap"
+    >
       <template #item.site="{ item }">
-        <div class="d-flex align-center ga-2">
-          <SiteFavicon :site-id="item.id" />
+        <div class="ptpp-download-site">
+          <span class="ptpp-download-site-icon">
+            <SiteFavicon :site-id="item.id" :size="28" />
+          </span>
           <SiteName :site-id="item.id" />
           <v-chip v-if="item.isDefault" color="primary" size="x-small">
             {{ t("common.default") }}
@@ -178,15 +191,17 @@ async function removeTarget(siteId: string) {
         </v-chip>
       </template>
       <template #item.action="{ item }">
-        <v-btn icon="mdi-pencil" size="small" variant="text" :title="t('common.edit')" @click="openEditor(item.id)" />
-        <v-btn
-          color="error"
-          icon="mdi-delete"
-          size="small"
-          variant="text"
-          :title="t('common.remove')"
-          @click="removeTarget(item.id)"
-        />
+        <div class="ptpp-download-actions">
+          <v-btn icon="mdi-pencil" size="small" variant="text" :title="t('common.edit')" @click="openEditor(item.id)" />
+          <v-btn
+            color="error"
+            icon="mdi-delete"
+            size="small"
+            variant="text"
+            :title="t('common.remove')"
+            @click="removeTarget(item.id)"
+          />
+        </div>
       </template>
     </v-data-table>
   </v-card>
@@ -244,8 +259,40 @@ async function removeTarget(siteId: string) {
   </v-dialog>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .ptpp-downloader-select {
   max-width: 480px;
+}
+
+.ptpp-download-path-table:deep(table) {
+  table-layout: fixed;
+}
+
+.ptpp-download-path-table:deep(.v-data-table__td) {
+  vertical-align: middle;
+}
+
+.ptpp-download-site {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 28px minmax(0, max-content) auto;
+  min-height: 42px;
+}
+
+.ptpp-download-site-icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 28px;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.ptpp-download-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
 }
 </style>

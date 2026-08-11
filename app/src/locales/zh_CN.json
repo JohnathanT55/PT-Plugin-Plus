@@ -61,6 +61,7 @@
     }
   },
   "KeepUploadTask": {
+    "baseTorrent": "基准种子",
     "clearAll": "清空全部",
     "clearConfirm": "确认清空所有辅种任务吗？",
     "clearError": "清空失败",
@@ -250,6 +251,7 @@
       "noSiteSelectedRefreshAll": "未选择任何站点，默认刷新全部站点",
       "normalizeLevelName": "使用站点定义的等级名称",
       "onlyShowUserLevelRequirement": "只显示等级要求中的升级队列",
+      "selectColumns": "过滤列",
       "setting": "设置",
       "showBonusNeededInterval": "等级要求中展示积分预估时间",
       "showHnR": "显示 H&R",
@@ -286,10 +288,18 @@
   },
   "SearchEntity": {
     "ActionTd": {
+      "collectionAdded": "已将 {count} 个种子加入收藏",
+      "collectionAlreadyAdded": "所选种子已在收藏中",
+      "collectionFailed": "收藏操作失败",
+      "copy": "复制",
       "copyLink": "复制下载链接",
       "copyLinkFailed": "复制下载链接失败",
       "copyLinkSuccess": "下载链接已复制到剪贴板",
+      "favorite": "收藏",
       "localDownload": "下载种子文件到本地",
+      "push": "推送",
+      "pushTo": "推送到…",
+      "save": "保存",
       "sendToDefault": "发送到默认下载器",
       "sendToDownloader": "发送到下载器"
     },

@@ -10,7 +10,11 @@ import type { IKeepUploadTask, IKeepUploadTaskItem, IKeepUploadTaskDownloadOptio
 import { formatSize } from "@/options/utils.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
-import { useConfigStore } from "@/options/stores/config.ts";
+import {
+  buildSiteDownloadMenuTargets,
+  resolveSiteDownloadTarget,
+  type DownloadMenuTarget,
+} from "@/shared/downloadTarget.ts";
 
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 
@@ -20,7 +24,6 @@ const { torrentItems } = defineProps<{
 }>();
 
 const { t } = useI18n();
-const configStore = useConfigStore();
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
 
@@ -44,14 +47,61 @@ const creating = ref(false);
 const selectedDownloaderId = ref<string>("");
 const savePath = ref("");
 const torrentLabel = ref("");
-const suggestedSavePaths = computed(() => metadataStore.downloaders[selectedDownloaderId.value]?.suggestFolders ?? []);
-const suggestedLabels = computed(() => metadataStore.downloaders[selectedDownloaderId.value]?.suggestTags ?? []);
+const selectedAutoStart = ref(true);
+const firstTorrentSiteId = computed(() => torrentItems[0]?.site);
+const downloadTargets = computed(() => buildSiteDownloadMenuTargets(metadataStore, firstTorrentSiteId.value));
 
 // 是否可以创建任务
 const canCreateTask = computed(() => {
   return verifiedCount.value > 1 && selectedDownloaderId.value;
 });
+function downloadTargetText(target: DownloadMenuTarget) {
+  return [
+    target.downloader.name,
+    target.downloader.address,
+    target.savePath || t("contentScript.downloaderRootDirectory"),
+    target.label ? `#${target.label}` : "",
+  ]
+    .filter(Boolean)
+    .join(" → ");
+}
 
+const selectedDownloadTargetText = computed(() => {
+  const downloader = metadataStore.downloaders[selectedDownloaderId.value];
+  if (!downloader) return t("SearchEntity.KeepUploadDialog.setSavePath");
+  return [
+    downloader.name,
+    downloader.address,
+    savePath.value || t("contentScript.downloaderRootDirectory"),
+    torrentLabel.value ? `#${torrentLabel.value}` : "",
+  ]
+    .filter(Boolean)
+    .join(" → ");
+});
+
+function selectDownloadTarget(target: DownloadMenuTarget) {
+  selectedDownloaderId.value = target.downloaderId;
+  savePath.value = target.savePath;
+  torrentLabel.value = target.label;
+  selectedAutoStart.value = target.autoStart;
+}
+
+function initializeDownloadTargetFromFirstTorrent() {
+  const firstTorrent = torrentItems[0];
+  const target = resolveSiteDownloadTarget(metadataStore, firstTorrent?.site);
+  if (!firstTorrent || target.requiresSelection || !target.downloaderId || !target.downloader) {
+    selectedDownloaderId.value = "";
+    savePath.value = "";
+    torrentLabel.value = "";
+    selectedAutoStart.value = true;
+    return;
+  }
+
+  selectedDownloaderId.value = target.downloaderId;
+  savePath.value = target.savePath;
+  torrentLabel.value = target.label;
+  selectedAutoStart.value = target.autoStart;
+}
 // 状态文本
 const statusText = {
   downloading: t("SearchEntity.KeepUploadDialog.status.downloading"),
@@ -76,17 +126,7 @@ function startVerification() {
   baseTorrent.value = null;
   verifiedCount.value = 0;
 
-  const remembered = configStore.download.saveLastDownloader ? metadataStore.lastKeepUpload : undefined;
-  const rememberedDownloaderExists = remembered?.downloaderId && metadataStore.downloaders[remembered.downloaderId];
-  selectedDownloaderId.value = rememberedDownloaderExists
-    ? remembered.downloaderId!
-    : metadataStore.defaultDownloader?.id || "";
-  savePath.value = rememberedDownloaderExists
-    ? remembered?.savePath || ""
-    : metadataStore.defaultDownloader?.folder || "";
-  torrentLabel.value = rememberedDownloaderExists
-    ? remembered?.label || ""
-    : metadataStore.defaultDownloader?.tags || "";
+  initializeDownloadTargetFromFirstTorrent();
 
   torrentItems.forEach((item) => {
     const id = crypto.randomUUID();
@@ -260,11 +300,6 @@ function closeDialog() {
   showDialog.value = false;
 }
 
-function resetDownloadOptions() {
-  savePath.value = "";
-  torrentLabel.value = "";
-}
-
 // 获取种子文件数量
 function getFileCount(item: IVerifiedItem): number | string {
   return item.torrent?.files?.length ?? "N/A";
@@ -289,6 +324,7 @@ async function createKeepUploadTask() {
       savePath: savePath.value || undefined,
       clientName: downloader?.name || selectedDownloaderId.value,
       addTorrentOptions: {
+        addAtPaused: !selectedAutoStart.value,
         label: torrentLabel.value || undefined,
       },
     };
@@ -313,14 +349,6 @@ async function createKeepUploadTask() {
     };
 
     await sendMessage("createKeepUploadTask", task);
-    if (configStore.download.saveLastDownloader) {
-      metadataStore.lastKeepUpload = {
-        downloaderId: selectedDownloaderId.value,
-        savePath: savePath.value || undefined,
-        label: torrentLabel.value || undefined,
-      };
-      await metadataStore.$save();
-    }
     runtimeStore.showSnakebar(t("SearchEntity.KeepUploadDialog.createSuccess"), { color: "success" });
     closeDialog();
   } catch (e) {
@@ -333,7 +361,7 @@ async function createKeepUploadTask() {
 
 <template>
   <v-dialog v-model="showDialog" persistent scrollable max-width="1024">
-    <v-card>
+    <v-card class="ptpp-keep-upload-card">
       <v-toolbar dark color="blue-grey-darken-2">
         <v-toolbar-title>{{ t("SearchEntity.KeepUploadDialog.title") }}</v-toolbar-title>
         <v-spacer />
@@ -434,33 +462,33 @@ async function createKeepUploadTask() {
       <v-divider />
       <v-card-actions>
         <template v-if="verifiedCount > 1">
-          <v-select
-            v-model="selectedDownloaderId"
-            :items="metadataStore.getSortedEnabledDownloaders"
-            item-title="name"
-            item-value="id"
-            density="compact"
-            hide-details
-            :label="t('SearchEntity.KeepUploadDialog.setSavePath')"
-            style="max-width: 200px"
-            @update:model-value="resetDownloadOptions"
-          />
-          <v-combobox
-            v-model="savePath"
-            :items="suggestedSavePaths"
-            density="compact"
-            hide-details
-            :label="t('KeepUploadTask.savePath')"
-            style="max-width: 200px"
-          />
-          <v-combobox
-            v-model="torrentLabel"
-            :items="suggestedLabels"
-            density="compact"
-            hide-details
-            :label="t('SentToDownloaderDialog.label')"
-            style="max-width: 200px"
-          />
+          <v-menu :close-on-content-click="true" location="top start">
+            <template #activator="{ props }">
+              <v-btn v-bind="props" class="ptpp-keep-upload-target" color="blue-grey" variant="text">
+                <v-icon class="mr-1">mdi-cloud-download</v-icon>
+                <span>{{ selectedDownloadTargetText }}</span>
+              </v-btn>
+            </template>
+
+            <v-list class="ptpp-keep-upload-target-list" density="compact">
+              <v-list-item
+                v-for="target in downloadTargets"
+                :key="[target.downloaderId, target.savePath, target.label].join('|')"
+                :title="downloadTargetText(target)"
+                @click="selectDownloadTarget(target)"
+              >
+                <template #prepend>
+                  <v-icon :icon="target.kind === 'site' ? 'mdi-folder-star' : 'mdi-download-network'" />
+                </template>
+                <v-list-item-title>{{ target.downloader.name }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  {{ target.downloader.address }} →
+                  {{ target.savePath || t("contentScript.downloaderRootDirectory") }}
+                  <template v-if="target.label"> · #{{ target.label }}</template>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-menu>
           <v-btn
             variant="text"
             color="info"
@@ -482,14 +510,42 @@ async function createKeepUploadTask() {
 </template>
 
 <style scoped lang="scss">
-.list-item {
-  a {
-    color: #000;
-    text-decoration: none;
+.ptpp-keep-upload-card {
+  .list-item {
+    color: rgb(var(--v-theme-on-surface));
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: #008c00;
+    }
   }
 
-  a:hover {
-    color: #008c00;
+  :deep(.v-list-item-subtitle) {
+    color: rgba(var(--v-theme-on-surface), 0.78);
+    opacity: 1;
   }
+
+  :deep(.v-list-subheader) {
+    color: rgba(var(--v-theme-on-surface), 0.82);
+  }
+}
+
+.ptpp-keep-upload-target {
+  max-width: min(680px, 72vw);
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ptpp-keep-upload-target-list {
+  max-width: min(720px, 90vw);
+  min-width: min(520px, 90vw);
 }
 </style>

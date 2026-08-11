@@ -79,6 +79,13 @@ const { tableFilterRef, tableWaitFilterRef, tableFilterFn, buildAdvanceItemProps
 
 // 使用 shallowRef 优化：种子对象数组不需要深度响应式，提升性能
 const tableSelectedRaw = shallowRef<ISearchResultTorrent[]>([]);
+function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
+  const selected = tableSelectedRaw.value.some((torrent) => torrent.uniqueId === item.uniqueId);
+  return {
+    class: selected ? "ptpp-selected-row" : undefined,
+    "aria-selected": selected ? "true" : "false",
+  };
+}
 
 watch(
   () => route.query,
@@ -157,29 +164,26 @@ const hiddenTagNamesText = computed({
   },
 });
 </script>
-
 <template>
-  <v-alert type="info">
-    <v-alert-title>
-      <template v-if="runtimeStore.search.startAt === 0">
-        {{ t("SearchEntity.index.alert.enterKeyword") }}
-      </template>
-      <template v-else>
-        <template v-if="runtimeStore.search.isSearching">
+  <v-alert class="ptpp-search-status" type="info">
+    <div class="ptpp-search-status-content">
+      <div class="ptpp-search-status-text">
+        <template v-if="runtimeStore.search.startAt === 0">
+          {{ t("SearchEntity.index.alert.enterKeyword") }}
+        </template>
+        <template v-else-if="runtimeStore.search.isSearching">
           <template v-if="isSearchingParsed">
             {{ t("SearchEntity.index.alert.paused") }}
           </template>
+          <template v-else-if="runtimeStore.search.searchResult.length > 0">
+            {{ t("SearchEntity.index.alert.plan") }}
+            [{{ metadataStore.getSearchSolutionName(runtimeStore.search.searchPlanKey) }}]，
+            {{ t("SearchEntity.index.alert.keyword") }}
+            [{{ runtimeStore.search.searchKey }}]，
+            {{ t("SearchEntity.index.alert.searchProgress", [runtimeStore.search.searchResult.length]) }}
+          </template>
           <template v-else>
-            <template v-if="runtimeStore.search.searchResult.length > 0">
-              {{ t("SearchEntity.index.alert.plan") }}
-              [{{ metadataStore.getSearchSolutionName(runtimeStore.search.searchPlanKey) }}]，
-              {{ t("SearchEntity.index.alert.keyword") }}
-              [{{ runtimeStore.search.searchKey }}]，
-              {{ t("SearchEntity.index.alert.searchProgress", [runtimeStore.search.searchResult.length]) }}
-            </template>
-            <template v-else>
-              {{ t("SearchEntity.index.alert.searching") }}
-            </template>
+            {{ t("SearchEntity.index.alert.searching") }}
           </template>
         </template>
         <template v-else>
@@ -196,264 +200,252 @@ const hiddenTagNamesText = computed({
           {{ t("SearchEntity.index.alert.results", [runtimeStore.search.searchResult.length]) }}
           {{ t("SearchEntity.index.alert.duration", [(runtimeStore.searchCostTime / 1000).toFixed(1)]) }}
         </template>
+      </div>
 
-        <v-spacer />
-
+      <div v-if="runtimeStore.search.startAt !== 0" class="ptpp-search-status-actions">
+        <v-btn
+          v-if="runtimeStore.search.isSearching && isSearchingParsed"
+          :title="t('SearchEntity.index.action.start')"
+          icon="mdi-play"
+          size="small"
+          variant="text"
+          @click="startSearchQueue"
+        />
+        <v-btn
+          v-if="runtimeStore.search.isSearching && !isSearchingParsed"
+          :title="t('SearchEntity.index.action.pause')"
+          icon="mdi-pause"
+          size="small"
+          variant="text"
+          @click="pauseSearchQueue"
+        />
+        <v-btn
+          v-if="runtimeStore.search.isSearching"
+          :title="t('SearchEntity.index.action.cancel')"
+          icon="mdi-cancel"
+          size="small"
+          variant="text"
+          @click="cancelSearchQueue"
+        />
+        <v-btn
+          v-else
+          :disabled="isSearchingParsed"
+          :title="t('SearchEntity.index.action.retry')"
+          icon="mdi-cached"
+          size="small"
+          variant="text"
+          @click="doSearch(null as unknown as string, null as unknown as string, true)"
+        />
+        <v-btn
+          v-if="searchPlanStatus.error > 0"
+          :title="t('SearchEntity.index.action.retryFailed')"
+          icon="mdi-sync-alert"
+          size="small"
+          variant="text"
+          @click="retrySearch"
+        />
         <v-btn
           :title="t('SearchEntity.index.alert.searchStatus')"
-          class="mr-2 status-btn"
-          color="primary"
+          class="ptpp-status-count"
           size="small"
+          variant="text"
           @click="showSearchStatusDialog = true"
         >
           <template v-if="searchPlanStatus.success > 0">
             <v-icon class="mr-1" icon="mdi-check" size="x-small" />{{ searchPlanStatus.success }}
           </template>
           <template v-if="searchPlanStatus.error > 0">
-            <v-icon class="mr-1" color="amber" icon="mdi-alert" size="x-small" />{{ searchPlanStatus.error }}
+            <v-icon class="ml-2 mr-1" icon="mdi-alert" size="x-small" />{{ searchPlanStatus.error }}
           </template>
           <template v-if="searchPlanStatus.queued > 0">
-            <v-icon class="mr-1" color="blue-grey" icon="mdi-clock" size="x-small" />{{ searchPlanStatus.queued }}
+            <v-icon class="ml-2 mr-1" icon="mdi-clock" size="x-small" />{{ searchPlanStatus.queued }}
           </template>
         </v-btn>
-      </template>
-    </v-alert-title>
+      </div>
+    </div>
   </v-alert>
-  <v-card>
-    <v-card-title>
-      <v-row class="ma-0">
-        <v-btn-group size="small" variant="text">
-          <!-- 启动/暂停 搜索队列 -->
-          <v-btn
-            v-show="isSearchingParsed"
-            :title="t('SearchEntity.index.action.start')"
-            color="success"
-            icon="mdi-play"
-            @click="() => startSearchQueue()"
-          />
-          <v-btn
-            v-show="!isSearchingParsed"
-            :title="t('SearchEntity.index.action.pause')"
-            color="success"
-            icon="mdi-pause"
-            @click="() => pauseSearchQueue()"
-          />
 
-          <!-- 取消/重试 搜索队列 -->
-          <v-btn
-            v-show="runtimeStore.search.isSearching"
-            :title="t('SearchEntity.index.action.cancel')"
-            color="red"
-            icon="mdi-cancel"
-            @click="cancelSearchQueue"
-          />
-          <v-btn
-            v-show="!runtimeStore.search.isSearching"
-            :disabled="isSearchingParsed"
-            :title="t('SearchEntity.index.action.retry')"
-            color="red"
-            icon="mdi-sync"
-            @click="() => doSearch(null as unknown as string, null as unknown as string, true)"
-          />
+  <v-card class="ptpp-search-card">
+    <v-card-title class="ptpp-search-header">
+      <div class="ptpp-result-filter-row">
+        <QuickFilterNotice />
 
-          <!-- 重试失败的搜索 -->
-          <v-btn
-            :disabled="searchPlanStatus.error === 0"
-            :title="t('SearchEntity.index.action.retryFailed')"
-            color="amber"
-            icon="mdi-sync-alert"
-            @click="() => retrySearch()"
-          />
-
-          <v-divider vertical class="mx-2" />
-
-          <!-- 创建搜索快照 -->
-          <v-btn
-            :disabled="runtimeStore.search.isSearching || runtimeStore.search.searchResult.length === 0"
-            :title="t('SearchEntity.index.action.saveSnapshot')"
-            color="cyan"
-            icon="mdi-camera-plus"
-            @click="showSaveSnapshotDialog = true"
-          ></v-btn>
-        </v-btn-group>
-
-        <v-divider vertical class="mx-2" />
-
-        <ActionTd :torrent-items="tableSelectedRaw" />
-
-        <v-divider vertical class="mx-2" />
-
-        <v-menu :close-on-content-click="false">
-          <template v-slot:activator="{ props }">
-            <v-btn-group size="small" variant="text">
-              <v-btn
-                :title="t('SearchEntity.index.action.displayPreferences')"
-                color="blue"
-                icon="mdi-cog"
-                v-bind="props"
-              />
-            </v-btn-group>
-          </template>
-          <v-list>
-            <v-list-item v-for="item in filteredTableBooleanControlKeys" :key="item" :value="item">
-              <template v-slot:prepend>
-                <v-list-item-action start class="ml-2">
-                  <v-switch
-                    v-model="configStore.searchEntifyControl[item]"
-                    :label="`&nbsp;${t('SearchEntity.index.' + item)}`"
-                    color="success"
-                    density="compact"
-                    hide-details
-                    @click.stop
-                    @update:model-value="() => configStore.$save()"
-                  />
-                </v-list-item-action>
-              </template>
-            </v-list-item>
-            <v-list-item v-if="configStore.searchEntifyControl.showTorrentTag" class="mt-2">
-              <v-textarea
-                v-model="hiddenTagNamesText"
-                :label="t('SetBase.searchEntity.hiddenTagNames')"
-                hide-details
-                clearable
-                rows="5"
-              />
-            </v-list-item>
-          </v-list>
-        </v-menu>
-
-        <v-combobox
-          v-model="configStore.tableBehavior.SearchEntity.columns"
-          :items="fullTableHeader"
-          :return-object="false"
-          chips
-          class="table-header-filter-clear ml-1"
-          density="compact"
-          hide-details
-          item-value="key"
-          max-width="180"
-          multiple
-          prepend-inner-icon="mdi-filter-cog"
-          @update:model-value="(v) => configStore.updateTableBehavior('SearchEntity', 'columns', v)"
-        >
-          <template #chip="{ item, index }">
-            <v-chip v-if="index === 0">
-              <span>{{ item.title }}</span>
-            </v-chip>
-            <span v-if="index === 1" class="grey--text caption">
-              (+{{ configStore.tableBehavior.SearchEntity.columns!.length - 1 }})
-            </span>
-          </template>
-        </v-combobox>
-
-        <v-spacer />
         <v-text-field
           v-model="tableWaitFilterRef"
-          append-icon="mdi-magnify"
+          append-inner-icon="mdi-magnify"
+          class="ptpp-result-filter"
           clearable
           density="compact"
           hide-details
           :label="t('SearchEntity.index.filterLabel')"
-          max-width="500"
           prepend-inner-icon="mdi-filter"
           single-line
+          variant="underlined"
           @click:prepend-inner="showAdvanceFilterGenerateDialog = true"
-          @update:model-value="(val) => buildFilterDictFn(val)"
+          @update:model-value="buildFilterDictFn"
         />
-      </v-row>
+      </div>
     </v-card-title>
 
-    <v-card-text class="pt-2 pb-0">
-      <!-- 站点筛选器、已选种子等提示信息 -->
-      <QuickFilterNotice :selected-torrents="tableSelectedRaw" />
+    <div class="ptpp-batch-toolbar">
+      <template v-if="tableSelectedRaw.length > 0">
+        <ActionTd
+          :torrent-items="tableSelectedRaw"
+          density="compact"
+          show-favorite-btn
+          show-keep-upload-btn
+          show-labels
+        />
+      </template>
 
-      <v-data-table
-        id="ptd-search-entity-table"
-        v-model="tableSelectedRaw"
-        :custom-filter="tableFilterFn"
-        :filter-keys="['uniqueId'] /* 对每个item值只检索一次 */"
-        :headers="tableHeader"
-        :items="runtimeStore.search.searchResult"
-        :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
-        :search="tableFilterRef"
-        :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
-        class="search-entity-table table-stripe table-header-no-wrap"
-        hover
-        item-value="uniqueId"
-        :multi-sort="configStore.enableTableMultiSort"
-        show-select
-        return-object
-        @update:itemsPerPage="(v) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', v)"
-        @update:sortBy="(v) => configStore.updateTableBehavior('SearchEntity', 'sortBy', v)"
+      <v-btn
+        :disabled="runtimeStore.search.isSearching || runtimeStore.search.searchResult.length === 0"
+        :title="t('SearchEntity.index.action.saveSnapshot')"
+        class="ptpp-batch-extra ptpp-snapshot-button"
+        color="cyan-darken-1"
+        size="small"
+        variant="elevated"
+        @click="showSaveSnapshotDialog = true"
       >
-        <!-- 站点图标 -->
-        <template #item.site="{ item }">
-          <div class="d-flex flex-column align-center">
-            <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
-            <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
-          </div>
+        <v-icon icon="mdi-camera-plus" />
+        <span class="ml-1">{{ t("SearchEntity.index.action.saveSnapshot") }}</span>
+      </v-btn>
+
+      <v-menu :close-on-content-click="false" location="bottom end">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            :title="t('SearchEntity.index.action.displayPreferences')"
+            class="ptpp-batch-extra ptpp-settings-button"
+            color="blue"
+            icon="mdi-cog"
+            size="small"
+            variant="elevated"
+          />
         </template>
 
-        <!-- 主标题，副标题，优惠及标签 -->
-        <template #item.title="{ item }">
-          <TorrentTitleTd :item="item" />
-        </template>
+        <v-card class="ptpp-search-preferences" width="430">
+          <v-list density="compact">
+            <v-list-item v-for="item in filteredTableBooleanControlKeys" :key="item">
+              <v-switch
+                v-model="configStore.searchEntifyControl[item]"
+                :label="t('SearchEntity.index.' + item)"
+                color="success"
+                density="compact"
+                hide-details
+                @click.stop
+                @update:model-value="configStore.$save"
+              />
+            </v-list-item>
 
-        <!-- 种子大小，下载情况 -->
-        <template #item.size="{ item }">
-          <v-container no-gutters>
-            <v-row>
-              <v-col class="pa-0">
-                <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
-              </v-col>
-            </v-row>
-            <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown">
-              <v-col class="pa-0">
-                <TorrentProcessTd :torrent="item"></TorrentProcessTd>
-              </v-col>
-            </v-row>
-          </v-container>
-        </template>
+            <v-list-item v-if="configStore.searchEntifyControl.showTorrentTag">
+              <v-textarea
+                v-model="hiddenTagNamesText"
+                :label="t('SetBase.searchEntity.hiddenTagNames')"
+                clearable
+                hide-details
+                rows="4"
+              />
+            </v-list-item>
 
-        <!-- 上传人数 -->
-        <template #item.seeders="{ item }">
-          <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
-        </template>
+            <v-divider class="my-2" />
 
-        <!-- 下载人数 -->
-        <template #item.leechers="{ item }">
-          <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
-        </template>
+            <v-list-item>
+              <v-combobox
+                v-model="configStore.tableBehavior.SearchEntity.columns"
+                :items="fullTableHeader"
+                :label="t('MyData.index.selectColumns')"
+                :return-object="false"
+                chips
+                density="compact"
+                hide-details
+                item-value="key"
+                multiple
+                prepend-inner-icon="mdi-filter-cog"
+                @update:model-value="(value) => configStore.updateTableBehavior('SearchEntity', 'columns', value)"
+              />
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-menu>
+    </div>
 
-        <!-- 完成人数 -->
-        <template #item.completed="{ item }">
-          <span class="t_completed text-no-wrap">{{ item.completed }}</span>
-        </template>
+    <v-data-table
+      id="ptpp-search-entity-table"
+      v-model="tableSelectedRaw"
+      :custom-filter="tableFilterFn"
+      density="compact"
+      :filter-keys="['uniqueId']"
+      :headers="tableHeader"
+      :items="runtimeStore.search.searchResult"
+      :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
+      :multi-sort="configStore.enableTableMultiSort"
+      :search="tableFilterRef"
+      :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
+      class="ptpp-search-entity-table table-header-no-wrap"
+      hover
+      item-value="uniqueId"
+      return-object
+      :row-props="searchResultRowProps"
+      show-select
+      @update:itemsPerPage="(value) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
+      @update:sortBy="(value) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+    >
+      <template #item.site="{ item }">
+        <div class="d-flex flex-column align-center">
+          <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
+          <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
+        </div>
+      </template>
 
-        <!-- 评论人数 -->
-        <template #item.comments="{ item }">
-          <span class="t_comments text-no-wrap">{{ item.comments }}</span>
-        </template>
+      <template #item.title="{ item }">
+        <TorrentTitleTd :item="item" />
+      </template>
 
-        <!-- 发布日期 -->
-        <template #item.time="{ item }">
-          <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
-            {{
-              item.time
-                ? configStore.searchEntifyControl.uploadAtFormatAsAlive
-                  ? formatTimeAgo(item.time)
-                  : formatDate(item.time)
-                : "-"
-            }}
-          </span>
-        </template>
+      <template #item.size="{ item }">
+        <v-container class="pa-0">
+          <v-row no-gutters>
+            <v-col class="pa-0">
+              <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
+            </v-col>
+          </v-row>
+          <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown" no-gutters>
+            <v-col class="pa-0">
+              <TorrentProcessTd :torrent="item" />
+            </v-col>
+          </v-row>
+        </v-container>
+      </template>
 
-        <!-- 其他操作 -->
-        <template #item.action="{ item }">
-          <ActionTd :torrent-items="[item]" density="compact" :show-keep-upload-btn="false" />
-        </template>
-      </v-data-table>
-    </v-card-text>
+      <template #item.seeders="{ item }">
+        <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
+      </template>
+      <template #item.leechers="{ item }">
+        <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
+      </template>
+      <template #item.completed="{ item }">
+        <span class="t_completed text-no-wrap">{{ item.completed }}</span>
+      </template>
+      <template #item.comments="{ item }">
+        <span class="t_comments text-no-wrap">{{ item.comments }}</span>
+      </template>
+
+      <template #item.time="{ item }">
+        <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
+          {{
+            item.time
+              ? configStore.searchEntifyControl.uploadAtFormatAsAlive
+                ? formatTimeAgo(item.time)
+                : formatDate(item.time)
+              : "-"
+          }}
+        </span>
+      </template>
+
+      <template #item.action="{ item }">
+        <ActionTd :torrent-items="[item]" density="compact" :show-keep-upload-btn="false" />
+      </template>
+    </v-data-table>
   </v-card>
 
   <AdvanceFilterGenerateDialog v-model="showAdvanceFilterGenerateDialog" />
@@ -462,9 +454,134 @@ const hiddenTagNamesText = computed({
 </template>
 
 <style scoped lang="scss">
-#ptd-search-entity-table {
-  :deep(td.v-data-table__td) {
-    padding: 0 8px;
+.ptpp-search-status {
+  border-radius: 0;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+}
+
+.ptpp-search-status-content {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.ptpp-search-status-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ptpp-search-status-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+
+  :deep(.v-btn) {
+    color: #fff;
+  }
+}
+
+.ptpp-status-count {
+  min-width: auto;
+}
+
+.ptpp-search-card {
+  overflow: hidden;
+}
+
+.ptpp-search-header {
+  min-height: auto;
+  padding: 7px 8px;
+}
+
+.ptpp-result-filter-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.ptpp-result-filter {
+  flex: 0 1 460px;
+  margin-top: 1px;
+  max-width: 460px;
+  min-width: 260px;
+}
+
+.ptpp-result-filter:deep(.v-field) {
+  border-radius: 0;
+  font-size: 13px;
+}
+
+.ptpp-batch-toolbar {
+  align-items: center;
+  background: var(--ptpp-card-background);
+  border-bottom: 1px solid var(--ptpp-divider);
+  border-top: 1px solid var(--ptpp-divider);
+  box-shadow: 0 3px 5px -3px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  height: 52px;
+  min-height: 52px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px;
+  position: sticky;
+  top: 64px;
+  z-index: 3;
+}
+
+.ptpp-batch-extra {
+  border-radius: 2px;
+  flex: 0 0 auto;
+  height: 32px;
+}
+
+.ptpp-snapshot-button {
+  color: #fff;
+}
+
+.ptpp-settings-button {
+  color: #fff;
+  width: 48px;
+}
+
+.ptpp-search-entity-table {
+  width: 100%;
+}
+
+#ptpp-search-entity-table:deep(.v-data-table__th),
+#ptpp-search-entity-table:deep(.v-data-table__td) {
+  font-size: 12px;
+  padding: 9px 8px !important;
+}
+
+#ptpp-search-entity-table:deep(tbody .v-data-table__tr:nth-child(even) .v-data-table__td) {
+  background: var(--ptpp-table-stripe);
+}
+
+#ptpp-search-entity-table:deep(tbody .v-data-table__tr.ptpp-selected-row .v-data-table__td) {
+  background: var(--ptpp-table-active) !important;
+}
+
+#ptpp-search-entity-table:deep(.v-data-table-footer__items-per-page .v-select),
+#ptpp-search-entity-table:deep(.v-data-table-footer__items-per-page .v-input) {
+  min-width: 104px;
+}
+
+@media (max-width: 960px) {
+  .ptpp-result-filter-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ptpp-result-filter {
+    flex-basis: auto;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
   }
 }
 </style>

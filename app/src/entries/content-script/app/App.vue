@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, provide, ref, useTemplateRef, withModifiers } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, provide, ref, useTemplateRef, withModifiers } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDraggable } from "@vueuse/core";
 import { type ITorrent } from "@ptd/site";
@@ -30,55 +30,126 @@ provide("app", el);
 // 记录一下与右边界和下边界的距离
 const rightX = ref<number>(0);
 const bottomY = ref<number>(0);
+const keepVerticallyCentered = ref(false);
+const TOOLBAR_MARGIN = 16;
+let toolbarResizeObserver: ResizeObserver | undefined;
 
 const { x, y, style } = useDraggable(el, {
   handle: dragHandle,
   preventDefault: true,
   initialValue: { x: -100, y: -100 }, // Default position off-screen
-  onEnd: ({ x, y }) => {
-    configStore.updateContentScriptPosition(x, y);
-    const { clientWidth, clientHeight } = document.documentElement;
-    rightX.value = clientWidth - x;
-    bottomY.value = clientHeight - y;
+  onEnd: ({ x: dragX, y: dragY }) => {
+    const position = clampToolbarPosition(dragX, dragY);
+    x.value = position.x;
+    y.value = position.y;
+    keepVerticallyCentered.value = false;
+    updateViewportAnchors();
+    configStore.updateContentScriptPosition(position.x, position.y);
   },
 });
 
-// 监听窗口大小变化，更新位置
-window.addEventListener("resize", () => {
+function getToolbarSize() {
+  const bounds = el.value?.getBoundingClientRect();
+  return {
+    width: bounds?.width || 80,
+    height: bounds?.height || 0,
+  };
+}
+
+function getCenteredToolbarPosition() {
   const { clientWidth, clientHeight } = document.documentElement;
+  const { width, height } = getToolbarSize();
+  const maxX = Math.max(0, clientWidth - width);
+  const maxY = Math.max(0, clientHeight - height);
+  return {
+    x: Math.min(Math.max(TOOLBAR_MARGIN, clientWidth - width - TOOLBAR_MARGIN), maxX),
+    y: Math.min(Math.max(TOOLBAR_MARGIN, (clientHeight - height) / 2), maxY),
+  };
+}
 
-  x.value = clientWidth - rightX.value; // 右侧吸附
-  if (x.value > clientWidth - 50 || x.value < 0) {
-    x.value = clientWidth - 100; // 确保不会超出右边界
-  }
+function clampToolbarPosition(nextX: number, nextY: number) {
+  const { clientWidth, clientHeight } = document.documentElement;
+  const { width, height } = getToolbarSize();
+  return {
+    x: Math.min(Math.max(0, nextX), Math.max(0, clientWidth - width)),
+    y: Math.min(Math.max(0, nextY), Math.max(0, clientHeight - height)),
+  };
+}
+
+function updateViewportAnchors() {
+  const { clientWidth, clientHeight } = document.documentElement;
   rightX.value = clientWidth - x.value;
-
-  y.value = clientHeight - bottomY.value; // 底部吸附
-  if (y.value > clientHeight - 50 || y.value < 0) {
-    y.value = clientHeight - 100; // 确保不会超出下边界
-  }
   bottomY.value = clientHeight - y.value;
+}
+
+function positionToolbarAfterViewportChange() {
+  const { clientWidth, clientHeight } = document.documentElement;
+  const nextPosition = keepVerticallyCentered.value
+    ? getCenteredToolbarPosition()
+    : clampToolbarPosition(clientWidth - rightX.value, clientHeight - bottomY.value);
+  x.value = nextPosition.x;
+  y.value = nextPosition.y;
+  updateViewportAnchors();
+}
+
+window.addEventListener("resize", positionToolbarAfterViewportChange);
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", positionToolbarAfterViewportChange);
+  toolbarResizeObserver?.disconnect();
 });
 
+async function initializeToolbarPosition(storeX: number, storeY: number) {
+  await nextTick();
+  const { clientWidth, clientHeight } = document.documentElement;
+  const { width, height } = getToolbarSize();
+  const hasStoredPosition =
+    Number.isFinite(storeX) && Number.isFinite(storeY) && !(storeX === 0 && storeY === 0);
+  const storedPositionFits =
+    hasStoredPosition &&
+    storeX >= 0 &&
+    storeY >= 0 &&
+    storeX + width <= clientWidth &&
+    storeY + height <= clientHeight;
+
+  if (storedPositionFits) {
+    const position = clampToolbarPosition(storeX, storeY);
+    x.value = position.x;
+    y.value = position.y;
+    keepVerticallyCentered.value = false;
+  } else {
+    const position = getCenteredToolbarPosition();
+    x.value = position.x;
+    y.value = position.y;
+    keepVerticallyCentered.value = true;
+    configStore.updateContentScriptPosition(position.x, position.y);
+  }
+  updateViewportAnchors();
+
+  if (el.value) {
+    toolbarResizeObserver = new ResizeObserver(positionToolbarAfterViewportChange);
+    toolbarResizeObserver.observe(el.value);
+  }
+}
+
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
-configStore.$onReady(() => {
-  updatePageType(ptdData).catch();
+configStore.$onReady(async () => {
+  try {
+    await updatePageType(ptdData);
+  } catch (error) {
+    console.warn("[PTPP] Failed to detect the current page type:", error);
+  }
 
-  let { x: storeX = -100, y: storeY = -100 } = configStore.contentScript?.position ?? {};
-  let { clientWidth, clientHeight } = document.documentElement;
-
-  x.value = storeX <= 0 || storeX > clientWidth - 80 ? clientWidth - 90 : storeX; // Default to right side
-  y.value = storeY <= 0 || storeY > clientHeight - 80 ? Math.max(12, (clientHeight - 430) / 2) : storeY;
-  rightX.value = clientWidth - x.value;
-  bottomY.value = clientHeight - y.value;
+  const { x: storeX = -100, y: storeY = -100 } = configStore.contentScript?.position ?? {};
+  await initializeToolbarPosition(storeX, storeY);
 });
 
 function resetToolbarPosition() {
-  const { clientWidth, clientHeight } = document.documentElement;
-  x.value = clientWidth - 90;
-  y.value = Math.max(12, (clientHeight - 430) / 2);
-  rightX.value = clientWidth - x.value;
-  bottomY.value = clientHeight - y.value;
+  const position = getCenteredToolbarPosition();
+  x.value = position.x;
+  y.value = position.y;
+  keepVerticallyCentered.value = true;
+  updateViewportAnchors();
   configStore.updateContentScriptPosition(x.value, y.value);
 }
 

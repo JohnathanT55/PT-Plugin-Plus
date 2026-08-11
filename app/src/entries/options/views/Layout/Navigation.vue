@@ -51,7 +51,7 @@ function clickMenuItem() {
 </script>
 
 <template>
-  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :permanent="display.mdAndUp.value" :width="210">
+  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :permanent="display.mdAndUp.value" :width="220">
     <!-- 侧边栏导航标题 -->
     <v-list density="compact" nav>
       <template v-for="(group, groupIndex) in menuOptions" :key="groupIndex">

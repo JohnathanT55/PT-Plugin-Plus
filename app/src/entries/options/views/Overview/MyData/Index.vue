@@ -82,12 +82,7 @@ interface IUserInfoItem extends IUserInfo {
   siteName: string;
 }
 
-const {
-  tableWaitFilterRef,
-  tableFilterRef,
-  tableFilterFn,
-  buildFilterDictFn,
-} = useTableCustomFilter<IUserInfoItem>({
+const { tableWaitFilterRef, tableFilterRef, tableFilterFn, buildFilterDictFn } = useTableCustomFilter<IUserInfoItem>({
   parseOptions: {
     keywords: ["site", "status", "siteUserConfig.groups"],
     ranges: ["updateAt", "messageCount"],
@@ -167,14 +162,12 @@ function viewStatistic() {
           @click="multiFlush"
         />
 
-        <v-btn
-          color="green"
-          icon="mdi-chart-timeline-variant"
-          :title="t('MyData.index.viewTimeline')"
-          @click="viewTimeline"
-        />
-        <v-btn color="green" icon="mdi-equalizer" :title="t('MyData.index.viewStatistic')" @click="viewStatistic" />
-
+        <v-btn class="ptpp-chart-button" color="green" :title="t('MyData.index.viewTimeline')" @click="viewTimeline">
+          <v-icon icon="mdi-chart-timeline-variant" />
+        </v-btn>
+        <v-btn class="ptpp-chart-button" color="green" :title="t('MyData.index.viewStatistic')" @click="viewStatistic">
+          <v-icon icon="mdi-equalizer" />
+        </v-btn>
         <v-menu :close-on-content-clicks="false">
           <template v-slot:activator="{ props }">
             <NavButton color="blue" icon="mdi-cog" :text="t('MyData.index.setting')" class="mr-1" v-bind="props" />
@@ -240,7 +233,8 @@ function viewStatistic() {
           density="compact"
           hide-details
           item-value="key"
-          max-width="240"
+          :label="t('MyData.index.selectColumns')"
+          max-width="180"
           multiple
           prepend-inner-icon="mdi-filter-cog"
           @update:model-value="(v) => configStore.updateTableBehavior('MyData', 'columns', v)"
@@ -263,8 +257,8 @@ function viewStatistic() {
           clearable
           density="compact"
           hide-details
-          :label="t('common.search')"
-          max-width="460"
+          label="Search"
+          class="ptpp-my-data-search"
           single-line
           @click:clear="buildFilterDictFn('')"
         />
@@ -518,7 +512,8 @@ function viewStatistic() {
 }
 
 .ptpp-my-data-toolbar {
-  padding: 18px 16px;
+  min-height: 110px;
+  padding: 16px;
 }
 
 .ptpp-my-data-table {
@@ -527,7 +522,7 @@ function viewStatistic() {
 
 .ptpp-my-data-table:deep(.v-data-table__th),
 .ptpp-my-data-table:deep(.v-data-table__td) {
-  padding-inline: 8px !important;
+  padding-inline: 5px !important;
   font-size: 0.8125rem;
 }
 
@@ -537,6 +532,30 @@ function viewStatistic() {
 
 .favicon-hover-wrapper {
   cursor: pointer;
+}
+
+.ptpp-my-data-search {
+  flex: 0 1 760px;
+  max-width: 760px;
+}
+
+.ptpp-chart-button {
+  border-radius: 2px;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  min-width: 52px;
+  padding-inline: 14px;
+}
+
+.ptpp-my-data-table:deep(.v-data-table-footer__items-per-page .v-select),
+.ptpp-my-data-table:deep(.v-data-table-footer__items-per-page .v-input) {
+  flex: 0 0 104px;
+  min-width: 104px;
+  width: 104px;
+}
+
+.ptpp-my-data-table:deep(.v-data-table-footer__items-per-page .v-field__input) {
+  min-width: 42px;
+  overflow: visible;
 }
 
 .favicon-hover-bg {
