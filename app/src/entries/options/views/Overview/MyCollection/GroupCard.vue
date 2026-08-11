@@ -68,7 +68,7 @@ const cardColor = computed(() => {
   >
     <div class="ptpp-collection-group__summary">
       <div class="ptpp-collection-group__name" :title="name">
-        <v-icon v-if="isDefault" icon="mdi-star" size="16" :title="t('MyCollection.defaultGroup')" />
+        <v-icon v-if="isDefault" icon="mdi-heart" size="16" :title="t('MyCollection.defaultGroup')" />
         <span>{{ name }}</span>
       </div>
       <strong>{{ count }}</strong>
@@ -87,7 +87,7 @@ const cardColor = computed(() => {
       />
       <template v-if="!readOnly">
         <v-btn
-          :icon="isDefault ? 'mdi-star-off' : 'mdi-star-outline'"
+          :icon="isDefault ? 'mdi-heart' : 'mdi-heart-outline'"
           :title="isDefault ? t('MyCollection.cancelDefaultGroup') : t('MyCollection.setDefaultGroup')"
           size="small"
           variant="text"

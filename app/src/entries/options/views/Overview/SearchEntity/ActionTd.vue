@@ -7,6 +7,7 @@ import { sendMessage } from "@/messages.ts";
 import type { ITorrent } from "@ptd/site";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { notifyCollectionChanged, useCollectionRevision } from "@/options/composables/collectionState.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 import { formatSize } from "@/options/utils.ts";
@@ -43,6 +44,7 @@ const selectedSize = computed(() => torrentItems.reduce((total, torrent) => tota
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
+const collectionRevision = useCollectionRevision();
 const collectionTorrentItems = computed(() =>
   torrentItems.map((torrent) => inheritCollectionSearchMovieIds(torrent, runtimeStore.search.searchKey)),
 );
@@ -135,18 +137,19 @@ async function sendToDefaultDownloader() {
 
 const favoriteLoading = ref(false);
 const singleFavoriteState = ref<boolean | null>(null);
+let favoriteStateRequest = 0;
 
 watch(
-  () => [collectionTorrentItems.value.length, collectionTorrentItems.value[0]?.url] as const,
+  () => [collectionTorrentItems.value.length, collectionTorrentItems.value[0]?.url, collectionRevision.value] as const,
   async () => {
+    const request = ++favoriteStateRequest;
     singleFavoriteState.value = null;
     if (!showFavoriteBtn || collectionTorrentItems.value.length !== 1 || !collectionTorrentItems.value[0]?.url) return;
     try {
-      singleFavoriteState.value = Boolean(
-        await sendMessage("getPtppCollectionItem", collectionTorrentItems.value[0].url),
-      );
+      const collected = Boolean(await sendMessage("getPtppCollectionItem", collectionTorrentItems.value[0].url));
+      if (request === favoriteStateRequest) singleFavoriteState.value = collected;
     } catch {
-      singleFavoriteState.value = null;
+      if (request === favoriteStateRequest) singleFavoriteState.value = null;
     }
   },
   { immediate: true },
@@ -163,6 +166,7 @@ async function addSelectedToCollection(groupId?: string) {
         detailUrl: collectionTorrentItems.value[0].url,
       });
       singleFavoriteState.value = result.collected;
+      notifyCollectionChanged();
       runtimeStore.showSnakebar(
         t(result.collected ? "SearchEntity.ActionTd.collectionAdded" : "SearchEntity.ActionTd.collectionRemoved", {
           count: 1,
@@ -180,6 +184,8 @@ async function addSelectedToCollection(groupId?: string) {
       const result = await sendMessage("togglePtppCollection", { torrent, detailUrl: torrent.url, groupId });
       if (result.collected) addedCount += 1;
     }
+
+    if (addedCount > 0) notifyCollectionChanged();
 
     runtimeStore.showSnakebar(
       addedCount > 0
@@ -296,14 +302,15 @@ function openKeepUploadDialog() {
 
     <v-btn
       v-else-if="showFavoriteBtn"
+      :color="singleFavoriteState ? 'pink' : undefined"
       :disabled="torrentItems.length === 0"
       :loading="favoriteLoading"
       :size="btnSize"
       :icon="!showLabels"
-      :title="t('SearchEntity.ActionTd.favorite')"
+      :title="t(singleFavoriteState ? 'SearchEntity.ActionTd.unfavorite' : 'SearchEntity.ActionTd.favorite')"
       @click="addSelectedToCollection()"
     >
-      <v-icon :icon="singleFavoriteState ? 'mdi-heart-off' : 'mdi-heart-outline'" />
+      <v-icon :icon="singleFavoriteState ? 'mdi-heart' : 'mdi-heart-outline'" />
       <span v-if="showLabels" class="ptpp-action-label">
         {{ t(singleFavoriteState ? "SearchEntity.ActionTd.unfavorite" : "SearchEntity.ActionTd.favorite") }}
       </span>

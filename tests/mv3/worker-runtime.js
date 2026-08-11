@@ -74,6 +74,7 @@ const requiredSourceModules = [
   "app/src/entries/options/views/Overview/MyCollection/Index.vue",
   "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue",
   "app/src/entries/options/views/Overview/SearchEntity/CollectionGroupMenu.vue",
+  "app/src/entries/options/composables/collectionState.ts",
   "src/collection/searchContext.ts",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
@@ -224,10 +225,14 @@ assert(
 assert(
   searchActionSource.includes("CollectionGroupMenu") &&
     searchActionSource.includes("inheritCollectionSearchMovieIds") &&
+    searchActionSource.includes("useCollectionRevision") &&
+    searchActionSource.includes("notifyCollectionChanged") &&
+    searchActionSource.includes("request === favoriteStateRequest") &&
+    searchActionSource.includes("singleFavoriteState ? 'mdi-heart' : 'mdi-heart-outline'") &&
     collectionGroupMenuSource.includes("getPtppCollectionState") &&
     collectionGroupMenuSource.includes("createPtppCollectionGroup") &&
     collectionGroupMenuSource.includes('role="menu"'),
-  "batch favorites restore the archived PTPP choose-or-create collection-group menu",
+  "batch favorites restore the archived PTPP group menu and refresh every row's favorite state",
 );
 assert(
   collectionWorkerSource.includes("groupId ? [groupId] : []") &&
@@ -243,6 +248,8 @@ assert(
 );
 assert(
   collectionGroupSource.includes("min-width: 30px") &&
+    collectionGroupSource.includes("mdi-heart-outline") &&
+    !collectionGroupSource.includes("mdi-star") &&
     collectionGroupSource.includes(':show-default-send-btn="false"') &&
     collectionGroupSource.includes(':show-local-download-btn="false"'),
   "favorite-group cards expose only the archived PTPP manual-send and copy actions",
