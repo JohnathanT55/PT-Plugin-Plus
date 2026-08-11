@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { inheritCollectionSearchMovieIds } from "@foundation/collection/searchContext";
 
 import { sendMessage } from "@/messages.ts";
 import type { ITorrent } from "@ptd/site";
@@ -11,6 +12,7 @@ import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDia
 import { formatSize } from "@/options/utils.ts";
 
 import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
+import CollectionGroupMenu from "./CollectionGroupMenu.vue";
 import KeepUploadDialog from "./KeepUploadDialog.vue";
 
 const {
@@ -41,6 +43,9 @@ const selectedSize = computed(() => torrentItems.reduce((total, torrent) => tota
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
+const collectionTorrentItems = computed(() =>
+  torrentItems.map((torrent) => inheritCollectionSearchMovieIds(torrent, runtimeStore.search.searchKey)),
+);
 const canDefaultSend = computed(
   () =>
     torrentItems.length > 0 &&
@@ -132,12 +137,14 @@ const favoriteLoading = ref(false);
 const singleFavoriteState = ref<boolean | null>(null);
 
 watch(
-  () => [torrentItems.length, torrentItems[0]?.url] as const,
+  () => [collectionTorrentItems.value.length, collectionTorrentItems.value[0]?.url] as const,
   async () => {
     singleFavoriteState.value = null;
-    if (!showFavoriteBtn || torrentItems.length !== 1 || !torrentItems[0]?.url) return;
+    if (!showFavoriteBtn || collectionTorrentItems.value.length !== 1 || !collectionTorrentItems.value[0]?.url) return;
     try {
-      singleFavoriteState.value = Boolean(await sendMessage("getPtppCollectionItem", torrentItems[0].url));
+      singleFavoriteState.value = Boolean(
+        await sendMessage("getPtppCollectionItem", collectionTorrentItems.value[0].url),
+      );
     } catch {
       singleFavoriteState.value = null;
     }
@@ -145,15 +152,15 @@ watch(
   { immediate: true },
 );
 
-async function addSelectedToCollection() {
+async function addSelectedToCollection(groupId?: string) {
   favoriteLoading.value = true;
   let addedCount = 0;
 
   try {
-    if (torrentItems.length === 1 && torrentItems[0]?.url) {
+    if (collectionTorrentItems.value.length === 1 && collectionTorrentItems.value[0]?.url && !groupId) {
       const result = await sendMessage("togglePtppCollection", {
-        torrent: torrentItems[0],
-        detailUrl: torrentItems[0].url,
+        torrent: collectionTorrentItems.value[0],
+        detailUrl: collectionTorrentItems.value[0].url,
       });
       singleFavoriteState.value = result.collected;
       runtimeStore.showSnakebar(
@@ -165,12 +172,12 @@ async function addSelectedToCollection() {
       return;
     }
 
-    for (const torrent of torrentItems) {
+    for (const torrent of collectionTorrentItems.value) {
       if (!torrent.url) continue;
       const existing = await sendMessage("getPtppCollectionItem", torrent.url);
       if (existing) continue;
 
-      const result = await sendMessage("togglePtppCollection", { torrent, detailUrl: torrent.url });
+      const result = await sendMessage("togglePtppCollection", { torrent, detailUrl: torrent.url, groupId });
       if (result.collected) addedCount += 1;
     }
 
@@ -264,14 +271,37 @@ function openKeepUploadDialog() {
       <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.save") }}</span>
     </v-btn>
 
+    <CollectionGroupMenu
+      v-if="showFavoriteBtn && torrentItems.length > 1"
+      :disabled="torrentItems.length === 0"
+      :title="t('SearchEntity.ActionTd.favorite')"
+      @select="addSelectedToCollection"
+    >
+      <template #activator="{ disabled, loading, openMenu }">
+        <v-btn
+          :disabled="disabled"
+          :loading="loading || favoriteLoading"
+          :size="btnSize"
+          :icon="!showLabels"
+          :title="t('SearchEntity.ActionTd.favorite')"
+          @click="openMenu"
+        >
+          <v-icon icon="mdi-heart-outline" />
+          <span v-if="showLabels" class="ptpp-action-label">
+            {{ t("SearchEntity.ActionTd.favorite") }}
+          </span>
+        </v-btn>
+      </template>
+    </CollectionGroupMenu>
+
     <v-btn
-      v-if="showFavoriteBtn"
+      v-else-if="showFavoriteBtn"
       :disabled="torrentItems.length === 0"
       :loading="favoriteLoading"
       :size="btnSize"
       :icon="!showLabels"
       :title="t('SearchEntity.ActionTd.favorite')"
-      @click="addSelectedToCollection"
+      @click="addSelectedToCollection()"
     >
       <v-icon :icon="singleFavoriteState ? 'mdi-heart-off' : 'mdi-heart-outline'" />
       <span v-if="showLabels" class="ptpp-action-label">

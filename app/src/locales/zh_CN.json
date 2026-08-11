@@ -219,6 +219,7 @@
     "filter": "搜索收藏标题、站点或影片信息",
     "groupColor": "分组颜色",
     "groupDescription": "分组说明",
+    "groupNamePrompt": "请输入收藏分组名称",
     "groupRemoved": "分组已删除",
     "groupSaved": "分组已保存",
     "groups": "收藏分组",

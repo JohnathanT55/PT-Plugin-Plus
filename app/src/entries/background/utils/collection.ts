@@ -24,7 +24,7 @@ import { onMessage, sendMessage } from "@/messages.ts";
 const repository = new MV3Repository();
 let mutationQueue: Promise<void> = Promise.resolve();
 
-function buildCollectionItem(torrent: ITorrent, detailUrl?: string): CollectionItemRecord {
+function buildCollectionItem(torrent: ITorrent, detailUrl?: string, groupId?: string): CollectionItemRecord {
   const link = normalizeCollectionLink(detailUrl || torrent.url || "");
   let host = "";
   try {
@@ -52,7 +52,7 @@ function buildCollectionItem(torrent: ITorrent, detailUrl?: string): CollectionI
           },
         }
       : {}),
-    groups: [],
+    groups: groupId ? [groupId] : [],
   };
 }
 
@@ -108,8 +108,8 @@ onMessage("getPtppCollectionState", async () => {
   return reconcileCollectionState(state.collections);
 });
 
-onMessage("togglePtppCollection", async ({ data: { torrent, detailUrl } }) => {
-  const baseItem = buildCollectionItem(torrent, detailUrl);
+onMessage("togglePtppCollection", async ({ data: { torrent, detailUrl, groupId } }) => {
+  const baseItem = buildCollectionItem(torrent, detailUrl, groupId);
   const { result } = await mutateCollection<{
     collected: boolean;
     item?: CollectionItemRecord;

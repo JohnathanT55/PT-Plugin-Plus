@@ -12,6 +12,7 @@ import {
   updateCollectionItem,
 } from "../../src/collection/model";
 import { applyCollectionMovieInformation, getCollectionMovieLookup } from "../../src/collection/movieInfo";
+import { inheritCollectionSearchMovieIds, parseCollectionSearchMovieIds } from "../../src/collection/searchContext";
 import { COLLECTION_ALL_GROUP_ID, COLLECTION_NO_GROUP_ID, visibleCollectionGroupIds } from "../../src/collection/view";
 import type { CollectionState } from "../../src/model/schema";
 
@@ -44,6 +45,20 @@ assert(
 );
 assert(state.items[0].groups?.[0] === groupA.id, "new favorites inherit the default group");
 assert(groupA.id && state.groups.find((group) => group.id === groupA.id)?.count === 1, "group count is recalculated");
+
+const explicitGroupState: CollectionState = { groups: [], items: [] };
+const explicitDefault = createCollectionGroup(explicitGroupState, { name: "Default" }, 10_000);
+const explicitTarget = createCollectionGroup(explicitGroupState, { name: "Selected" }, 11_000);
+setDefaultCollectionGroup(explicitGroupState, explicitDefault.id);
+addCollectionItem(explicitGroupState, {
+  link: "https://tracker.invalid/details.php?id=selected-group",
+  groups: [explicitTarget.id!],
+});
+assert(
+  explicitGroupState.items[0].groups?.[0] === explicitTarget.id &&
+    !explicitGroupState.items[0].groups?.includes(explicitDefault.id!),
+  "an explicitly selected favorite group takes priority over the default group",
+);
 assert(
   !addCollectionItem(state, {
     siteId: "audiences",
@@ -80,6 +95,22 @@ const doubanLookup = getCollectionMovieLookup({
 assert(
   doubanLookup?.site === "douban" && doubanLookup.sid === "1295644",
   "Douban keeps the archived PTPP movie-information lookup priority",
+);
+assert(
+  parseCollectionSearchMovieIds("imdb|TT0111161").imdbId === "tt0111161" &&
+    parseCollectionSearchMovieIds("tt0111161").imdbId === "tt0111161" &&
+    parseCollectionSearchMovieIds("douban|1295644").doubanId === "1295644" &&
+    parseCollectionSearchMovieIds("douban1295644|肖申克的救赎").doubanId === "1295644",
+  "favorite movie IDs are recovered from current and archived PTPP search syntax",
+);
+const inheritedSearchId = inheritCollectionSearchMovieIds(
+  { ext_imdb: "tt7654321", title: "Tracker title" },
+  "imdb|tt0111161",
+);
+assert(
+  inheritedSearchId.ext_imdb === "tt7654321" &&
+    inheritCollectionSearchMovieIds({ title: "Tracker title" }, "douban|1295644").ext_douban === "1295644",
+  "tracker-provided movie IDs win while missing IDs inherit the active search context",
 );
 const enrichedFavorite = applyCollectionMovieInformation(
   {

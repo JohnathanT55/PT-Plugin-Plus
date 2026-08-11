@@ -107,24 +107,71 @@ body,
       padding-inline: 4px 12px;
     }
 
-    .v-app-bar-nav-icon,
+    .ptpp-nav-toggle,
     .v-app-bar-title {
       color: #fff !important;
     }
 
     .ptpp-nav-toggle {
+      align-items: center;
+      appearance: none;
+      background: transparent;
+      border: 0;
       border-radius: 50% !important;
       block-size: 48px;
-      clip-path: circle(50% at 50% 50%);
+      color: #fff;
+      contain: paint;
+      cursor: pointer;
+      display: inline-flex;
+      flex: 0 0 48px;
+      justify-content: center;
       inline-size: 48px;
+      isolation: isolate;
       min-inline-size: 48px;
       overflow: hidden;
+      padding: 0;
+      position: relative;
 
-      .v-btn__overlay,
-      .v-btn__underlay,
-      .v-ripple__container {
-        border-radius: 50% !important;
+      &::before {
+        background: currentColor;
+        border-radius: inherit;
+        content: "";
         inset: 0;
+        opacity: 0;
+        pointer-events: none;
+        position: absolute;
+        transform: scale(0.5);
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
+        z-index: 0;
+      }
+
+      > .v-icon,
+      > .v-img {
+        position: relative;
+        z-index: 1;
+      }
+
+      &:hover::before,
+      &:focus-visible::before {
+        opacity: 0.08;
+        transform: scale(1);
+      }
+
+      &:active::before {
+        opacity: 0.18;
+        transform: scale(1);
+      }
+
+      &:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.7);
+        outline-offset: -2px;
+      }
+
+      &:disabled {
+        cursor: wait;
+        opacity: 0.7;
       }
     }
 

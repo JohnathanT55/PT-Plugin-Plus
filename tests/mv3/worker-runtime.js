@@ -73,6 +73,8 @@ const requiredSourceModules = [
   "app/src/entries/background/utils/collection.ts",
   "app/src/entries/options/views/Overview/MyCollection/Index.vue",
   "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue",
+  "app/src/entries/options/views/Overview/SearchEntity/CollectionGroupMenu.vue",
+  "src/collection/searchContext.ts",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
   "app/src/entries/options/components/DownloadTargetMenu.vue",
@@ -140,10 +142,23 @@ const collectionGroupSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue"),
   "utf8",
 );
+const collectionGroupMenuSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/SearchEntity/CollectionGroupMenu.vue"),
+  "utf8",
+);
+const collectionWorkerSource = fs.readFileSync(
+  path.join(root, "app/src/entries/background/utils/collection.ts"),
+  "utf8",
+);
+const collectionSearchContextSource = fs.readFileSync(path.join(root, "src/collection/searchContext.ts"), "utf8");
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
 assert(
-  optionsTopbarSource.includes('rounded="circle"') && optionsTopbarSource.includes('@click.stop="toggleNavigation"'),
-  "options navigation toggle has an explicit circular shape and isolated click handler",
+  optionsTopbarSource.includes('class="ptpp-nav-toggle"') &&
+    optionsTopbarSource.includes('type="button"') &&
+    optionsTopbarSource.includes('@click.stop="toggleNavigation"') &&
+    optionsTopbarSource.includes("await configStore.$onReady()") &&
+    optionsTopbarSource.includes("navigationToggleBusy"),
+  "options navigation toggle waits for persisted state and handles one isolated click at a time",
 );
 assert(
   optionsNavigationSource.includes(':model-value="configStore.isNavBarOpen"') &&
@@ -151,9 +166,10 @@ assert(
   "options drawer follows the persisted navigation state without an internal model write-back",
 );
 assert(
-  optionsShellStyleSource.includes("clip-path: circle(50% at 50% 50%)") &&
-    optionsShellStyleSource.includes("border-radius: 50% !important"),
-  "options navigation toggle clips its pressed feedback to a circle",
+  optionsShellStyleSource.includes("contain: paint") &&
+    optionsShellStyleSource.includes("border-radius: 50% !important") &&
+    optionsShellStyleSource.includes("&:active::before"),
+  "options navigation toggle paints hover, focus, and pressed feedback inside a circle",
 );
 assert(!downloadMenuSource.includes("<v-menu"), "download-to uses the PTPP anchored menu instead of a PTD overlay");
 assert(downloadMenuSource.includes('role="menu"'), "download-to anchored menu preserves menu semantics");
@@ -204,6 +220,20 @@ assert(
     searchActionSource.includes("showManualSendBtn = true") &&
     searchActionSource.includes("showLocalDownloadBtn = true"),
   "shared search actions keep all download controls unless a PTPP view explicitly hides one",
+);
+assert(
+  searchActionSource.includes("CollectionGroupMenu") &&
+    searchActionSource.includes("inheritCollectionSearchMovieIds") &&
+    collectionGroupMenuSource.includes("getPtppCollectionState") &&
+    collectionGroupMenuSource.includes("createPtppCollectionGroup") &&
+    collectionGroupMenuSource.includes('role="menu"'),
+  "batch favorites restore the archived PTPP choose-or-create collection-group menu",
+);
+assert(
+  collectionWorkerSource.includes("groupId ? [groupId] : []") &&
+    collectionSearchContextSource.includes("tracker-provided ID always wins") &&
+    collectionSearchContextSource.includes("douban(?:\\|)?"),
+  "favorite additions preserve explicit group priority and inherit movie IDs from PTPP search routes",
 );
 assert(
   collectionSource.includes("douban ? `douban|${douban}`") &&

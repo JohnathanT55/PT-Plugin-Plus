@@ -219,6 +219,7 @@
     "filter": "Search title, site, or movie information",
     "groupColor": "Group Color",
     "groupDescription": "Group Description",
+    "groupNamePrompt": "Enter a favorite group name",
     "groupRemoved": "Group removed",
     "groupSaved": "Group saved",
     "groups": "Favorite Groups",

@@ -129,7 +129,7 @@ interface ProtocolMap extends TMessageMap {
   // 2.3.1 PTPP favorites compatibility store
   getPtppCollectionItem(link: string): IPtppCollectionItem | null;
   getPtppCollectionState(): IPtppCollectionState;
-  togglePtppCollection(data: { torrent: ITorrent; detailUrl?: string }): {
+  togglePtppCollection(data: { torrent: ITorrent; detailUrl?: string; groupId?: string }): {
     collected: boolean;
     item?: IPtppCollectionItem;
   };

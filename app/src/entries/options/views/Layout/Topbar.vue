@@ -29,6 +29,7 @@ const appendMenu = computed<Array<{ title: string; icon: string; [str: string]: 
 
 const searchKey = ref<string>("");
 const searchPlanKey = ref<string>("default");
+const navigationToggleBusy = ref(false);
 
 const searchPlans = computed(() =>
   metadataStore.getSearchSolutions
@@ -57,8 +58,19 @@ function searchRecommendation(title: string) {
 }
 
 async function toggleNavigation() {
-  configStore.isNavBarOpen = !configStore.isNavBarOpen;
-  await configStore.$save();
+  if (navigationToggleBusy.value) return;
+
+  navigationToggleBusy.value = true;
+  try {
+    // A click can arrive while the persisted Pinia state is still hydrating.
+    // Toggling only after hydration prevents the restored value from silently
+    // overwriting the user's click.
+    await configStore.$onReady();
+    configStore.isNavBarOpen = !configStore.isNavBarOpen;
+    await configStore.$save();
+  } finally {
+    navigationToggleBusy.value = false;
+  }
 }
 
 watch(
@@ -77,13 +89,12 @@ watch(
 <template>
   <v-app-bar id="ptpp-topbar" app color="amber" :height="64">
     <template #prepend>
-      <v-app-bar-nav-icon
+      <button
+        type="button"
         class="ptpp-nav-toggle"
         :aria-expanded="configStore.isNavBarOpen"
+        :disabled="navigationToggleBusy"
         :title="t('layout.header.navBarTip')"
-        rounded="circle"
-        size="48"
-        variant="text"
         @click.stop="toggleNavigation"
       >
         <template v-if="display.smAndUp.value">
@@ -92,7 +103,7 @@ watch(
         <template v-else>
           <v-img inline src="/icons/logo/64.png" width="24"></v-img>
         </template>
-      </v-app-bar-nav-icon>
+      </button>
     </template>
 
     <v-app-bar-title v-show="display.smAndUp.value" ref="titleTarget" style="min-width: 180px; max-width: 220px">
