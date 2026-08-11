@@ -175,6 +175,14 @@ const cardColor = computed(() => {
 
   :deep(.v-btn) {
     color: #fff !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    padding-inline: 0 !important;
+    width: 30px !important;
+  }
+
+  :deep(.v-btn-group) {
+    height: 30px;
   }
 }
 

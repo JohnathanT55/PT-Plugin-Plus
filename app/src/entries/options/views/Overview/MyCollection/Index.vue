@@ -65,11 +65,11 @@ const headers = computed(
   () =>
     [
       { title: "№", key: "index", align: "center", width: 52, sortable: false },
-      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "28rem" },
-      { title: t("MyCollection.headers.source"), key: "siteId", align: "center", minWidth: 105 },
-      { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 120 },
-      { title: t("MyCollection.headers.time"), key: "time", align: "center", minWidth: 150 },
-      { title: t("common.action"), key: "action", align: "center", minWidth: 250, sortable: false },
+      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "22rem" },
+      { title: t("MyCollection.headers.source"), key: "siteId", align: "center", width: 90 },
+      { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 100 },
+      { title: t("MyCollection.headers.time"), key: "time", align: "center", width: 145 },
+      { title: t("common.action"), key: "action", align: "center", width: 180, sortable: false },
     ] as DataTableHeader[],
 );
 
@@ -144,7 +144,7 @@ function torrentsFor(items: IPtppCollectionItem[]): ITorrent[] {
 
 const selectedItems = computed(() => {
   const links = new Set(selectedLinks.value);
-  return collection.value.items.filter((item) => item.link && links.has(item.link));
+  return visibleItems.value.filter((item) => item.link && links.has(item.link));
 });
 const selectedTorrents = computed(() => torrentsFor(selectedItems.value));
 
@@ -205,13 +205,15 @@ async function loadCollection() {
   }
 }
 
-async function applyMutation(job: Promise<IPtppCollectionState>, success: string) {
+async function applyMutation(job: Promise<IPtppCollectionState>, success: string): Promise<boolean> {
   try {
     collection.value = await job;
     selectedLinks.value = [];
     runtimeStore.showSnakebar(success, { color: "success" });
+    return true;
   } catch (error) {
     runtimeStore.showSnakebar(String(error), { color: "error" });
+    return false;
   }
 }
 
@@ -255,8 +257,7 @@ async function saveGroup() {
   const job = editingGroupId.value
     ? sendMessage("updatePtppCollectionGroup", { groupId: editingGroupId.value, patch: data })
     : sendMessage("createPtppCollectionGroup", data);
-  await applyMutation(job, t("MyCollection.groupSaved"));
-  groupDialog.value = false;
+  if (await applyMutation(job, t("MyCollection.groupSaved"))) groupDialog.value = false;
 }
 
 async function removeGroup(groupId: string) {
@@ -312,7 +313,7 @@ async function saveItem() {
   else delete movieInfo.imdbId;
   if (doubanId) movieInfo.doubanId = doubanId;
   else delete movieInfo.doubanId;
-  await applyMutation(
+  const saved = await applyMutation(
     sendMessage("updatePtppCollectionItem", {
       link: editingItem.value.link,
       patch: {
@@ -324,7 +325,7 @@ async function saveItem() {
     }),
     t("MyCollection.itemSaved"),
   );
-  itemDialog.value = false;
+  if (saved) itemDialog.value = false;
 }
 
 function searchItem(item: IPtppCollectionItem) {
@@ -332,6 +333,11 @@ function searchItem(item: IPtppCollectionItem) {
   const imdb = item.imdbId || (typeof movieInfo.imdbId === "string" ? movieInfo.imdbId : "");
   const keyword = imdb ? `imdb|${imdb}` : item.title || "";
   router.push({ name: "SearchEntity", query: { search: keyword, flush: Date.now() } });
+}
+
+function hasMovieId(item: IPtppCollectionItem): boolean {
+  const movieInfo = item.movieInfo ?? {};
+  return Boolean(item.imdbId || movieInfo.imdbId || movieInfo.doubanId);
 }
 
 function itemGroups(item: IPtppCollectionItem): IPtppCollectionGroup[] {
@@ -351,6 +357,14 @@ function movieCover(item: IPtppCollectionItem): string {
 function restoreMoviePlaceholder(event: Event) {
   const image = event.currentTarget as HTMLImageElement;
   if (!image.src.endsWith("/icons/movie_placeholder.png")) image.src = "/icons/movie_placeholder.png";
+}
+
+function collectionRowProps({ item }: { item: IPtppCollectionItem }) {
+  const selected = Boolean(item.link && selectedLinks.value.includes(item.link));
+  return {
+    class: selected ? "ptpp-selected-row" : undefined,
+    "aria-selected": selected ? "true" : "false",
+  };
 }
 
 onMounted(loadCollection);
@@ -432,6 +446,7 @@ onMounted(loadCollection);
       class="table-stripe table-header-no-wrap"
       hover
       item-value="link"
+      :row-props="collectionRowProps"
       show-select
       @update:items-per-page="(value) => configStore.updateTableBehavior('MyCollection', 'itemsPerPage', value)"
       @update:sort-by="(value) => configStore.updateTableBehavior('MyCollection', 'sortBy', value)"
@@ -535,10 +550,12 @@ onMounted(loadCollection);
           <ActionTd
             :torrent-items="toTorrent(item) ? [toTorrent(item)!] : []"
             density="compact"
+            :show-copy-btn="false"
             :show-favorite-btn="false"
             :show-keep-upload-btn="false"
           />
           <v-btn
+            v-if="hasMovieId(item)"
             color="primary"
             icon="mdi-magnify"
             size="small"
@@ -547,6 +564,7 @@ onMounted(loadCollection);
             @click="searchItem(item)"
           />
           <v-btn
+            v-else
             color="blue"
             icon="mdi-pencil"
             size="small"
@@ -684,7 +702,8 @@ onMounted(loadCollection);
 
   a {
     color: rgb(var(--v-theme-primary));
-    font-size: 14px;
+    font-size: 12px;
+    line-height: 1.35;
     text-decoration: none;
   }
 
@@ -739,10 +758,27 @@ onMounted(loadCollection);
 .ptpp-collection-row-actions {
   flex-wrap: nowrap;
   justify-content: center;
+
+  :deep(.v-btn) {
+    height: 28px !important;
+    min-width: 28px !important;
+    padding-inline: 0 !important;
+    width: 28px !important;
+  }
+
+  :deep(.v-btn-group) {
+    height: 28px;
+  }
 }
 
-.ptpp-collection-table :deep(tbody td) {
-  padding-block: 4px !important;
+.ptpp-collection-table :deep(.v-data-table__th),
+.ptpp-collection-table :deep(.v-data-table__td) {
+  font-size: 12px;
+  padding: 8px !important;
+}
+
+.ptpp-collection-table :deep(tbody .v-data-table__tr.ptpp-selected-row .v-data-table__td) {
+  background: var(--ptpp-table-active) !important;
 }
 
 @media (max-width: 960px) {

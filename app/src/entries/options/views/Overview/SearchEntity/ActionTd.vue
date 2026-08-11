@@ -18,12 +18,14 @@ const {
   density = "default",
   showKeepUploadBtn = true,
   showFavoriteBtn = false,
+  showCopyBtn = true,
   showLabels = false,
 } = defineProps<{
   torrentItems: ITorrent[];
   density?: "compact" | "default";
   showKeepUploadBtn?: boolean;
   showFavoriteBtn?: boolean;
+  showCopyBtn?: boolean;
   showLabels?: boolean;
 }>();
 
@@ -56,8 +58,8 @@ async function getTorrentDownloadLinks() {
 const copyTorrentDownloadLinkBtnStatus = ref(false);
 async function copyTorrentDownloadLink() {
   copyTorrentDownloadLinkBtnStatus.value = true;
-  const downloadUrls = await getTorrentDownloadLinks();
   try {
+    const downloadUrls = await getTorrentDownloadLinks();
     await navigator.clipboard.writeText(
       downloadUrls
         .map((x) => x.downloadUrl)
@@ -65,8 +67,8 @@ async function copyTorrentDownloadLink() {
         .trim(),
     );
     runtimeStore.showSnakebar(t("SearchEntity.ActionTd.copyLinkSuccess"), { color: "success" });
-  } catch {
-    runtimeStore.showSnakebar(t("SearchEntity.ActionTd.copyLinkFailed"), { color: "error" });
+  } catch (error) {
+    runtimeStore.showSnakebar(`${t("SearchEntity.ActionTd.copyLinkFailed")}: ${String(error)}`, { color: "error" });
   } finally {
     copyTorrentDownloadLinkBtnStatus.value = false;
   }
@@ -227,6 +229,7 @@ function openKeepUploadDialog() {
     </DownloadTargetMenu>
 
     <v-btn
+      v-if="showCopyBtn"
       :disabled="torrentItems.length === 0"
       :loading="copyTorrentDownloadLinkBtnStatus"
       :size="btnSize"

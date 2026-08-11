@@ -131,12 +131,13 @@ const optionsNavigationSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Layout/Navigation.vue"),
   "utf8",
 );
-const optionsTopbarSource = fs.readFileSync(
-  path.join(root, "app/src/entries/options/views/Layout/Topbar.vue"),
-  "utf8",
-);
+const optionsTopbarSource = fs.readFileSync(path.join(root, "app/src/entries/options/views/Layout/Topbar.vue"), "utf8");
 const collectionSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/MyCollection/Index.vue"),
+  "utf8",
+);
+const collectionGroupSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue"),
   "utf8",
 );
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
@@ -183,6 +184,22 @@ assert(
 assert(
   collectionSource.includes("ActionTd") && collectionSource.includes("setPtppCollectionItemGroup"),
   "favorites support downloader actions and group assignment",
+);
+assert(
+  collectionSource.includes(':show-copy-btn="false"') &&
+    collectionSource.includes("width: 180") &&
+    collectionSource.includes('v-if="hasMovieId(item)"'),
+  "favorite rows keep the archived PTPP compact action column without the extra row-level copy action",
+);
+assert(
+  collectionSource.includes(':row-props="collectionRowProps"') &&
+    collectionSource.includes("ptpp-selected-row") &&
+    collectionSource.includes("return visibleItems.value.filter"),
+  "favorites retain the PTPP selected-row highlight and never act on hidden selections",
+);
+assert(
+  collectionGroupSource.includes("min-width: 30px") && collectionGroupSource.includes("width: 30px"),
+  "favorite-group actions stay aligned inside the compact PTPP cards",
 );
 assert(
   backupSource.includes('backupFields.includes("collection")') &&
