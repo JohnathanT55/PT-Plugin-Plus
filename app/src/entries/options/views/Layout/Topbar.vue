@@ -56,6 +56,11 @@ function searchRecommendation(title: string) {
   startSearchEntity();
 }
 
+async function toggleNavigation() {
+  configStore.isNavBarOpen = !configStore.isNavBarOpen;
+  await configStore.$save();
+}
+
 watch(
   () => route.query,
   (newQuery) => {
@@ -76,7 +81,7 @@ watch(
         class="ptpp-nav-toggle"
         :title="t('layout.header.navBarTip')"
         variant="text"
-        @click="configStore.isNavBarOpen = !configStore.isNavBarOpen"
+        @click="toggleNavigation"
       >
         <template v-if="display.smAndUp.value">
           <v-icon icon="$menu"></v-icon>

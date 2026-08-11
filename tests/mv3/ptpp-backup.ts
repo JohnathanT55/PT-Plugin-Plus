@@ -1,6 +1,7 @@
 import CryptoJS from "crypto-js";
 import JSZip from "jszip";
 
+import { backupDataToJSZipBlob, jsZipBlobToBackupData } from "../../app/src/packages/backupServer/utils.ts";
 import { parsePtppBackup } from "../../app/src/entries/shared/ptppBackup.ts";
 import { LEGACY_STORAGE_KEYS } from "../../src/storage/keys.ts";
 
@@ -51,9 +52,29 @@ for (const encryptionKey of ["", "fixture-key"]) {
   assert(parsed.manifest.version === "v1.6.1.2721", "legacy manifest is recognized");
   assert(parsed.availableFields.includes("metadata"), "site/downloader metadata is offered for import");
   assert(parsed.availableFields.includes("userInfo"), "user history is offered for import");
+  assert(parsed.availableFields.includes("collection"), "favorites are offered as an independent import field");
   assert(parsed.hasCollections, "collections are retained in compatibility state");
   assert(LEGACY_STORAGE_KEYS.config in parsed.payload.legacy, "options.json maps to the legacy config key");
   assert(LEGACY_STORAGE_KEYS.userHistory in parsed.payload.legacy, "userdatas.json maps to the history key");
 }
+
+const currentBackup = {
+  manifest: { version: "PT-Plugin-Plus MV3 (fixture)" },
+  collection: {
+    defaultGroupId: "group-a",
+    groups: [{ id: "group-a", name: "Movies", count: 1 }],
+    items: [{ title: "Fixture", link: "https://tracker.invalid/details/1", groups: ["group-a"] }],
+  },
+};
+const currentBackupBlob = await backupDataToJSZipBlob(structuredClone(currentBackup), "fixture-key");
+const currentBackupRestored = await jsZipBlobToBackupData(
+  (await currentBackupBlob.arrayBuffer()) as unknown as Blob,
+  "fixture-key",
+);
+assert(
+  currentBackupRestored.collection.defaultGroupId === "group-a" &&
+    currentBackupRestored.collection.items[0].groups[0] === "group-a",
+  "current MV3 backup round-trips favorites, groups, and the default group",
+);
 
 console.log("PTPP backup parser tests passed");

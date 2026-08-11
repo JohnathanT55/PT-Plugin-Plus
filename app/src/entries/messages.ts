@@ -17,6 +17,7 @@ import type {
 import type { IMediaServerId, IMediaServerSearchOptions, IMediaServerSearchResult } from "@ptd/mediaServer";
 import type { IBackupData, IBackupFileInfo } from "@ptd/backupServer";
 import type { CTorrent, TorrentClientStatus } from "@ptd/downloader";
+import type { CollectionGroupRecord, CollectionItemRecord, CollectionState } from "@foundation/model/schema";
 
 // 可序列化的种子信息，用于辅种检测
 export interface ITorrentInfoForVerification {
@@ -29,19 +30,9 @@ export interface ITorrentInfoForVerification {
   }>;
 }
 
-export interface IPtppCollectionItem {
-  siteId?: string;
-  host?: string;
-  title?: string;
-  subTitle?: string;
-  url?: string;
-  link?: string;
-  size?: number;
-  time?: number;
-  imdbId?: string;
-  groups?: string[];
-  movieInfo?: Record<string, unknown>;
-}
+export interface IPtppCollectionItem extends CollectionItemRecord {}
+export interface IPtppCollectionGroup extends CollectionGroupRecord {}
+export interface IPtppCollectionState extends CollectionState {}
 
 import type { TExtensionStorageKey, IExtensionStorageSchema } from "@/storage.ts";
 import {
@@ -137,10 +128,26 @@ interface ProtocolMap extends TMessageMap {
 
   // 2.3.1 PTPP favorites compatibility store
   getPtppCollectionItem(link: string): IPtppCollectionItem | null;
+  getPtppCollectionState(): IPtppCollectionState;
   togglePtppCollection(data: { torrent: ITorrent; detailUrl?: string }): {
     collected: boolean;
     item?: IPtppCollectionItem;
   };
+  replacePtppCollectionState(data: IPtppCollectionState): IPtppCollectionState;
+  removePtppCollectionItems(data: { links: string[] }): IPtppCollectionState;
+  clearPtppCollection(): IPtppCollectionState;
+  updatePtppCollectionItem(data: {
+    link: string;
+    patch: Pick<IPtppCollectionItem, "title" | "subTitle" | "imdbId" | "movieInfo">;
+  }): IPtppCollectionState;
+  createPtppCollectionGroup(data: { name: string; color?: string; description?: string }): IPtppCollectionState;
+  updatePtppCollectionGroup(data: {
+    groupId: string;
+    patch: Pick<IPtppCollectionGroup, "name" | "color" | "description">;
+  }): IPtppCollectionState;
+  deletePtppCollectionGroup(data: { groupId: string }): IPtppCollectionState;
+  setPtppCollectionItemGroup(data: { link: string; groupId: string; assigned: boolean }): IPtppCollectionState;
+  setPtppDefaultCollectionGroup(data: { groupId?: string }): IPtppCollectionState;
 
   getClientTorrents(downloaderId: string): CTorrent[];
   deleteClientTorrent(data: { downloaderId: string; id: any; removeData?: boolean }): boolean;

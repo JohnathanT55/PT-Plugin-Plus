@@ -202,6 +202,45 @@
       "upSpeed": "Upload Speed"
     }
   },
+  "MyCollection": {
+    "addGroup": "New Group",
+    "addToGroup": "Add to Group",
+    "all": "All",
+    "cancelDefaultGroup": "Unset Default Group",
+    "clear": "Clear",
+    "clearConfirm": "Clear all favorites and favorite groups? This cannot be undone.",
+    "cleared": "Favorites cleared",
+    "defaultGroup": "Default favorite group",
+    "defaultSaved": "Default group saved",
+    "doubanId": "Douban ID",
+    "editGroup": "Edit Favorite Group",
+    "editItem": "Edit Favorite",
+    "empty": "There are no favorites in this group",
+    "filter": "Search title, site, or movie information",
+    "groupColor": "Group Color",
+    "groupDescription": "Group Description",
+    "groupRemoved": "Group removed",
+    "groupSaved": "Group saved",
+    "groups": "Favorite Groups",
+    "headers": {
+      "groups": "Groups",
+      "size": "Size",
+      "time": "Favorite Time",
+      "title": "Title"
+    },
+    "help": "Help",
+    "itemSaved": "Favorite saved",
+    "loadFailed": "Failed to load favorites",
+    "noCustomGroups": "No favorite groups yet",
+    "noGroup": "Ungrouped",
+    "removeConfirm": "Delete the selected {count} favorites?",
+    "removeGroupConfirm": "Delete group “{name}”? Its {count} favorites will become ungrouped.",
+    "removed": "Favorites removed",
+    "setDefaultGroup": "Set as Default Group",
+    "subTitle": "Subtitle",
+    "unnamedGroup": "Unnamed Group",
+    "untitled": "Untitled Favorite"
+  },
   "MyData": {
     "HistoryDataView": {
       "action": {
@@ -291,11 +330,13 @@
       "collectionAdded": "Added {count} torrents to favorites",
       "collectionAlreadyAdded": "The selected torrents are already in favorites",
       "collectionFailed": "Failed to add favorites",
+      "collectionRemoved": "Removed from favorites",
       "copy": "Copy",
       "copyLink": "Copy Download Link",
       "copyLinkFailed": "Failed to copy download link",
       "copyLinkSuccess": "Download link copied to clipboard",
       "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
       "localDownload": "Download Torrent File Locally",
       "push": "Push",
       "pushTo": "Push to…",
@@ -468,7 +509,7 @@
       "keepExistUserInfo": "Keep locally fetched user information",
       "loadFailure": "Load failed: {error}",
       "autoDetectBackup": "Select either a current MV3 backup or a legacy PT-Plugin-Plus ZIP backup here; the format is detected automatically.",
-      "legacyCollectionsNotice": "Collections and groups are preserved in the compatibility migration store until the My Collections page is connected.",
+      "legacyCollectionsNotice": "Favorites and groups in this backup will be restored directly to My Favorites, including the default group setting.",
       "legacyDetected": "Legacy PT-Plugin-Plus backup detected ({version}). Sites, downloaders, paths, user data, and the selected data domains will be migrated directly.",
       "legacyImportSuccess": "Legacy backup imported: {sites} sites, {downloaders} downloaders, {userHistory} user-history records, {downloadHistory} download-history records, and {cookies} cookies; {skipped} unsupported sites skipped.",
       "missingVersion": "Backup data is missing version info, cannot restore",
@@ -482,6 +523,7 @@
       "versionWarning": "Backup data version is higher than the current extension version. Restoring may cause data incompatibility or loss. Continue?"
     },
     "fields": {
+      "collection": "Favorites and groups (collection)",
       "config": "Extension configuration (config)",
       "cookies": "Site cookies (cookies)",
       "downloadHistory": "Download history (downloadHistory)",

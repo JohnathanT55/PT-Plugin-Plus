@@ -78,7 +78,7 @@ export async function parsePtppBackup(blob: Blob, encryptionKey = ""): Promise<I
   const availableFields = ["config", "metadata", "userInfo"] as TBackupFields[];
 
   const optionalMappings: Array<[string, string, TBackupFields]> = [
-    ["collection.json", LEGACY_STORAGE_KEYS.collections, "metadata"],
+    ["collection.json", LEGACY_STORAGE_KEYS.collections, "collection"],
     ["searchResultSnapshot.json", LEGACY_STORAGE_KEYS.searchSnapshots, "searchResultSnapshot"],
     ["keepUploadTask.json", LEGACY_STORAGE_KEYS.keepUploadTasks, "keepUploadTask"],
     ["downloadHistory.json", LEGACY_STORAGE_KEYS.downloadHistory, "downloadHistory"],

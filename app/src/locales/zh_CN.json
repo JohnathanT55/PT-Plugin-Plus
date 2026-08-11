@@ -202,6 +202,45 @@
       "upSpeed": "上传速度"
     }
   },
+  "MyCollection": {
+    "addGroup": "新建分组",
+    "addToGroup": "加入分组",
+    "all": "全部",
+    "cancelDefaultGroup": "取消默认分组",
+    "clear": "清空",
+    "clearConfirm": "确定清空全部收藏和收藏分组吗？此操作无法撤销。",
+    "cleared": "收藏已清空",
+    "defaultGroup": "默认收藏分组",
+    "defaultSaved": "默认分组已保存",
+    "doubanId": "豆瓣 ID",
+    "editGroup": "编辑收藏分组",
+    "editItem": "编辑收藏",
+    "empty": "当前分组没有收藏项目",
+    "filter": "搜索收藏标题、站点或影片信息",
+    "groupColor": "分组颜色",
+    "groupDescription": "分组说明",
+    "groupRemoved": "分组已删除",
+    "groupSaved": "分组已保存",
+    "groups": "收藏分组",
+    "headers": {
+      "groups": "分组",
+      "size": "大小",
+      "time": "收藏时间",
+      "title": "标题"
+    },
+    "help": "帮助",
+    "itemSaved": "收藏信息已保存",
+    "loadFailed": "收藏加载失败",
+    "noCustomGroups": "尚未创建收藏分组",
+    "noGroup": "未分组",
+    "removeConfirm": "确定删除选中的 {count} 条收藏吗？",
+    "removeGroupConfirm": "确定删除分组“{name}”吗？其中 {count} 条收藏会变为未分组。",
+    "removed": "收藏已删除",
+    "setDefaultGroup": "设为默认分组",
+    "subTitle": "副标题",
+    "unnamedGroup": "未命名分组",
+    "untitled": "未命名收藏"
+  },
   "MyData": {
     "HistoryDataView": {
       "action": {
@@ -291,11 +330,13 @@
       "collectionAdded": "已将 {count} 个种子加入收藏",
       "collectionAlreadyAdded": "所选种子已在收藏中",
       "collectionFailed": "收藏操作失败",
+      "collectionRemoved": "已从收藏中移除",
       "copy": "复制",
       "copyLink": "复制下载链接",
       "copyLinkFailed": "复制下载链接失败",
       "copyLinkSuccess": "下载链接已复制到剪贴板",
       "favorite": "收藏",
+      "unfavorite": "取消收藏",
       "localDownload": "下载种子文件到本地",
       "push": "推送",
       "pushTo": "推送到…",
@@ -468,7 +509,7 @@
       "keepExistUserInfo": "保留本地已获取过的用户信息",
       "loadFailure": "加载失败: {error}",
       "autoDetectBackup": "这里可直接选择当前 MV3 备份或旧版 PT-Plugin-Plus ZIP 备份，系统会自动识别格式。",
-      "legacyCollectionsNotice": "备份中的收藏与分组会先保存在兼容迁移层；“我的收藏”页面接入后即可继续使用。",
+      "legacyCollectionsNotice": "备份中的收藏与分组会直接恢复到“我的收藏”，包括分组和默认分组设置。",
       "legacyDetected": "已识别为旧版 PT-Plugin-Plus 备份（{version}），将直接迁移站点、下载器、目录、用户数据及其他已选择内容。",
       "legacyImportSuccess": "旧版备份导入完成：站点 {sites}、下载器 {downloaders}、用户历史 {userHistory}、下载历史 {downloadHistory}、Cookie {cookies}；跳过未支持站点 {skipped}。",
       "missingVersion": "备份数据缺少版本信息，无法恢复",
@@ -482,6 +523,7 @@
       "versionWarning": "备份数据版本高于当前扩展版本，恢复可能会导致数据不兼容或丢失，是否继续？"
     },
     "fields": {
+      "collection": "我的收藏与分组（collection）",
       "config": "插件配置（config）",
       "cookies": "站点 Cookies（cookies）",
       "downloadHistory": "下载历史（downloadHistory）",

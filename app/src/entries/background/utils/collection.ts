@@ -1,5 +1,19 @@
 import { MV3Repository } from "@foundation/storage/repository";
 import type { CollectionItemRecord, MV3State } from "@foundation/model/schema";
+import {
+  addCollectionItem,
+  clearCollection,
+  collectionItemKey,
+  createCollectionGroup,
+  deleteCollectionGroup,
+  normalizeCollectionLink,
+  reconcileCollectionState,
+  removeCollectionItems,
+  setCollectionItemGroup,
+  setDefaultCollectionGroup,
+  updateCollectionGroup,
+  updateCollectionItem,
+} from "@foundation/collection/model";
 import type { ITorrent } from "@ptd/site";
 
 import { onMessage } from "@/messages.ts";
@@ -8,29 +22,6 @@ import { onMessage } from "@/messages.ts";
 // compatibility store in the service worker, which owns extension storage.
 const repository = new MV3Repository();
 let mutationQueue: Promise<void> = Promise.resolve();
-
-function normalizeCollectionLink(link: string): string {
-  if (!link) return "";
-  try {
-    const url = new URL(link);
-    for (const key of ["hit", "cmtpage", "page"]) url.searchParams.delete(key);
-    return url.toString();
-  } catch {
-    return link.replace(/([?&])(hit|cmtpage|page)=[^&]*&?/gi, "$1").replace(/[?&]$/, "");
-  }
-}
-
-function collectionItemLink(item: CollectionItemRecord): string {
-  return normalizeCollectionLink(String(item.link ?? ""));
-}
-
-function updateGroupCounts(state: MV3State) {
-  for (const group of state.collections.groups) {
-    group.count = state.collections.items.filter(
-      (item) => group.id && Array.isArray(item.groups) && item.groups.includes(group.id),
-    ).length;
-  }
-}
 
 function buildCollectionItem(torrent: ITorrent, detailUrl?: string): CollectionItemRecord {
   const link = normalizeCollectionLink(detailUrl || torrent.url || "");
@@ -69,6 +60,16 @@ async function readCollectionState(): Promise<MV3State> {
   return await repository.reload();
 }
 
+async function mutateCollection<T>(mutation: (state: MV3State) => T): Promise<{ state: MV3State; result: T }> {
+  return await enqueueMutation(async () => {
+    const state = await repository.reload();
+    const result = mutation(state);
+    state.collections = reconcileCollectionState(state.collections);
+    await repository.writeState(state);
+    return { state, result };
+  });
+}
+
 function enqueueMutation<T>(mutation: () => Promise<T>): Promise<T> {
   const result = mutationQueue.then(mutation, mutation);
   mutationQueue = result.then(
@@ -82,27 +83,77 @@ onMessage("getPtppCollectionItem", async ({ data: link }) => {
   const normalizedLink = normalizeCollectionLink(link);
   if (!normalizedLink) return null;
   const state = await readCollectionState();
-  return state.collections.items.find((item) => collectionItemLink(item) === normalizedLink) ?? null;
+  return state.collections.items.find((item) => collectionItemKey(item) === normalizedLink) ?? null;
 });
 
-onMessage("togglePtppCollection", async ({ data: { torrent, detailUrl } }) =>
-  enqueueMutation(async () => {
-    const state = await repository.reload();
+onMessage("getPtppCollectionState", async () => {
+  const state = await readCollectionState();
+  return reconcileCollectionState(state.collections);
+});
+
+onMessage("togglePtppCollection", async ({ data: { torrent, detailUrl } }) => {
+  const { result } = await mutateCollection<{
+    collected: boolean;
+    item?: CollectionItemRecord;
+  }>((state) => {
     const item = buildCollectionItem(torrent, detailUrl);
-    const normalizedLink = collectionItemLink(item);
-    if (!normalizedLink) throw new Error("Cannot favorite a torrent without a detail-page link");
-
-    const index = state.collections.items.findIndex((candidate) => collectionItemLink(candidate) === normalizedLink);
-    if (index >= 0) {
-      state.collections.items.splice(index, 1);
-      updateGroupCounts(state);
-      await repository.writeState(state);
-      return { collected: false };
+    const normalizedLink = collectionItemKey(item);
+    const existing = state.collections.items.some((candidate) => collectionItemKey(candidate) === normalizedLink);
+    if (existing) {
+      removeCollectionItems(state.collections, [normalizedLink]);
+      return { collected: false as const };
     }
+    addCollectionItem(state.collections, item);
+    return { collected: true as const, item };
+  });
+  return result;
+});
 
-    state.collections.items.push(item);
-    updateGroupCounts(state);
-    await repository.writeState(state);
-    return { collected: true, item };
-  }),
-);
+onMessage("replacePtppCollectionState", async ({ data }) => {
+  const { state } = await mutateCollection((current) => {
+    current.collections = reconcileCollectionState(data);
+  });
+  return state.collections;
+});
+
+onMessage("removePtppCollectionItems", async ({ data: { links } }) => {
+  const { state } = await mutateCollection((current) => removeCollectionItems(current.collections, links));
+  return state.collections;
+});
+
+onMessage("clearPtppCollection", async () => {
+  const { state } = await mutateCollection((current) => clearCollection(current.collections));
+  return state.collections;
+});
+
+onMessage("updatePtppCollectionItem", async ({ data: { link, patch } }) => {
+  const { state } = await mutateCollection((current) => updateCollectionItem(current.collections, link, patch));
+  return state.collections;
+});
+
+onMessage("createPtppCollectionGroup", async ({ data }) => {
+  const { state } = await mutateCollection((current) => createCollectionGroup(current.collections, data));
+  return state.collections;
+});
+
+onMessage("updatePtppCollectionGroup", async ({ data: { groupId, patch } }) => {
+  const { state } = await mutateCollection((current) => updateCollectionGroup(current.collections, groupId, patch));
+  return state.collections;
+});
+
+onMessage("deletePtppCollectionGroup", async ({ data: { groupId } }) => {
+  const { state } = await mutateCollection((current) => deleteCollectionGroup(current.collections, groupId));
+  return state.collections;
+});
+
+onMessage("setPtppCollectionItemGroup", async ({ data: { link, groupId, assigned } }) => {
+  const { state } = await mutateCollection((current) =>
+    setCollectionItemGroup(current.collections, link, groupId, assigned),
+  );
+  return state.collections;
+});
+
+onMessage("setPtppDefaultCollectionGroup", async ({ data: { groupId } }) => {
+  const { state } = await mutateCollection((current) => setDefaultCollectionGroup(current.collections, groupId));
+  return state.collections;
+});

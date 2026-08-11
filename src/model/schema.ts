@@ -1,10 +1,7 @@
 export const MV3_SCHEMA_VERSION = 1;
 
 export type JsonPrimitive = string | number | boolean | null;
-export type JsonValue =
-  | JsonPrimitive
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
 export interface Dictionary<T> {
   [key: string]: T;
@@ -150,21 +147,29 @@ export interface CollectionGroupRecord extends LegacyRecord {
   id?: string;
   name?: string;
   count?: number;
+  color?: string;
+  description?: string;
+  update?: number;
 }
 
 export interface CollectionItemRecord extends LegacyRecord {
   siteId?: string;
   host?: string;
   title?: string;
+  subTitle?: string;
   url?: string;
   link?: string;
+  size?: number;
   groups?: string[];
   time?: number;
+  imdbId?: string;
+  movieInfo?: Record<string, unknown>;
 }
 
 export interface CollectionState {
   groups: CollectionGroupRecord[];
   items: CollectionItemRecord[];
+  defaultGroupId?: string;
 }
 
 export interface SearchResultRecord extends LegacyRecord {
@@ -229,13 +234,13 @@ export function createEmptyState(now: number): MV3State {
       createdAt: now,
       updatedAt: now,
       legacySourceKeys: [],
-      warnings: []
+      warnings: [],
     },
     settings: {
       globalDownloadTarget: emptyDownloadTarget(),
       userRefresh: { enabled: false, intervalMinutes: 24 * 60 },
       webDavBackup: { enabled: false, intervalMinutes: 24 * 60 },
-      legacyOptions: {}
+      legacyOptions: {},
     },
     sites: {},
     hostToSiteId: {},
@@ -248,6 +253,6 @@ export function createEmptyState(now: number): MV3State {
     searchSnapshots: [],
     keepUploadTasks: [],
     uiOptions: {},
-    systemLogs: []
+    systemLogs: [],
   };
 }

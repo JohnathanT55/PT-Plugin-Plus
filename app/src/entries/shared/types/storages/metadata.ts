@@ -106,6 +106,7 @@ export const BackupFields = [
   "searchResultSnapshot", // 备份搜索结果快照
   "keepUploadTask", // 备份辅种任务
   "downloadHistory", // 备份下载历史
+  "collection", // 备份收藏和收藏分组
 ] as const;
 export type TBackupFields = (typeof BackupFields)[number];
 

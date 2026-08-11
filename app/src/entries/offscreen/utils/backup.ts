@@ -62,6 +62,11 @@ export async function createBackupData(backupFields: TBackupFields[] = []): Prom
     backupData["downloadHistory"] = await (await ptdIndexDb).getAll("download_history");
   }
 
+  // 收藏使用版本化兼容仓库，由 service worker 负责读写。
+  if (backupFields.includes("collection")) {
+    backupData["collection"] = await sendMessage("getPtppCollectionState", undefined);
+  }
+
   backupData.manifest = {
     time: new Date().getTime(),
     version: `PT-Plugin-Plus MV3 (${__EXT_VERSION__})`,
@@ -86,7 +91,7 @@ export async function exportBackupData(
   backupFields: TBackupFields[] = [],
 ): Promise<boolean> {
   const backupData = await createBackupData(backupFields);
-  const backupFilename = `PTD_backup_${formatDate(new Date(), "yyyyMMdd'T'HHmm")}.zip`;
+  const backupFilename = `PTPP_backup_${formatDate(new Date(), "yyyyMMdd'T'HHmm")}.zip`;
 
   const configStore = (await sendMessage("getExtStorage", "config")) as IConfigPiniaStorageSchema;
   const encryptionKey = configStore?.backup?.encryptionKey ?? "";
@@ -133,6 +138,10 @@ export async function restoreBackupData(
     for (const downloadHistoryElement of restoreData.downloadHistory) {
       await db.put("download_history", downloadHistoryElement);
     }
+  }
+
+  if (restoreFields.includes("collection") && restoreData.collection) {
+    await sendMessage("replacePtppCollectionState", restoreData.collection);
   }
 
   // 恢复直接从 chrome.storage.local 读取的字段
@@ -183,7 +192,7 @@ function selectLegacyImportData(data: IPtppLegacyBackupImportPayload): Record<st
   if (selected.has("userInfo") && source[LEGACY_STORAGE_KEYS.userHistory]) {
     result[LEGACY_STORAGE_KEYS.userHistory] = source[LEGACY_STORAGE_KEYS.userHistory];
   }
-  if (selected.has("metadata") && source[LEGACY_STORAGE_KEYS.collections]) {
+  if (selected.has("collection") && source[LEGACY_STORAGE_KEYS.collections]) {
     result[LEGACY_STORAGE_KEYS.collections] = source[LEGACY_STORAGE_KEYS.collections];
   }
   if (selected.has("searchResultSnapshot") && source[LEGACY_STORAGE_KEYS.searchSnapshots]) {
@@ -235,10 +244,25 @@ export async function importPtppLegacyBackup(
   const now = Date.now();
   const migrated = migrateLegacyStorage(selectLegacyImportData(data), now);
 
-  // Keep the complete compatibility state (including collections) for the
-  // remaining legacy pages that will be connected later.
   const repository = new MV3Repository();
-  await repository.writeState(migrated.state);
+  const compatibilityState = structuredClone(await repository.reload());
+  const selected = new Set(data.fields);
+  if (selected.has("metadata")) {
+    compatibilityState.settings = migrated.state.settings;
+    compatibilityState.sites = migrated.state.sites;
+    compatibilityState.hostToSiteId = migrated.state.hostToSiteId;
+    compatibilityState.downloaders = migrated.state.downloaders;
+    compatibilityState.siteDownloadProfiles = migrated.state.siteDownloadProfiles;
+    compatibilityState.backupServers = migrated.state.backupServers;
+  }
+  if (selected.has("userInfo")) compatibilityState.userHistory = migrated.state.userHistory;
+  if (selected.has("downloadHistory")) compatibilityState.downloadHistory = migrated.state.downloadHistory;
+  if (selected.has("collection")) compatibilityState.collections = migrated.state.collections;
+  if (selected.has("searchResultSnapshot")) compatibilityState.searchSnapshots = migrated.state.searchSnapshots;
+  if (selected.has("keepUploadTask")) compatibilityState.keepUploadTasks = migrated.state.keepUploadTasks;
+  compatibilityState.metadata.warnings = migrated.state.metadata.warnings;
+  compatibilityState.metadata.migratedCounts = migrated.migratedCounts;
+  await repository.writeState(compatibilityState);
 
   const runtimeState = JSON.parse(JSON.stringify(migrated.state)) as typeof migrated.state;
   runtimeState.metadata.storageRevision = data.sourceRevision;

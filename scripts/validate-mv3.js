@@ -83,6 +83,12 @@ assert(workerSource.includes("searchResultSnapshot"), "PTPP search-snapshot migr
 assert(workerSource.includes("keepUploadTask"), "PTPP keep-upload migration is missing from worker bundle");
 assert(workerSource.includes("togglePtppCollection"), "PTPP favorites mutation handler is missing from worker bundle");
 assert(workerSource.includes("getPtppCollectionItem"), "PTPP favorites lookup handler is missing from worker bundle");
+assert(workerSource.includes("getPtppCollectionState"), "PTPP favorites state handler is missing from worker bundle");
+assert(workerSource.includes("createPtppCollectionGroup"), "PTPP favorite-group CRUD is missing from worker bundle");
+assert(
+  workerSource.includes("setPtppCollectionItemGroup"),
+  "PTPP favorite-group assignment is missing from worker bundle",
+);
 assert(!workerSource.includes("com.ptd.native"), "PTD-only native messaging bridge must not be bundled");
 
 const offscreenHtml = fs.readFileSync(outputPath("src/entries/offscreen/offscreen.html"), "utf8");

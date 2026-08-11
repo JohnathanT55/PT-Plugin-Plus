@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 import { sendMessage } from "@/messages.ts";
-import type { ISearchResultTorrent } from "@/shared/types.ts";
+import type { ITorrent } from "@ptd/site";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
@@ -20,7 +20,7 @@ const {
   showFavoriteBtn = false,
   showLabels = false,
 } = defineProps<{
-  torrentItems: ISearchResultTorrent[];
+  torrentItems: ITorrent[];
   density?: "compact" | "default";
   showKeepUploadBtn?: boolean;
   showFavoriteBtn?: boolean;
@@ -121,11 +121,42 @@ async function sendToDefaultDownloader() {
 }
 
 const favoriteLoading = ref(false);
+const singleFavoriteState = ref<boolean | null>(null);
+
+watch(
+  () => [torrentItems.length, torrentItems[0]?.url] as const,
+  async () => {
+    singleFavoriteState.value = null;
+    if (!showFavoriteBtn || torrentItems.length !== 1 || !torrentItems[0]?.url) return;
+    try {
+      singleFavoriteState.value = Boolean(await sendMessage("getPtppCollectionItem", torrentItems[0].url));
+    } catch {
+      singleFavoriteState.value = null;
+    }
+  },
+  { immediate: true },
+);
+
 async function addSelectedToCollection() {
   favoriteLoading.value = true;
   let addedCount = 0;
 
   try {
+    if (torrentItems.length === 1 && torrentItems[0]?.url) {
+      const result = await sendMessage("togglePtppCollection", {
+        torrent: torrentItems[0],
+        detailUrl: torrentItems[0].url,
+      });
+      singleFavoriteState.value = result.collected;
+      runtimeStore.showSnakebar(
+        t(result.collected ? "SearchEntity.ActionTd.collectionAdded" : "SearchEntity.ActionTd.collectionRemoved", {
+          count: 1,
+        }),
+        { color: "success" },
+      );
+      return;
+    }
+
     for (const torrent of torrentItems) {
       if (!torrent.url) continue;
       const existing = await sendMessage("getPtppCollectionItem", torrent.url);
@@ -228,8 +259,10 @@ function openKeepUploadDialog() {
       :title="t('SearchEntity.ActionTd.favorite')"
       @click="addSelectedToCollection"
     >
-      <v-icon icon="mdi-heart-outline" />
-      <span v-if="showLabels" class="ptpp-action-label">{{ t("SearchEntity.ActionTd.favorite") }}</span>
+      <v-icon :icon="singleFavoriteState ? 'mdi-heart-off' : 'mdi-heart-outline'" />
+      <span v-if="showLabels" class="ptpp-action-label">
+        {{ t(singleFavoriteState ? "SearchEntity.ActionTd.unfavorite" : "SearchEntity.ActionTd.favorite") }}
+      </span>
     </v-btn>
 
     <v-btn

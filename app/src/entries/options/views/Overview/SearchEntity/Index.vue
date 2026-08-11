@@ -443,7 +443,7 @@ const hiddenTagNamesText = computed({
       </template>
 
       <template #item.action="{ item }">
-        <ActionTd :torrent-items="[item]" density="compact" :show-keep-upload-btn="false" />
+        <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
       </template>
     </v-data-table>
   </v-card>

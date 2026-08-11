@@ -9,7 +9,7 @@ import {
   SiteDownloadProfile,
   SiteRecord,
   createEmptyState,
-  emptyDownloadTarget
+  emptyDownloadTarget,
 } from "../model/schema";
 import { LEGACY_STORAGE_KEYS } from "../storage/keys";
 
@@ -28,7 +28,7 @@ function deepClone(value: any): any {
   }
   if (value && typeof value === "object") {
     const result: Dictionary<any> = {};
-    Object.keys(value).forEach(key => {
+    Object.keys(value).forEach((key) => {
       result[key] = deepClone(value[key]);
     });
     return result;
@@ -62,7 +62,7 @@ const PTD_SITE_IDS_BY_HOST: Dictionary<string> = {
   "pttime.org": "pttime",
   "skyey2.com": "skyeysnow",
   "skyeysnow.com": "skyeysnow",
-  "u2.dmhy.org": "u2"
+  "u2.dmhy.org": "u2",
 };
 
 const PTD_SITE_IDS_BY_NAME: Dictionary<string> = {
@@ -77,7 +77,7 @@ const PTD_SITE_IDS_BY_NAME: Dictionary<string> = {
   mteam: "mteam",
   pttime: "pttime",
   skyeysnow: "skyeysnow",
-  u2: "u2"
+  u2: "u2",
 };
 
 function parsed(value: any): any {
@@ -93,9 +93,7 @@ function parsed(value: any): any {
 
 function objectValue(value: any): Dictionary<any> {
   const result = parsed(value);
-  return result && typeof result === "object" && !Array.isArray(result)
-    ? result
-    : {};
+  return result && typeof result === "object" && !Array.isArray(result) ? result : {};
 }
 
 function arrayValue(value: any): any[] {
@@ -121,7 +119,7 @@ function cloneObject(value: any): Dictionary<any> {
 function pickFields(value: any, fields: string[]): Dictionary<any> {
   const source = cloneObject(value);
   const result: Dictionary<any> = {};
-  fields.forEach(field => {
+  fields.forEach((field) => {
     if (Object.prototype.hasOwnProperty.call(source, field)) {
       result[field] = source[field];
     }
@@ -151,7 +149,7 @@ const SAFE_SITE_LEGACY_FIELDS = [
   "isCustom",
   "timezoneOffset",
   "disableMessageCount",
-  "upLoadLimit"
+  "upLoadLimit",
 ];
 
 const SAFE_SEARCH_ENTRY_FIELDS = [
@@ -170,15 +168,13 @@ const SAFE_SEARCH_ENTRY_FIELDS = [
   "headers",
   "skipIMDbId",
   "requestMethod",
-  "requestData"
+  "requestData",
 ];
 
 function safeSiteLegacyConfig(site: any): Dictionary<any> {
   const result = pickFields(site, SAFE_SITE_LEGACY_FIELDS);
   if (Array.isArray(site && site.searchEntry)) {
-    result.searchEntry = site.searchEntry.map((entry: any) =>
-      pickFields(entry, SAFE_SEARCH_ENTRY_FIELDS)
-    );
+    result.searchEntry = site.searchEntry.map((entry: any) => pickFields(entry, SAFE_SEARCH_ENTRY_FIELDS));
   }
   return result;
 }
@@ -190,12 +186,7 @@ function hasExecutableSiteConfig(site: any): boolean {
   return (
     Array.isArray(site.searchEntry) &&
     site.searchEntry.some(
-      (entry: any) =>
-        entry &&
-        (entry.parseScript ||
-          entry.parseScriptFile ||
-          entry.asyncParse ||
-          entry.beforeSearch)
+      (entry: any) => entry && (entry.parseScript || entry.parseScriptFile || entry.asyncParse || entry.beforeSearch),
     )
   );
 }
@@ -211,7 +202,7 @@ const SAFE_DOWNLOADER_LEGACY_FIELDS = [
   "tagIMDb",
   "tags",
   "type",
-  "value"
+  "value",
 ];
 
 const SAFE_BACKUP_SERVER_LEGACY_FIELDS = [
@@ -223,7 +214,7 @@ const SAFE_BACKUP_SERVER_LEGACY_FIELDS = [
   "loginName",
   "loginPwd",
   "authCode",
-  "digest"
+  "digest",
 ];
 
 function normalizeHost(value: any): string {
@@ -252,19 +243,14 @@ function hash(value: string): string {
   let result = 2166136261;
   for (let index = 0; index < value.length; index++) {
     result ^= value.charCodeAt(index);
-    result +=
-      (result << 1) +
-      (result << 4) +
-      (result << 7) +
-      (result << 8) +
-      (result << 24);
+    result += (result << 1) + (result << 4) + (result << 7) + (result << 8) + (result << 24);
   }
   return (result >>> 0).toString(36);
 }
 
 function uniqueStrings(values: any[]): string[] {
   const result: string[] = [];
-  values.forEach(value => {
+  values.forEach((value) => {
     if (typeof value !== "string") {
       return;
     }
@@ -289,7 +275,7 @@ function targetFromLegacy(value: any, tags?: any): DownloadTarget {
   }
 
   const directories: string[] = [];
-  candidates.forEach(candidate => {
+  candidates.forEach((candidate) => {
     if (typeof candidate === "string") {
       directories.push(candidate);
     } else if (candidate && typeof candidate.path === "string") {
@@ -301,7 +287,7 @@ function targetFromLegacy(value: any, tags?: any): DownloadTarget {
 
   return {
     directories: uniqueStrings(directories),
-    tags: uniqueStrings(Array.isArray(tags) ? tags : tags ? [tags] : [])
+    tags: uniqueStrings(Array.isArray(tags) ? tags : tags ? [tags] : []),
   };
 }
 
@@ -310,24 +296,17 @@ function mergeTarget(first: DownloadTarget, second: DownloadTarget): DownloadTar
     directories: mergeStrings(first.directories, second.directories),
     tags: mergeStrings(first.tags, second.tags),
     defaultDirectory: first.defaultDirectory || second.defaultDirectory,
-    autoStart:
-      typeof first.autoStart === "boolean" ? first.autoStart : second.autoStart
+    autoStart: typeof first.autoStart === "boolean" ? first.autoStart : second.autoStart,
   };
 }
 
-function warning(
-  warnings: MigrationWarning[],
-  code: string,
-  sourceKey?: string
-) {
+function warning(warnings: MigrationWarning[], code: string, sourceKey?: string) {
   warnings.push({ code, sourceKey });
 }
 
 function allocateSiteId(site: any, index: number): string {
   const host = normalizeHost(site && (site.host || site.url));
-  const canonicalId =
-    PTD_SITE_IDS_BY_HOST[host] ||
-    PTD_SITE_IDS_BY_NAME[slug(site && site.name, "")];
+  const canonicalId = PTD_SITE_IDS_BY_HOST[host] || PTD_SITE_IDS_BY_NAME[slug(site && site.name, "")];
   if (canonicalId) {
     return canonicalId;
   }
@@ -346,12 +325,7 @@ function allocateDownloaderId(client: any, index: number): string {
   return "downloader:" + name + ":" + hash(name + ":" + index);
 }
 
-function addHostAlias(
-  state: MV3State,
-  rawHost: any,
-  siteId: string,
-  warnings: MigrationWarning[]
-) {
+function addHostAlias(state: MV3State, rawHost: any, siteId: string, warnings: MigrationWarning[]) {
   const host = normalizeHost(rawHost);
   if (!host) {
     return;
@@ -364,11 +338,7 @@ function addHostAlias(
   state.hostToSiteId[host] = siteId;
 }
 
-function ensureSiteForHost(
-  state: MV3State,
-  rawHost: any,
-  warnings: MigrationWarning[]
-): string | undefined {
+function ensureSiteForHost(state: MV3State, rawHost: any, warnings: MigrationWarning[]): string | undefined {
   const host = normalizeHost(rawHost);
   if (!host || host === "__allsite__") {
     return undefined;
@@ -392,7 +362,7 @@ function ensureSiteForHost(
     hosts: [host],
     enabled: true,
     custom: true,
-    legacyConfig: { host }
+    legacyConfig: { host },
   };
   state.hostToSiteId[host] = siteId;
   warning(warnings, "synthetic-site-created", LEGACY_STORAGE_KEYS.config);
@@ -411,7 +381,7 @@ function migrateSites(state: MV3State, options: Dictionary<any>) {
       [activeHost, normalizeHost(site.activeURL), normalizeHost(site.url)]
         .concat(cdnHosts.map(normalizeHost))
         .concat(formerHosts.map(normalizeHost))
-        .filter((item: string) => !!item)
+        .filter((item: string) => !!item),
     );
     if (state.sites[siteId]) {
       if (siteId.indexOf("site:") !== 0) {
@@ -425,24 +395,14 @@ function migrateSites(state: MV3State, options: Dictionary<any>) {
           existing.defaultDownloaderId = site.defaultClientId;
         }
         const existingProfile = state.siteDownloadProfiles[siteId];
-        if (
-          existingProfile &&
-          !existingProfile.defaultDownloaderId &&
-          site.defaultClientId
-        ) {
+        if (existingProfile && !existingProfile.defaultDownloaderId && site.defaultClientId) {
           existingProfile.defaultDownloaderId = site.defaultClientId;
         }
-        if (
-          JSON.stringify(existing.legacyConfig) !== JSON.stringify(aliasConfig)
-        ) {
+        if (JSON.stringify(existing.legacyConfig) !== JSON.stringify(aliasConfig)) {
           if (!existing.legacyAliasConfigs) {
             existing.legacyAliasConfigs = [];
           }
-          if (
-            !existing.legacyAliasConfigs.some(
-              item => JSON.stringify(item) === JSON.stringify(aliasConfig)
-            )
-          ) {
+          if (!existing.legacyAliasConfigs.some((item) => JSON.stringify(item) === JSON.stringify(aliasConfig))) {
             existing.legacyAliasConfigs.push(aliasConfig);
           }
         }
@@ -450,17 +410,11 @@ function migrateSites(state: MV3State, options: Dictionary<any>) {
           warning(
             state.metadata.warnings,
             "legacy-site-executable-config-left-in-mv2-storage",
-            LEGACY_STORAGE_KEYS.config
+            LEGACY_STORAGE_KEYS.config,
           );
         }
-        hosts.forEach(host =>
-          addHostAlias(state, host, siteId, state.metadata.warnings)
-        );
-        warning(
-          state.metadata.warnings,
-          "ptd-site-alias-records-merged",
-          LEGACY_STORAGE_KEYS.config
-        );
+        hosts.forEach((host) => addHostAlias(state, host, siteId, state.metadata.warnings));
+        warning(state.metadata.warnings, "ptd-site-alias-records-merged", LEGACY_STORAGE_KEYS.config);
         return;
       }
       siteId += ":" + index;
@@ -472,29 +426,20 @@ function migrateSites(state: MV3State, options: Dictionary<any>) {
       activeHost: activeHost || undefined,
       hosts,
       enabled: site.value !== false && site.offline !== true,
-      defaultDownloaderId:
-        typeof site.defaultClientId === "string"
-          ? site.defaultClientId
-          : undefined,
+      defaultDownloaderId: typeof site.defaultClientId === "string" ? site.defaultClientId : undefined,
       custom: site.isCustom === true,
-      legacyConfig: safeSiteLegacyConfig(site)
+      legacyConfig: safeSiteLegacyConfig(site),
     };
     state.sites[siteId] = record;
     if (hasExecutableSiteConfig(site)) {
-      warning(
-        state.metadata.warnings,
-        "legacy-site-executable-config-left-in-mv2-storage",
-        LEGACY_STORAGE_KEYS.config
-      );
+      warning(state.metadata.warnings, "legacy-site-executable-config-left-in-mv2-storage", LEGACY_STORAGE_KEYS.config);
     }
     state.siteDownloadProfiles[siteId] = {
       siteId,
       defaultDownloaderId: record.defaultDownloaderId,
-      byDownloader: {}
+      byDownloader: {},
     };
-    hosts.forEach(host =>
-      addHostAlias(state, host, siteId, state.metadata.warnings)
-    );
+    hosts.forEach((host) => addHostAlias(state, host, siteId, state.metadata.warnings));
   });
 }
 
@@ -505,75 +450,53 @@ function migrateDownloaders(state: MV3State, options: Dictionary<any>) {
     let downloaderId = allocateDownloaderId(client, index);
     if (state.downloaders[downloaderId]) {
       downloaderId += ":" + index;
-      warning(
-        state.metadata.warnings,
-        "duplicate-downloader-id",
-        LEGACY_STORAGE_KEYS.config
-      );
+      warning(state.metadata.warnings, "duplicate-downloader-id", LEGACY_STORAGE_KEYS.config);
     }
 
     const paths = objectValue(client.paths);
-    const globalTarget = targetFromLegacy(
-      paths.__allSite__ || paths.__allsite__,
-      client.tags
-    );
+    const globalTarget = targetFromLegacy(paths.__allSite__ || paths.__allsite__, client.tags);
     globalTarget.defaultDirectory = globalTarget.directories[0];
-    globalTarget.autoStart =
-      typeof client.autoStart === "boolean" ? client.autoStart : undefined;
+    globalTarget.autoStart = typeof client.autoStart === "boolean" ? client.autoStart : undefined;
 
     const record: DownloaderRecord = {
       downloaderId,
       name: String(client.name || client.type || downloaderId),
       type: String(client.type || "unknown"),
       address: typeof client.address === "string" ? client.address : undefined,
-      username:
-        typeof client.loginName === "string" ? client.loginName : undefined,
-      password:
-        typeof client.loginPwd === "string" ? client.loginPwd : undefined,
+      username: typeof client.loginName === "string" ? client.loginName : undefined,
+      password: typeof client.loginPwd === "string" ? client.loginPwd : undefined,
       enabled: client.value !== false,
       defaultTarget: globalTarget,
-      legacyConfig: pickFields(client, SAFE_DOWNLOADER_LEGACY_FIELDS)
+      legacyConfig: pickFields(client, SAFE_DOWNLOADER_LEGACY_FIELDS),
     };
     state.downloaders[downloaderId] = record;
     if (client.script || client.scripts) {
       warning(
         state.metadata.warnings,
         "legacy-downloader-executable-config-left-in-mv2-storage",
-        LEGACY_STORAGE_KEYS.config
+        LEGACY_STORAGE_KEYS.config,
       );
     }
 
-    Object.keys(paths).forEach(rawHost => {
+    Object.keys(paths).forEach((rawHost) => {
       if (rawHost.toLowerCase() === "__allsite__") {
         return;
       }
-      const siteId = ensureSiteForHost(
-        state,
-        rawHost,
-        state.metadata.warnings
-      );
+      const siteId = ensureSiteForHost(state, rawHost, state.metadata.warnings);
       if (!siteId) {
         return;
       }
-      const profile: SiteDownloadProfile =
-        state.siteDownloadProfiles[siteId] || {
-          siteId,
-          defaultDownloaderId: state.sites[siteId].defaultDownloaderId,
-          byDownloader: {}
-        };
+      const profile: SiteDownloadProfile = state.siteDownloadProfiles[siteId] || {
+        siteId,
+        defaultDownloaderId: state.sites[siteId].defaultDownloaderId,
+        byDownloader: {},
+      };
       const target = targetFromLegacy(paths[rawHost], client.tags);
       target.defaultDirectory = target.directories[0];
       target.autoStart = record.defaultTarget.autoStart;
       if (profile.byDownloader[downloaderId]) {
-        profile.byDownloader[downloaderId] = mergeTarget(
-          profile.byDownloader[downloaderId],
-          target
-        );
-        warning(
-          state.metadata.warnings,
-          "site-path-alias-merged",
-          LEGACY_STORAGE_KEYS.config
-        );
+        profile.byDownloader[downloaderId] = mergeTarget(profile.byDownloader[downloaderId], target);
+        warning(state.metadata.warnings, "site-path-alias-merged", LEGACY_STORAGE_KEYS.config);
       } else {
         profile.byDownloader[downloaderId] = target;
       }
@@ -583,9 +506,7 @@ function migrateDownloaders(state: MV3State, options: Dictionary<any>) {
 }
 
 function migrateBackupServers(state: MV3State, options: Dictionary<any>) {
-  const servers = Array.isArray(options.backupServers)
-    ? options.backupServers
-    : [];
+  const servers = Array.isArray(options.backupServers) ? options.backupServers : [];
   servers.forEach((legacyServer: any, index: number) => {
     const server = legacyServer || {};
     let id =
@@ -600,35 +521,21 @@ function migrateBackupServers(state: MV3State, options: Dictionary<any>) {
       type: String(server.type || "unknown"),
       name: String(server.name || server.type || id),
       address: typeof server.address === "string" ? server.address : "",
-      username:
-        typeof server.loginName === "string" ? server.loginName : undefined,
-      password:
-        typeof server.loginPwd === "string" ? server.loginPwd : undefined,
-      authCode:
-        typeof server.authCode === "string" ? server.authCode : undefined,
+      username: typeof server.loginName === "string" ? server.loginName : undefined,
+      password: typeof server.loginPwd === "string" ? server.loginPwd : undefined,
+      authCode: typeof server.authCode === "string" ? server.authCode : undefined,
       digest: typeof server.digest === "boolean" ? server.digest : undefined,
-      lastBackupTime:
-        typeof server.lastBackupTime === "number"
-          ? server.lastBackupTime
-          : undefined,
-      legacyConfig: pickFields(server, SAFE_BACKUP_SERVER_LEGACY_FIELDS)
+      lastBackupTime: typeof server.lastBackupTime === "number" ? server.lastBackupTime : undefined,
+      legacyConfig: pickFields(server, SAFE_BACKUP_SERVER_LEGACY_FIELDS),
     };
     state.backupServers[id] = record;
   });
 }
 
-function remapHostData(
-  state: MV3State,
-  source: Dictionary<any>,
-  sourceKey: string
-): Dictionary<any> {
+function remapHostData(state: MV3State, source: Dictionary<any>, sourceKey: string): Dictionary<any> {
   const result: Dictionary<any> = {};
-  Object.keys(source).forEach(rawHost => {
-    const siteId = ensureSiteForHost(
-      state,
-      rawHost,
-      state.metadata.warnings
-    );
+  Object.keys(source).forEach((rawHost) => {
+    const siteId = ensureSiteForHost(state, rawHost, state.metadata.warnings);
     if (!siteId) {
       return;
     }
@@ -639,7 +546,7 @@ function remapHostData(
     }
 
     const existing = result[siteId];
-    Object.keys(incoming).forEach(dataKey => {
+    Object.keys(incoming).forEach((dataKey) => {
       if (!Object.prototype.hasOwnProperty.call(existing, dataKey)) {
         existing[dataKey] = incoming[dataKey];
         return;
@@ -650,13 +557,7 @@ function remapHostData(
       let conflictKey = "__conflict__:" + hash(normalizeHost(rawHost)) + ":" + dataKey;
       let suffix = 1;
       while (Object.prototype.hasOwnProperty.call(existing, conflictKey)) {
-        conflictKey =
-          "__conflict__:" +
-          hash(normalizeHost(rawHost)) +
-          ":" +
-          dataKey +
-          ":" +
-          suffix++;
+        conflictKey = "__conflict__:" + hash(normalizeHost(rawHost)) + ":" + dataKey + ":" + suffix++;
       }
       existing[conflictKey] = incoming[dataKey];
       warning(state.metadata.warnings, "host-data-conflict-preserved", sourceKey);
@@ -667,16 +568,12 @@ function remapHostData(
 }
 
 function annotateDownloadHistory(state: MV3State, items: any[]): any[] {
-  return items.map(item => {
+  return items.map((item) => {
     if (!item || typeof item !== "object") {
       return item;
     }
     const copy = Object.assign({}, item);
-    const siteId = ensureSiteForHost(
-      state,
-      item.host,
-      state.metadata.warnings
-    );
+    const siteId = ensureSiteForHost(state, item.host, state.metadata.warnings);
     if (siteId) {
       copy.siteId = siteId;
     }
@@ -693,36 +590,31 @@ function annotateEmbeddedSite(state: MV3State, item: any): any {
   }
   const copy = Object.assign({}, item);
   const rawHost = item.host || (item.site && item.site.host);
-  const siteId = ensureSiteForHost(
-    state,
-    rawHost,
-    state.metadata.warnings
-  );
+  const siteId = ensureSiteForHost(state, rawHost, state.metadata.warnings);
   if (siteId) {
     copy.siteId = siteId;
   }
   return copy;
 }
 
-function migrateCollections(value: any): CollectionState {
+function migrateCollections(value: any, defaultGroupId?: string): CollectionState {
   const parsedValue = parsed(value);
-  const data = Array.isArray(parsedValue)
-    ? { groups: [], items: parsedValue }
-    : objectValue(parsedValue);
-  const groups = Array.isArray(data.groups)
-    ? data.groups.map((group: any) => Object.assign({}, group))
-    : [];
+  const data = Array.isArray(parsedValue) ? { groups: [], items: parsedValue } : objectValue(parsedValue);
+  const groups = Array.isArray(data.groups) ? data.groups.map((group: any) => Object.assign({}, group)) : [];
   const items = Array.isArray(data.items) ? data.items.slice() : [];
   groups.forEach((group: any) => {
     if (!group || !group.id) {
       return;
     }
     group.count = items.filter(
-      (item: any) =>
-        item && Array.isArray(item.groups) && item.groups.indexOf(group.id) !== -1
+      (item: any) => item && Array.isArray(item.groups) && item.groups.indexOf(group.id) !== -1,
     ).length;
   });
-  return { groups, items };
+  return {
+    groups,
+    items,
+    ...(defaultGroupId && groups.some((group: any) => group?.id === defaultGroupId) ? { defaultGroupId } : {}),
+  };
 }
 
 function legacyOptionsWithoutStructuredData(options: Dictionary<any>) {
@@ -734,34 +626,24 @@ function legacyOptionsWithoutStructuredData(options: Dictionary<any>) {
   return result;
 }
 
-export function migrateLegacyStorage(
-  legacy: LegacyStorageSnapshot,
-  now: number
-): LegacyMigrationResult {
+export function migrateLegacyStorage(legacy: LegacyStorageSnapshot, now: number): LegacyMigrationResult {
   const state = createEmptyState(now);
   const options = objectValue(legacy[LEGACY_STORAGE_KEYS.config]);
   migrateSites(state, options);
   migrateDownloaders(state, options);
   migrateBackupServers(state, options);
 
-  state.settings.locale =
-    typeof options.locale === "string" ? options.locale : undefined;
+  state.settings.locale = typeof options.locale === "string" ? options.locale : undefined;
   state.settings.defaultDownloaderId =
-    typeof options.defaultClientId === "string"
-      ? options.defaultClientId
-      : undefined;
+    typeof options.defaultClientId === "string" ? options.defaultClientId : undefined;
   state.settings.userRefresh = {
     enabled: options.autoRefreshUserData === true,
     intervalMinutes: Math.max(
       1,
-      Number(options.autoRefreshUserDataHours || 0) * 60 +
-        Number(options.autoRefreshUserDataMinutes || 0) ||
-        24 * 60
+      Number(options.autoRefreshUserDataHours || 0) * 60 + Number(options.autoRefreshUserDataMinutes || 0) || 24 * 60,
     ),
     nextRunAt:
-      typeof options.autoRefreshUserDataNextTime === "number"
-        ? options.autoRefreshUserDataNextTime
-        : undefined,
+      typeof options.autoRefreshUserDataNextTime === "number" ? options.autoRefreshUserDataNextTime : undefined,
     retryCount:
       typeof options.autoRefreshUserDataFailedRetryCount === "number"
         ? options.autoRefreshUserDataFailedRetryCount
@@ -769,40 +651,32 @@ export function migrateLegacyStorage(
     retryIntervalMinutes:
       typeof options.autoRefreshUserDataFailedRetryInterval === "number"
         ? options.autoRefreshUserDataFailedRetryInterval
-        : undefined
+        : undefined,
   };
   state.settings.legacyOptions = legacyOptionsWithoutStructuredData(options);
 
   state.userHistory = remapHostData(
     state,
     objectValue(legacy[LEGACY_STORAGE_KEYS.userHistory]),
-    LEGACY_STORAGE_KEYS.userHistory
+    LEGACY_STORAGE_KEYS.userHistory,
   );
-  state.downloadHistory = annotateDownloadHistory(
-    state,
-    arrayValue(legacy[LEGACY_STORAGE_KEYS.downloadHistory])
-  );
+  state.downloadHistory = annotateDownloadHistory(state, arrayValue(legacy[LEGACY_STORAGE_KEYS.downloadHistory]));
   state.collections = migrateCollections(
-    legacy[LEGACY_STORAGE_KEYS.collections]
+    legacy[LEGACY_STORAGE_KEYS.collections],
+    typeof options.defaultCollectionGroupId === "string" ? options.defaultCollectionGroupId : undefined,
   );
-  state.collections.items = state.collections.items.map(item =>
-    annotateEmbeddedSite(state, item)
-  );
+  state.collections.items = state.collections.items.map((item) => annotateEmbeddedSite(state, item));
 
-  state.searchSnapshots = nestedItems(
-    legacy[LEGACY_STORAGE_KEYS.searchSnapshots]
-  ).map(snapshot => {
+  state.searchSnapshots = nestedItems(legacy[LEGACY_STORAGE_KEYS.searchSnapshots]).map((snapshot) => {
     if (!snapshot || !Array.isArray(snapshot.result)) {
       return snapshot;
     }
     return Object.assign({}, snapshot, {
-      result: snapshot.result.map((item: any) => annotateEmbeddedSite(state, item))
+      result: snapshot.result.map((item: any) => annotateEmbeddedSite(state, item)),
     });
   });
 
-  state.keepUploadTasks = nestedItems(
-    legacy[LEGACY_STORAGE_KEYS.keepUploadTasks]
-  ).map(task => {
+  state.keepUploadTasks = nestedItems(legacy[LEGACY_STORAGE_KEYS.keepUploadTasks]).map((task) => {
     if (!task || typeof task !== "object") {
       return task;
     }
@@ -823,9 +697,7 @@ export function migrateLegacyStorage(
   state.systemLogs = arrayValue(legacy[LEGACY_STORAGE_KEYS.systemLogs]);
 
   state.metadata.legacyImportedAt = now;
-  state.metadata.legacySourceKeys = Object.keys(legacy).filter(
-    key => typeof legacy[key] !== "undefined"
-  );
+  state.metadata.legacySourceKeys = Object.keys(legacy).filter((key) => typeof legacy[key] !== "undefined");
   state.metadata.updatedAt = now;
 
   return {
@@ -840,7 +712,7 @@ export function migrateLegacyStorage(
       collectionGroups: state.collections.groups.length,
       collections: state.collections.items.length,
       searchSnapshots: state.searchSnapshots.length,
-      keepUploadTasks: state.keepUploadTasks.length
-    }
+      keepUploadTasks: state.keepUploadTasks.length,
+    },
   };
 }

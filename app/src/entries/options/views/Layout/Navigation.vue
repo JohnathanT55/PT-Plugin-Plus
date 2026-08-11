@@ -51,7 +51,13 @@ function clickMenuItem() {
 </script>
 
 <template>
-  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :width="220">
+  <v-navigation-drawer
+    id="ptpp-navigation"
+    v-model="drawerOpen"
+    :mobile="false"
+    :width="220"
+    disable-route-watcher
+  >
     <!-- 侧边栏导航标题 -->
     <v-list density="compact" nav>
       <template v-for="(group, groupIndex) in menuOptions" :key="groupIndex">

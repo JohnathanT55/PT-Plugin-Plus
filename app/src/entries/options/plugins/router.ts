@@ -62,6 +62,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("../views/Overview/DownloadHistory/Index.vue"),
       },
       {
+        path: "/my-collection",
+        name: "MyCollection",
+        meta: { icon: "mdi-heart" },
+        component: () => import("../views/Overview/MyCollection/Index.vue"),
+      },
+      {
         path: "/keep-upload-task",
         name: "KeepUploadTask",
         meta: { icon: "mdi-merge" },

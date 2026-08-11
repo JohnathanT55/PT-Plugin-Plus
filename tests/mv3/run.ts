@@ -49,6 +49,7 @@ const legacy = {
         address: "https://transmission.example.invalid",
       },
     ],
+    defaultCollectionGroupId: "group-a",
     backupServers: [
       {
         id: "webdav-fixture",
@@ -175,6 +176,7 @@ assert(
 );
 assert(state.downloadHistory.length === 2, "download failures are not deduplicated");
 assert(state.collections.groups[0].count === 1, "collection counts are recalculated");
+assert(state.collections.defaultGroupId === "group-a", "legacy default favorite group is retained");
 assert(state.searchSnapshots[0].result![0].siteId === siteId, "search snapshot results receive siteId annotations");
 assert(
   state.keepUploadTasks[0].downloadOptions!.downloaderId === "qb-fixture",

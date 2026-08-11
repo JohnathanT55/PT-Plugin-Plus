@@ -10,6 +10,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "tests/mv3/run.ts"],
+  "include": ["src/**/*.ts", "tests/mv3/run.ts", "tests/mv3/collection.ts"],
   "exclude": ["dist-chrome", "dist-firefox", "legacy-mv2", "node_modules"]
 }

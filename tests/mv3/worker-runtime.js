@@ -38,6 +38,9 @@ assert(worker.includes("ptppMigrationKey"), "service worker bundles idempotent P
 assert(worker.includes("userHistorySites"), "service worker bundles PTPP user-history runtime migration");
 assert(worker.includes("togglePtppCollection"), "service worker owns the PTPP favorites mutation handler");
 assert(worker.includes("getPtppCollectionItem"), "service worker owns the PTPP favorites lookup handler");
+assert(worker.includes("getPtppCollectionState"), "service worker exposes complete PTPP favorites state");
+assert(worker.includes("createPtppCollectionGroup"), "service worker exposes favorite-group CRUD");
+assert(worker.includes("setPtppCollectionItemGroup"), "service worker exposes favorite-group assignment");
 assert(!worker.includes("com.ptd.native"), "service worker excludes the PTD-only native messaging bridge");
 assert(
   !offscreenModule.includes("togglePtppCollection"),
@@ -65,6 +68,8 @@ const requiredSourceModules = [
   "app/src/entries/options/main.ts",
   "app/src/entries/background/main.ts",
   "app/src/entries/background/utils/collection.ts",
+  "app/src/entries/options/views/Overview/MyCollection/Index.vue",
+  "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
   "app/src/entries/options/components/DownloadTargetMenu.vue",
@@ -118,6 +123,11 @@ const setDownloaderSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Settings/SetDownloader/Index.vue"),
   "utf8",
 );
+const collectionSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Overview/MyCollection/Index.vue"),
+  "utf8",
+);
+const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
 assert(!downloadMenuSource.includes("<v-menu"), "download-to uses the PTPP anchored menu instead of a PTD overlay");
 assert(downloadMenuSource.includes('role="menu"'), "download-to anchored menu preserves menu semantics");
 assert(
@@ -135,6 +145,20 @@ assert(
 for (const ptdOnlyRoute of ["MediaServerEntity", "MyClient", "SetMediaServer", "Debugger"]) {
   assert(!optionsRouterSource.includes(ptdOnlyRoute), `options router excludes PTD-only route: ${ptdOnlyRoute}`);
 }
+assert(optionsRouterSource.includes('name: "MyCollection"'), "options router exposes the PTPP favorites page");
+assert(
+  collectionSource.includes("ptpp-collection-groups") && collectionSource.includes("getPtppCollectionState"),
+  "favorites use the PTPP group-card and full-width table layout",
+);
+assert(
+  collectionSource.includes("ActionTd") && collectionSource.includes("setPtppCollectionItemGroup"),
+  "favorites support downloader actions and group assignment",
+);
+assert(
+  backupSource.includes('backupFields.includes("collection")') &&
+    backupSource.includes('restoreFields.includes("collection")'),
+  "favorites participate in current local and WebDAV backup round trips",
+);
 assert(
   ["general", "search", "download", "advanced"].every((tabKey) => optionsRouterSource.includes(`tabKey: "${tabKey}"`)),
   "general settings expose the four PTPP tab groups",
