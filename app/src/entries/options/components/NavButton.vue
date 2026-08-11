@@ -13,7 +13,7 @@ const { disabled = false, ...props } = defineProps<{
 <template>
   <v-btn
     v-bind="$attrs"
-    :class="{ 'nav-button-full': !display.smAndDown.value }"
+    :class="['ptpp-toolbar-button', { 'nav-button-full': !display.smAndDown.value }]"
     :icon="display.smAndDown.value"
     :prepend-icon="display.smAndDown.value ? undefined : props.icon"
     :rounded="display.smAndDown.value ? 0 : 4 /* default rounded */"
@@ -28,6 +28,19 @@ const { disabled = false, ...props } = defineProps<{
 </template>
 
 <style scoped lang="scss">
+.nav-button-full {
+  align-self: center;
+  box-sizing: border-box;
+  height: 36px !important;
+  min-height: 36px !important;
+}
+
+.ptpp-toolbar-button :deep(.v-btn__content) {
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+}
+
 .nav-button-full + .nav-button-full {
   margin-left: 4px;
 }

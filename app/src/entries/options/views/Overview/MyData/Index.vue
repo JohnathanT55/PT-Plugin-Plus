@@ -162,10 +162,20 @@ function viewStatistic() {
           @click="multiFlush"
         />
 
-        <v-btn class="ptpp-chart-button" color="green" :title="t('MyData.index.viewTimeline')" @click="viewTimeline">
+        <v-btn
+          class="ptpp-chart-button ptpp-toolbar-button--fixed"
+          color="green"
+          :title="t('MyData.index.viewTimeline')"
+          @click="viewTimeline"
+        >
           <v-icon icon="mdi-chart-timeline-variant" />
         </v-btn>
-        <v-btn class="ptpp-chart-button" color="green" :title="t('MyData.index.viewStatistic')" @click="viewStatistic">
+        <v-btn
+          class="ptpp-chart-button ptpp-toolbar-button--fixed"
+          color="green"
+          :title="t('MyData.index.viewStatistic')"
+          @click="viewStatistic"
+        >
           <v-icon icon="mdi-equalizer" />
         </v-btn>
         <v-menu :close-on-content-clicks="false">

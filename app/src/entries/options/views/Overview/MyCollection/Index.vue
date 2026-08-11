@@ -390,7 +390,7 @@ onMounted(loadCollection);
   </section>
 
   <v-card class="ptpp-collection-table">
-    <v-card-title class="ptpp-collection-toolbar">
+    <v-card-title class="ptpp-collection-toolbar ptpp-page-toolbar">
       <div class="ptpp-collection-toolbar__actions">
         <NavButton
           :disabled="selectedItems.length === 0"
@@ -657,7 +657,7 @@ onMounted(loadCollection);
   align-items: center;
   display: flex;
   gap: 12px;
-  min-height: 58px;
+  min-height: 64px;
 }
 
 .ptpp-collection-toolbar__actions {

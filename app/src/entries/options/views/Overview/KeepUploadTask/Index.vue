@@ -10,6 +10,7 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
+import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 
 const { t } = useI18n();
@@ -274,32 +275,34 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
 </script>
 
 <template>
-  <v-alert type="info">
-    {{ t("KeepUploadTask.title") }}
-  </v-alert>
+  <v-alert :title="t('KeepUploadTask.title')" type="info" />
 
   <v-card>
-    <v-card-title>
-      <v-btn color="error" :disabled="selectedTasks.length === 0" class="mr-2" @click="deleteSelectedTasks">
-        <v-icon class="mr-2">mdi-delete</v-icon>
-        {{ t("common.remove") }}
-      </v-btn>
+    <v-card-title class="ptpp-page-toolbar">
+      <NavButton
+        color="error"
+        :disabled="selectedTasks.length === 0"
+        icon="mdi-delete"
+        :text="t('common.remove')"
+        @click="deleteSelectedTasks"
+      />
 
-      <v-btn color="error" :disabled="tasks.length === 0" @click="clearAllTasks">
-        <v-icon class="mr-2">mdi-delete-sweep</v-icon>
-        {{ t("KeepUploadTask.clearAll") }}
-      </v-btn>
+      <NavButton
+        color="error"
+        :disabled="tasks.length === 0"
+        icon="mdi-delete-sweep"
+        :text="t('KeepUploadTask.clearAll')"
+        @click="clearAllTasks"
+      />
 
-      <v-btn
+      <NavButton
         color="info"
+        icon="mdi-help"
+        :text="t('common.howToUse')"
         href="https://github.com/pt-plugins/PT-Plugin-Plus/wiki/keep-upload-task"
         target="_blank"
         rel="noopener noreferrer nofollow"
-        class="ml-2"
-      >
-        <v-icon class="mr-2">mdi-help</v-icon>
-        {{ t("common.howToUse") }}
-      </v-btn>
+      />
     </v-card-title>
 
     <v-data-table

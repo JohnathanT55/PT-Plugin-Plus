@@ -336,6 +336,63 @@ body,
     min-height: 64px;
   }
 
+  /* Keep full-width page toolbars on the archived PTPP geometry. */
+  .ptpp-page-toolbar {
+    box-sizing: border-box;
+    display: flex;
+    min-height: 64px !important;
+    padding: 14px 16px !important;
+
+    > .v-row {
+      align-items: center;
+      flex: 1 1 auto;
+      min-height: 36px;
+    }
+
+    .v-input--density-compact,
+    .v-input--density-compact .v-field {
+      --v-input-control-height: 36px !important;
+    }
+
+    .v-input--density-compact,
+    .v-input--density-compact .v-input__control,
+    .v-input--density-compact .v-field {
+      height: 36px;
+      min-height: 36px;
+    }
+
+    .v-input--density-compact .v-input__append,
+    .v-input--density-compact .v-input__prepend {
+      align-items: center;
+      padding-top: 0;
+    }
+
+    @media (min-width: 961px) {
+      height: 64px !important;
+
+      > .v-row {
+        flex-wrap: nowrap;
+        height: 36px;
+        max-height: 36px;
+      }
+    }
+  }
+
+  .ptpp-toolbar-button.nav-button-full.v-btn,
+  .ptpp-toolbar-button--fixed.v-btn {
+    align-self: center;
+    box-sizing: border-box;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .ptpp-toolbar-button .v-btn__content,
+  .ptpp-toolbar-button--fixed .v-btn__content {
+    align-items: center;
+    height: 100%;
+    line-height: 1;
+  }
+
   .v-data-table {
     background: var(--ptpp-card-background);
     color: var(--ptpp-primary-text);

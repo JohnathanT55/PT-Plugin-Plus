@@ -161,11 +161,9 @@ async function copySearchSolution(solutionId: TSolutionKey) {
 </script>
 
 <template>
-  <v-alert type="info">
-    <v-alert-title> {{ t("route.Settings.SetSearchSolution") }} </v-alert-title>
-  </v-alert>
+  <v-alert :title="t('route.Settings.SetSearchSolution')" type="info" />
   <v-card>
-    <v-card-title>
+    <v-card-title class="ptpp-page-toolbar">
       <v-row class="ma-0">
         <NavButton :text="t('common.btn.add')" color="success" icon="mdi-plus" @click="addSearchSolution" />
 

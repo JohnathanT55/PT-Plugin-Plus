@@ -75,7 +75,7 @@ async function confirmDeleteSearchSnapshot(searchSnapshotId: TSearchSnapshotKey)
 <template>
   <v-alert type="info" :title="t('route.Overview.SearchResultSnapshot')" />
   <v-card>
-    <v-card-title>
+    <v-card-title class="ptpp-page-toolbar">
       <v-row class="ma-0">
         <NavButton
           :disabled="tableSelected.length === 0"

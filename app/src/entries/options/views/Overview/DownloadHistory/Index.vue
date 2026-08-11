@@ -117,7 +117,7 @@ onUnmounted(() => {
 <template>
   <v-alert :title="t('route.Overview.DownloadHistory')" type="info" />
   <v-card>
-    <v-card-title>
+    <v-card-title class="ptpp-page-toolbar">
       <v-row class="ma-0">
         <!-- 按钮组 -->
         <NavButton

@@ -121,7 +121,7 @@ async function removeTarget(siteId: string) {
 <template>
   <v-alert class="mb-2" :title="t('route.Settings.SetDownloadPaths')" type="info" />
   <v-card>
-    <v-card-title class="d-flex align-center ga-3">
+    <v-card-title class="d-flex align-center ga-3 ptpp-page-toolbar">
       <v-select
         v-model="selectedDownloaderId"
         :items="downloaders"
