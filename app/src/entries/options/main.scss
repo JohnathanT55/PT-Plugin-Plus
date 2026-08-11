@@ -112,6 +112,17 @@ body,
       color: #fff !important;
     }
 
+    .ptpp-nav-toggle {
+      border-radius: 50% !important;
+      overflow: hidden;
+
+      .v-btn__overlay,
+      .v-btn__underlay,
+      .v-ripple__container {
+        border-radius: inherit;
+      }
+    }
+
     .v-app-bar-title {
       font-size: 19px;
       font-weight: 500;

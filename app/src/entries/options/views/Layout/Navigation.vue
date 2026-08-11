@@ -17,9 +17,9 @@ const configStore = useConfigStore();
 
 const display = useDisplay();
 const drawerOpen = computed({
-  get: () => display.mdAndUp.value || configStore.isNavBarOpen,
+  get: () => configStore.isNavBarOpen,
   set: (value: boolean) => {
-    if (display.smAndDown.value) configStore.isNavBarOpen = value;
+    configStore.isNavBarOpen = value;
   },
 });
 
@@ -51,7 +51,7 @@ function clickMenuItem() {
 </script>
 
 <template>
-  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :permanent="display.mdAndUp.value" :width="220">
+  <v-navigation-drawer id="ptpp-navigation" v-model="drawerOpen" :width="220">
     <!-- 侧边栏导航标题 -->
     <v-list density="compact" nav>
       <template v-for="(group, groupIndex) in menuOptions" :key="groupIndex">

@@ -73,6 +73,7 @@ watch(
   <v-app-bar id="ptpp-topbar" app color="amber" :height="64">
     <template #prepend>
       <v-app-bar-nav-icon
+        class="ptpp-nav-toggle"
         :title="t('layout.header.navBarTip')"
         variant="text"
         @click="configStore.isNavBarOpen = !configStore.isNavBarOpen"
