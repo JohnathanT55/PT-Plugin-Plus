@@ -9,6 +9,7 @@ import ActionTd from "@/options/views/Overview/SearchEntity/ActionTd.vue";
 const props = defineProps<{
   id: string;
   name: string;
+  description?: string;
   count: number;
   totalSize: number;
   color?: string;
@@ -72,6 +73,7 @@ const cardColor = computed(() => {
       </div>
       <strong>{{ count }}</strong>
     </div>
+    <div v-if="description" class="ptpp-collection-group__description" :title="description">{{ description }}</div>
     <div class="ptpp-collection-group__size">{{ formatSize(totalSize) }}</div>
 
     <div class="ptpp-collection-group__actions" @click.stop>
@@ -104,11 +106,11 @@ const cardColor = computed(() => {
   color: #fff;
   cursor: pointer;
   display: grid;
-  flex: 0 0 280px;
+  flex: 0 0 230px;
   gap: 2px;
-  min-height: 112px;
+  min-height: 96px;
   outline: none;
-  padding: 10px 12px 7px;
+  padding: 8px 10px 5px;
   transition:
     box-shadow 120ms ease,
     transform 120ms ease;
@@ -153,15 +155,39 @@ const cardColor = computed(() => {
   opacity: 0.88;
 }
 
+.ptpp-collection-group__description {
+  font-size: 12px;
+  opacity: 0.88;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ptpp-collection-group__actions {
   align-items: center;
   display: flex;
   margin-left: -7px;
   margin-top: auto;
   min-height: 32px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
 
   :deep(.v-btn) {
     color: #fff !important;
+  }
+}
+
+.ptpp-collection-group:hover .ptpp-collection-group__actions,
+.ptpp-collection-group:focus-within .ptpp-collection-group__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .ptpp-collection-group__actions {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 </style>

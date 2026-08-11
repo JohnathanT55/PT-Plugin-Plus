@@ -225,14 +225,18 @@
     "headers": {
       "groups": "Groups",
       "size": "Size",
+      "source": "Source",
       "time": "Favorite Time",
       "title": "Title"
     },
     "help": "Help",
+    "invalidDoubanId": "Douban ID must contain digits only",
+    "invalidImdbId": "IMDb ID must use the tt followed by digits format",
     "itemSaved": "Favorite saved",
     "loadFailed": "Failed to load favorites",
     "noCustomGroups": "No favorite groups yet",
     "noGroup": "Ungrouped",
+    "openMovieInfo": "Open movie information",
     "removeConfirm": "Delete the selected {count} favorites?",
     "removeGroupConfirm": "Delete group “{name}”? Its {count} favorites will become ungrouped.",
     "removed": "Favorites removed",

@@ -11,6 +11,7 @@ import {
   updateCollectionGroup,
   updateCollectionItem,
 } from "../../src/collection/model";
+import { COLLECTION_ALL_GROUP_ID, COLLECTION_NO_GROUP_ID, visibleCollectionGroupIds } from "../../src/collection/view";
 import type { CollectionState } from "../../src/model/schema";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -82,13 +83,63 @@ assert(deleteCollectionGroup(state, groupA.id!), "groups can be deleted");
 assert(!state.items[0].groups?.includes(groupA.id!), "group deletion removes references from favorites");
 assert(!state.defaultGroupId, "deleting the default group clears the default selection");
 
+assert(
+  visibleCollectionGroupIds({ groups: [], items: [{ link: "https://tracker.invalid/details/1" }] }).length === 0,
+  "the group strip is hidden when all favorites are redundantly ungrouped",
+);
+
+const archiveGroup = { id: "archive", name: "Archive", count: 0 };
 const repaired = reconcileCollectionState({
-  groups: [groupB, { ...groupB, name: "Duplicate ID" }],
-  items: [state.items[0], { ...state.items[0], title: "Duplicate item" }, { title: "Missing detail URL" }],
+  groups: [groupB, { ...groupB, name: "Duplicate ID" }, archiveGroup],
+  items: [
+    {
+      title: "Primary item",
+      link: "https://tracker.invalid/details.php?id=42&hit=1",
+      groups: [groupB.id!],
+      time: 2_000,
+    },
+    {
+      subTitle: "Metadata from duplicate",
+      url: "https://tracker.invalid/download.php?id=42&token=fixture",
+      link: "https://tracker.invalid/details.php?id=42&page=2",
+      groups: [archiveGroup.id],
+      time: 1_000,
+      movieInfo: { imdbId: "tt1234567", title: "Fixture Movie" },
+    },
+    { title: "Missing detail URL" },
+  ],
   defaultGroupId: "missing-group",
 });
-assert(repaired.groups.length === 1 && repaired.items.length === 1, "damaged duplicate collection state is reconciled");
+assert(repaired.groups.length === 2 && repaired.items.length === 1, "damaged duplicate collection state is reconciled");
+assert(
+  repaired.items[0].title === "Primary item" &&
+    repaired.items[0].subTitle === "Metadata from duplicate" &&
+    repaired.items[0].movieInfo?.imdbId === "tt1234567" &&
+    repaired.items[0].time === 1_000,
+  "normalized duplicate favorites retain the richest metadata and earliest favorite time",
+);
+assert(
+  repaired.items[0].groups?.includes(groupB.id!) && repaired.items[0].groups?.includes(archiveGroup.id),
+  "normalized duplicate favorites merge group membership without data loss",
+);
 assert(!repaired.defaultGroupId, "invalid default group references are removed");
+assert(
+  JSON.stringify(visibleCollectionGroupIds(repaired)) ===
+    JSON.stringify([COLLECTION_ALL_GROUP_ID, groupB.id, archiveGroup.id]),
+  "custom groups keep the PTPP group strip while omitting an empty synthetic ungrouped card",
+);
+
+const mixedGroups = visibleCollectionGroupIds({
+  groups: [archiveGroup],
+  items: [
+    { link: "https://tracker.invalid/details/1", groups: [archiveGroup.id] },
+    { link: "https://tracker.invalid/details/2", groups: [] },
+  ],
+});
+assert(
+  mixedGroups.includes(COLLECTION_NO_GROUP_ID),
+  "the synthetic ungrouped card appears only when it represents a distinct subset",
+);
 
 assert(removeCollectionItems(state, [state.items[0].link!]) === 1, "batch removal reports removed favorites");
 assert(state.items.length === 0 && state.groups[0].count === 0, "batch removal updates state and counts");

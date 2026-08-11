@@ -4,6 +4,11 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { DataTableHeader } from "vuetify";
 import type { ITorrent, TSiteID } from "@ptd/site";
+import {
+  COLLECTION_ALL_GROUP_ID,
+  COLLECTION_NO_GROUP_ID,
+  visibleCollectionGroupIds,
+} from "@foundation/collection/view";
 
 import {
   sendMessage,
@@ -21,8 +26,8 @@ import SiteName from "@/options/components/SiteName.vue";
 import ActionTd from "@/options/views/Overview/SearchEntity/ActionTd.vue";
 import GroupCard from "./GroupCard.vue";
 
-const ALL_GROUP = "__all__";
-const NO_GROUP = "__no_group__";
+const ALL_GROUP = COLLECTION_ALL_GROUP_ID;
+const NO_GROUP = COLLECTION_NO_GROUP_ID;
 const GROUP_COLORS: string[] = [
   "red",
   "pink",
@@ -60,12 +65,11 @@ const headers = computed(
   () =>
     [
       { title: "№", key: "index", align: "center", width: 52, sortable: false },
-      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "34rem" },
-      { title: t("MyCollection.headers.groups"), key: "groups", align: "start", minWidth: 180, sortable: false },
-      { title: t("common.site"), key: "siteId", align: "center", minWidth: 105 },
+      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "28rem" },
+      { title: t("MyCollection.headers.source"), key: "siteId", align: "center", minWidth: 105 },
       { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 120 },
-      { title: t("MyCollection.headers.time"), key: "time", align: "center", minWidth: 160 },
-      { title: t("common.action"), key: "action", align: "center", minWidth: 270, sortable: false },
+      { title: t("MyCollection.headers.time"), key: "time", align: "center", minWidth: 150 },
+      { title: t("common.action"), key: "action", align: "center", minWidth: 250, sortable: false },
     ] as DataTableHeader[],
 );
 
@@ -145,9 +149,17 @@ const selectedItems = computed(() => {
 const selectedTorrents = computed(() => torrentsFor(selectedItems.value));
 
 const cards = computed(() => {
-  const card = (id: string, name: string, items: IPtppCollectionItem[], color: string, readOnly: boolean) => ({
+  const card = (
+    id: string,
+    name: string,
+    items: IPtppCollectionItem[],
+    color: string,
+    readOnly: boolean,
+    description = "",
+  ) => ({
     id,
     name,
+    description,
     items,
     color,
     readOnly,
@@ -157,19 +169,23 @@ const cards = computed(() => {
     isDefault: collection.value.defaultGroupId === id,
   });
   const ungrouped = collection.value.items.filter((item) => !item.groups?.length);
-  return [
-    card(ALL_GROUP, t("MyCollection.all"), collection.value.items, "grey", true),
-    card(NO_GROUP, t("MyCollection.noGroup"), ungrouped, "blue-grey", true),
-    ...collection.value.groups.map((group) =>
-      card(
-        group.id!,
-        group.name || t("MyCollection.unnamedGroup"),
-        collection.value.items.filter((item) => item.groups?.includes(group.id!)),
-        group.color || "blue",
-        false,
-      ),
-    ),
-  ];
+  return visibleCollectionGroupIds(collection.value).map((groupId) => {
+    if (groupId === ALL_GROUP) {
+      return card(ALL_GROUP, t("MyCollection.all"), collection.value.items, "grey", true);
+    }
+    if (groupId === NO_GROUP) {
+      return card(NO_GROUP, t("MyCollection.noGroup"), ungrouped, "blue-grey", true);
+    }
+    const group = collection.value.groups.find((candidate) => candidate.id === groupId)!;
+    return card(
+      groupId,
+      group.name || t("MyCollection.unnamedGroup"),
+      collection.value.items.filter((item) => item.groups?.includes(groupId)),
+      group.color || "blue",
+      false,
+      group.description || "",
+    );
+  });
 });
 
 async function loadCollection() {
@@ -268,6 +284,12 @@ async function toggleItemGroup(item: IPtppCollectionItem, groupId: string) {
 const itemDialog = ref(false);
 const editingItem = ref<IPtppCollectionItem>();
 const itemForm = ref({ title: "", subTitle: "", imdbId: "", doubanId: "" });
+const itemFormValid = computed(
+  () =>
+    Boolean(itemForm.value.title.trim()) &&
+    (!itemForm.value.imdbId.trim() || /^tt\d+$/i.test(itemForm.value.imdbId.trim())) &&
+    (!itemForm.value.doubanId.trim() || /^\d+$/.test(itemForm.value.doubanId.trim())),
+);
 
 function openEditItem(item: IPtppCollectionItem) {
   editingItem.value = item;
@@ -282,11 +304,13 @@ function openEditItem(item: IPtppCollectionItem) {
 }
 
 async function saveItem() {
-  if (!editingItem.value?.link || !itemForm.value.title.trim()) return;
+  if (!editingItem.value?.link || !itemFormValid.value) return;
   const movieInfo = { ...(editingItem.value.movieInfo ?? {}) };
-  if (itemForm.value.imdbId.trim()) movieInfo.imdbId = itemForm.value.imdbId.trim();
+  const imdbId = itemForm.value.imdbId.trim().toLocaleLowerCase();
+  const doubanId = itemForm.value.doubanId.trim();
+  if (imdbId) movieInfo.imdbId = imdbId;
   else delete movieInfo.imdbId;
-  if (itemForm.value.doubanId.trim()) movieInfo.doubanId = itemForm.value.doubanId.trim();
+  if (doubanId) movieInfo.doubanId = doubanId;
   else delete movieInfo.doubanId;
   await applyMutation(
     sendMessage("updatePtppCollectionItem", {
@@ -294,7 +318,7 @@ async function saveItem() {
       patch: {
         title: itemForm.value.title,
         subTitle: itemForm.value.subTitle,
-        imdbId: itemForm.value.imdbId,
+        imdbId,
         movieInfo,
       },
     }),
@@ -315,13 +339,27 @@ function itemGroups(item: IPtppCollectionItem): IPtppCollectionGroup[] {
   return collection.value.groups.filter((group) => group.id && ids.has(group.id));
 }
 
+function movieInfoString(item: IPtppCollectionItem, key: string): string {
+  const value = item.movieInfo?.[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+function movieCover(item: IPtppCollectionItem): string {
+  return movieInfoString(item, "image") || "/icons/movie_placeholder.png";
+}
+
+function restoreMoviePlaceholder(event: Event) {
+  const image = event.currentTarget as HTMLImageElement;
+  if (!image.src.endsWith("/icons/movie_placeholder.png")) image.src = "/icons/movie_placeholder.png";
+}
+
 onMounted(loadCollection);
 </script>
 
 <template>
   <v-alert type="info" :title="t('route.Overview.MyCollection')" />
 
-  <section class="ptpp-collection-groups" :aria-label="t('MyCollection.groups')">
+  <section v-if="cards.length" class="ptpp-collection-groups" :aria-label="t('MyCollection.groups')">
     <GroupCard
       v-for="card in cards"
       :key="card.id"
@@ -355,18 +393,19 @@ onMounted(loadCollection);
         <NavButton
           color="primary"
           icon="mdi-help-circle"
-          :text="t('MyCollection.help')"
+          :text="t('common.howToUse')"
           href="https://github.com/pt-plugins/PT-Plugin-Plus/wiki/my-collection"
           target="_blank"
         />
-        <ActionTd
-          v-if="selectedItems.length > 0"
-          :torrent-items="selectedTorrents"
-          density="compact"
-          :show-favorite-btn="false"
-          :show-keep-upload-btn="false"
-          show-labels
-        />
+        <div class="ptpp-collection-selection-actions">
+          <ActionTd
+            v-if="selectedItems.length > 0"
+            :torrent-items="selectedTorrents"
+            density="compact"
+            :show-favorite-btn="false"
+            :show-keep-upload-btn="false"
+          />
+        </div>
       </div>
       <v-spacer />
       <v-text-field
@@ -375,9 +414,10 @@ onMounted(loadCollection);
         clearable
         density="compact"
         hide-details
-        :label="t('MyCollection.filter')"
+        label="Search"
         max-width="520"
         single-line
+        :title="t('MyCollection.filter')"
       />
     </v-card-title>
 
@@ -401,57 +441,76 @@ onMounted(loadCollection);
       </template>
 
       <template #item.title="{ item }">
-        <div class="ptpp-collection-title">
-          <a :href="item.link" target="_blank" rel="noopener noreferrer nofollow" :title="item.title">
-            {{ item.title || item.link || item.url || t("MyCollection.untitled") }}
-          </a>
-          <small v-if="item.subTitle">{{ item.subTitle }}</small>
-          <small v-if="item.movieInfo?.title || item.movieInfo?.alt_title" class="ptpp-collection-movie">
-            {{ [item.movieInfo?.title, item.movieInfo?.alt_title].filter(Boolean).join(" / ") }}
-          </small>
-        </div>
-      </template>
-
-      <template #item.groups="{ item }">
-        <div class="ptpp-collection-chips">
-          <v-chip
-            v-for="group in itemGroups(item)"
-            :key="group.id"
-            :color="group.color || 'grey'"
-            closable
-            label
-            size="small"
-            @click:close="toggleItemGroup(item, group.id!)"
-          >
-            {{ group.name }}
-          </v-chip>
-          <v-chip v-if="!itemGroups(item).length" color="grey" label size="small" variant="tonal">
-            {{ t("MyCollection.noGroup") }}
-          </v-chip>
-          <v-menu :close-on-content-click="false">
-            <template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                icon="mdi-plus"
-                size="x-small"
-                variant="text"
-                :title="t('MyCollection.addToGroup')"
-              />
-            </template>
-            <v-list density="compact" min-width="220">
-              <v-list-item v-if="!collection.groups.length" :title="t('MyCollection.noCustomGroups')" disabled />
-              <v-list-item
-                v-for="group in collection.groups"
-                :key="group.id"
-                :title="group.name"
-                @click="toggleItemGroup(item, group.id!)"
+        <div class="ptpp-collection-title-cell">
+          <img
+            class="ptpp-collection-cover"
+            :src="movieCover(item)"
+            alt=""
+            loading="lazy"
+            @error="restoreMoviePlaceholder"
+          />
+          <div class="ptpp-collection-title">
+            <div v-if="movieInfoString(item, 'title')" class="ptpp-collection-movie-title">
+              <a
+                v-if="movieInfoString(item, 'link')"
+                :href="movieInfoString(item, 'link')"
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                :title="t('MyCollection.openMovieInfo')"
               >
-                <template #prepend>
-                  <v-checkbox-btn :model-value="item.groups?.includes(group.id!)" />
+                <img src="/icons/social/douban.png" alt="Douban" />
+              </a>
+              <strong>{{ movieInfoString(item, "title") }}</strong>
+              <span v-if="movieInfoString(item, 'year')">({{ movieInfoString(item, "year") }})</span>
+            </div>
+            <small v-if="movieInfoString(item, 'alt_title')" class="ptpp-collection-movie">
+              {{ movieInfoString(item, "alt_title") }}
+            </small>
+            <a :href="item.link" target="_blank" rel="noopener noreferrer nofollow" :title="item.title">
+              {{ item.title || item.link || item.url || t("MyCollection.untitled") }}
+            </a>
+            <small v-if="item.subTitle">{{ item.subTitle }}</small>
+            <div class="ptpp-collection-chips">
+              <v-chip
+                v-for="group in itemGroups(item)"
+                :key="group.id"
+                :color="group.color || 'grey'"
+                closable
+                label
+                size="small"
+                @click:close="toggleItemGroup(item, group.id!)"
+              >
+                {{ group.name }}
+              </v-chip>
+              <v-chip v-if="!itemGroups(item).length" color="grey" label size="small" variant="flat">
+                {{ t("MyCollection.noGroup") }}
+              </v-chip>
+              <v-menu :close-on-content-click="false">
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon="mdi-plus"
+                    size="x-small"
+                    variant="text"
+                    :title="t('MyCollection.addToGroup')"
+                  />
                 </template>
-              </v-list-item>
-            </v-list>
-          </v-menu>
+                <v-list density="compact" min-width="220">
+                  <v-list-item v-if="!collection.groups.length" :title="t('MyCollection.noCustomGroups')" disabled />
+                  <v-list-item
+                    v-for="group in collection.groups"
+                    :key="group.id"
+                    :title="group.name"
+                    @click="toggleItemGroup(item, group.id!)"
+                  >
+                    <template #prepend>
+                      <v-checkbox-btn :model-value="item.groups?.includes(group.id!)" />
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -545,16 +604,24 @@ onMounted(loadCollection);
         <v-text-field v-model="itemForm.title" :label="t('MyCollection.headers.title')" autofocus />
         <v-text-field v-model="itemForm.subTitle" :label="t('MyCollection.subTitle')" />
         <v-row>
-          <v-col cols="12" sm="6"><v-text-field v-model="itemForm.imdbId" label="IMDb ID" /></v-col>
           <v-col cols="12" sm="6"
-            ><v-text-field v-model="itemForm.doubanId" :label="t('MyCollection.doubanId')"
+            ><v-text-field
+              v-model="itemForm.imdbId"
+              label="IMDb ID"
+              :rules="[(value) => !value || /^tt\d+$/i.test(value.trim()) || t('MyCollection.invalidImdbId')]"
+          /></v-col>
+          <v-col cols="12" sm="6"
+            ><v-text-field
+              v-model="itemForm.doubanId"
+              :label="t('MyCollection.doubanId')"
+              :rules="[(value) => !value || /^\d+$/.test(value.trim()) || t('MyCollection.invalidDoubanId')]"
           /></v-col>
         </v-row>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn @click="itemDialog = false">{{ t("common.dialog.cancel") }}</v-btn>
-        <v-btn color="primary" :disabled="!itemForm.title.trim()" @click="saveItem">{{ t("common.save") }}</v-btn>
+        <v-btn color="primary" :disabled="!itemFormValid" @click="saveItem">{{ t("common.save") }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -587,10 +654,33 @@ onMounted(loadCollection);
   gap: 4px;
 }
 
+.ptpp-collection-selection-actions {
+  align-items: center;
+  display: flex;
+  min-height: 32px;
+  min-width: 140px;
+}
+
+.ptpp-collection-title-cell {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 82px minmax(0, 1fr);
+  min-height: 112px;
+  padding-block: 7px;
+}
+
+.ptpp-collection-cover {
+  display: block;
+  height: 86px;
+  object-fit: contain;
+  width: 82px;
+}
+
 .ptpp-collection-title {
   display: grid;
   gap: 2px;
-  padding-block: 5px;
+  min-width: 0;
 
   a {
     color: rgb(var(--v-theme-primary));
@@ -601,6 +691,32 @@ onMounted(loadCollection);
   small {
     color: rgb(var(--v-theme-on-surface), 0.65);
     line-height: 1.35;
+  }
+}
+
+.ptpp-collection-movie-title {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+
+  a,
+  img {
+    display: block;
+    height: 16px;
+    width: 16px;
+  }
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    color: rgb(var(--v-theme-on-surface), 0.62);
+    flex: 0 0 auto;
+    font-size: 12px;
   }
 }
 
@@ -616,9 +732,17 @@ onMounted(loadCollection);
   gap: 3px;
 }
 
+.ptpp-collection-chips {
+  margin-top: 7px;
+}
+
 .ptpp-collection-row-actions {
   flex-wrap: nowrap;
   justify-content: center;
+}
+
+.ptpp-collection-table :deep(tbody td) {
+  padding-block: 4px !important;
 }
 
 @media (max-width: 960px) {
@@ -629,6 +753,10 @@ onMounted(loadCollection);
 
   .ptpp-collection-group {
     flex-basis: 250px;
+  }
+
+  .ptpp-collection-selection-actions {
+    min-width: 0;
   }
 }
 </style>

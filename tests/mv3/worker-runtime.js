@@ -151,6 +151,10 @@ assert(
   "favorites use the PTPP group-card and full-width table layout",
 );
 assert(
+  collectionSource.includes("visibleCollectionGroupIds") && collectionSource.includes("movie_placeholder.png"),
+  "favorites hide redundant group cards and restore the PTPP cover-title row layout",
+);
+assert(
   collectionSource.includes("ActionTd") && collectionSource.includes("setPtppCollectionItemGroup"),
   "favorites support downloader actions and group assignment",
 );

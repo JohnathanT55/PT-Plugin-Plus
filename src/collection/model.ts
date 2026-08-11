@@ -36,6 +36,39 @@ export function collectionItemKey(item: Pick<CollectionItemRecord, "link">): str
   return normalizeCollectionLink(String(item.link ?? ""));
 }
 
+function mergeDuplicateCollectionItem(
+  current: CollectionItemRecord,
+  duplicate: CollectionItemRecord,
+): CollectionItemRecord {
+  const merged = clone(current);
+  const mergedRecord = merged as Record<string, unknown>;
+  const duplicateRecord = duplicate as Record<string, unknown>;
+
+  for (const key of ["siteId", "host", "title", "subTitle", "url", "size", "imdbId"] as const) {
+    if (
+      (mergedRecord[key] === undefined || mergedRecord[key] === null || mergedRecord[key] === "") &&
+      duplicateRecord[key] !== undefined &&
+      duplicateRecord[key] !== null &&
+      duplicateRecord[key] !== ""
+    ) {
+      mergedRecord[key] = clone(duplicateRecord[key]);
+    }
+  }
+
+  const times = [current.time, duplicate.time].filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
+  );
+  if (times.length) merged.time = Math.min(...times);
+
+  const movieInfo = {
+    ...(duplicate.movieInfo ?? {}),
+    ...(current.movieInfo ?? {}),
+  };
+  if (Object.keys(movieInfo).length) merged.movieInfo = movieInfo;
+  merged.groups = [...new Set([...(current.groups ?? []), ...(duplicate.groups ?? [])])];
+  return merged;
+}
+
 export function reconcileCollectionState(source: CollectionState): CollectionState {
   const state = clone(source);
   const groupIds = new Set<string>();
@@ -45,15 +78,18 @@ export function reconcileCollectionState(source: CollectionState): CollectionSta
     return true;
   });
 
-  const itemKeys = new Set<string>();
-  state.items = (state.items ?? []).filter((item) => {
+  const itemsByKey = new Map<string, CollectionItemRecord>();
+  for (const item of state.items ?? []) {
     const key = collectionItemKey(item);
-    if (!key || itemKeys.has(key)) return false;
-    itemKeys.add(key);
+    if (!key) continue;
     item.link = key;
-    item.groups = [...new Set((item.groups ?? []).filter((groupId) => groupIds.has(groupId)))];
-    return true;
-  });
+    const existing = itemsByKey.get(key);
+    itemsByKey.set(key, existing ? mergeDuplicateCollectionItem(existing, item) : item);
+  }
+  state.items = [...itemsByKey.values()].map((item) => ({
+    ...item,
+    groups: [...new Set((item.groups ?? []).filter((groupId) => groupIds.has(groupId)))],
+  }));
 
   for (const group of state.groups) {
     group.count = state.items.filter((item) => item.groups?.includes(group.id!)).length;

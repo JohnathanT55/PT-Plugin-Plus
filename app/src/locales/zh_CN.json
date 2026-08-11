@@ -225,14 +225,18 @@
     "headers": {
       "groups": "分组",
       "size": "大小",
+      "source": "来源",
       "time": "收藏时间",
       "title": "标题"
     },
     "help": "帮助",
+    "invalidDoubanId": "豆瓣 ID 必须只包含数字",
+    "invalidImdbId": "IMDb ID 格式应为 tt 加数字",
     "itemSaved": "收藏信息已保存",
     "loadFailed": "收藏加载失败",
     "noCustomGroups": "尚未创建收藏分组",
     "noGroup": "未分组",
+    "openMovieInfo": "打开影片信息",
     "removeConfirm": "确定删除选中的 {count} 条收藏吗？",
     "removeGroupConfirm": "确定删除分组“{name}”吗？其中 {count} 条收藏会变为未分组。",
     "removed": "收藏已删除",
