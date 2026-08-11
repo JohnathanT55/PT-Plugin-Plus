@@ -79,9 +79,12 @@ watch(
     <template #prepend>
       <v-app-bar-nav-icon
         class="ptpp-nav-toggle"
+        :aria-expanded="configStore.isNavBarOpen"
         :title="t('layout.header.navBarTip')"
+        rounded="circle"
+        size="48"
         variant="text"
-        @click="toggleNavigation"
+        @click.stop="toggleNavigation"
       >
         <template v-if="display.smAndUp.value">
           <v-icon icon="$menu"></v-icon>

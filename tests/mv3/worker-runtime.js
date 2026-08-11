@@ -66,6 +66,9 @@ for (const html of [optionsHtml, offscreenHtml]) {
 
 const requiredSourceModules = [
   "app/src/entries/options/main.ts",
+  "app/src/entries/options/main.scss",
+  "app/src/entries/options/views/Layout/Navigation.vue",
+  "app/src/entries/options/views/Layout/Topbar.vue",
   "app/src/entries/background/main.ts",
   "app/src/entries/background/utils/collection.ts",
   "app/src/entries/options/views/Overview/MyCollection/Index.vue",
@@ -123,11 +126,34 @@ const setDownloaderSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Settings/SetDownloader/Index.vue"),
   "utf8",
 );
+const optionsShellStyleSource = fs.readFileSync(path.join(root, "app/src/entries/options/main.scss"), "utf8");
+const optionsNavigationSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Layout/Navigation.vue"),
+  "utf8",
+);
+const optionsTopbarSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Layout/Topbar.vue"),
+  "utf8",
+);
 const collectionSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/MyCollection/Index.vue"),
   "utf8",
 );
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
+assert(
+  optionsTopbarSource.includes('rounded="circle"') && optionsTopbarSource.includes('@click.stop="toggleNavigation"'),
+  "options navigation toggle has an explicit circular shape and isolated click handler",
+);
+assert(
+  optionsNavigationSource.includes(':model-value="configStore.isNavBarOpen"') &&
+    !optionsNavigationSource.includes('v-model="drawerOpen"'),
+  "options drawer follows the persisted navigation state without an internal model write-back",
+);
+assert(
+  optionsShellStyleSource.includes("clip-path: circle(50% at 50% 50%)") &&
+    optionsShellStyleSource.includes("border-radius: 50% !important"),
+  "options navigation toggle clips its pressed feedback to a circle",
+);
 assert(!downloadMenuSource.includes("<v-menu"), "download-to uses the PTPP anchored menu instead of a PTD overlay");
 assert(downloadMenuSource.includes('role="menu"'), "download-to anchored menu preserves menu semantics");
 assert(

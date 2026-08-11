@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
@@ -16,12 +15,6 @@ const { t } = useI18n();
 const configStore = useConfigStore();
 
 const display = useDisplay();
-const drawerOpen = computed({
-  get: () => configStore.isNavBarOpen,
-  set: (value: boolean) => {
-    configStore.isNavBarOpen = value;
-  },
-});
 
 // 自动从router.ts生成目录
 const menuOptions = routes
@@ -43,9 +36,10 @@ const menuOptions = routes
     };
   }); // 根据 meta 的 isMainMenu 属性筛选出应该列在目录中的路径
 
-function clickMenuItem() {
+async function clickMenuItem() {
   if (display.smAndDown.value && configStore.isNavBarOpen) {
     configStore.isNavBarOpen = false;
+    await configStore.$save();
   }
 }
 </script>
@@ -53,7 +47,7 @@ function clickMenuItem() {
 <template>
   <v-navigation-drawer
     id="ptpp-navigation"
-    v-model="drawerOpen"
+    :model-value="configStore.isNavBarOpen"
     :mobile="false"
     :width="220"
     disable-route-watcher

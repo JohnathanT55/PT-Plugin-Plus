@@ -114,12 +114,17 @@ body,
 
     .ptpp-nav-toggle {
       border-radius: 50% !important;
+      block-size: 48px;
+      clip-path: circle(50% at 50% 50%);
+      inline-size: 48px;
+      min-inline-size: 48px;
       overflow: hidden;
 
       .v-btn__overlay,
       .v-btn__underlay,
       .v-ripple__container {
-        border-radius: inherit;
+        border-radius: 50% !important;
+        inset: 0;
       }
     }
 
