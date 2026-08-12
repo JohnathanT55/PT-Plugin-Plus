@@ -3,10 +3,17 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from "vue-rou
 export const setBaseChildren: RouteRecordRaw[] = [
   {
     path: "",
-    alias: ["ui", "user-info"],
+    alias: "ui",
     name: "SetBaseGeneral",
     meta: { icon: "mdi-cog", tabKey: "general" },
     component: () => import("../views/Settings/SetBase/GeneralWindow.vue"),
+  },
+  {
+    path: "user-data",
+    alias: "user-info",
+    name: "SetBaseUserData",
+    meta: { icon: "mdi-database-clock", tabKey: "userData" },
+    component: () => import("../views/Settings/SetBase/UserDataWindow.vue"),
   },
   {
     path: "search",
@@ -22,11 +29,11 @@ export const setBaseChildren: RouteRecordRaw[] = [
     component: () => import("../views/Settings/SetBase/DownloadWindow.vue"),
   },
   {
-    path: "advanced",
-    alias: "backup",
+    path: "backup",
+    alias: "advanced",
     name: "SetBaseAdvanced",
-    meta: { icon: "mdi-memory", tabKey: "advanced" },
-    component: () => import("../views/Settings/SetBase/AdvancedWindow.vue"),
+    meta: { icon: "mdi-shield-sync", tabKey: "backup" },
+    component: () => import("../views/Settings/SetBase/BackupWindow.vue"),
   },
 ] as const;
 

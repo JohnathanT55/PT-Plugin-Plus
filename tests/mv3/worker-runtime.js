@@ -297,8 +297,10 @@ assert(
   "favorites participate in current local and WebDAV backup round trips",
 );
 assert(
-  ["general", "search", "download", "advanced"].every((tabKey) => optionsRouterSource.includes(`tabKey: "${tabKey}"`)),
-  "general settings expose the four PTPP tab groups",
+  ["general", "userData", "search", "download", "backup"].every((tabKey) =>
+    optionsRouterSource.includes(`tabKey: "${tabKey}"`),
+  ),
+  "general settings expose the five organized PTPP tab groups",
 );
 assert(
   searchActionSource.includes("sendToDefaultDownloader") && searchActionSource.includes("sendTorrentAssignments"),

@@ -7,6 +7,7 @@ import { definedLangMetaData } from "@/options/plugins/i18n.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { isEmpty } from "es-toolkit/compat";
+import SettingsSection from "./SettingsSection.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
@@ -38,8 +39,8 @@ defineExpose({
 </script>
 
 <template>
-  <v-row>
-    <v-col md="10" lg="8">
+  <div class="settings-stack">
+    <SettingsSection :title="t('SetBase.section.appearance')" icon="mdi-palette-outline">
       <!-- 插件语言设置 -->
       <v-select v-model="configStore.lang" :label="t('SetBase.ui.changeLanguage')" :items="definedLangMetaData" />
 
@@ -83,15 +84,10 @@ defineExpose({
           </v-tooltip>
         </template>
       </v-switch>
+    </SettingsSection>
 
-      <v-divider />
-    </v-col>
-  </v-row>
-
-  <v-row>
-    <v-col md="10" lg="8">
+    <SettingsSection :title="t('SetBase.ui.contentScript')" icon="mdi-web-box">
       <div class="d-flex align-center">
-        <v-label>{{ t("SetBase.ui.contentScript") }}</v-label>
         <v-spacer />
         <v-switch
           v-model="configStore.contentScript.enabled"
@@ -104,87 +100,67 @@ defineExpose({
       <template v-if="configStore.contentScript.enabled">
         <v-alert type="warning" variant="tonal"> {{ t("SetBase.ui.contentScriptWarning") }} </v-alert>
 
-        <v-row dense>
-          <v-col cols="12" md="2" class="d-flex align-center justify-center">
-            <v-label>{{ t("SetBase.ui.basicSettings") }}</v-label>
-          </v-col>
-          <v-col>
-            <v-switch
-              v-model="configStore.contentScript.allowExceptionSites"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.allowExceptionSites')"
-            />
+        <div class="settings-subsection">
+          <div class="text-subtitle-2 text-medium-emphasis mb-1">{{ t("SetBase.ui.basicSettings") }}</div>
+          <v-switch
+            v-model="configStore.contentScript.allowExceptionSites"
+            color="success"
+            hide-details
+            :label="t('SetBase.ui.allowExceptionSites')"
+          />
 
-            <v-switch
-              v-model="configStore.contentScript.enabledAtSocialSite"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.enableOnSocialSite')"
-            />
+          <v-switch
+            v-model="configStore.contentScript.enabledAtSocialSite"
+            color="success"
+            hide-details
+            :label="t('SetBase.ui.enableOnSocialSite')"
+          />
+        </div>
 
-            <v-divider />
-          </v-col>
-        </v-row>
+        <div class="settings-subsection">
+          <div class="text-subtitle-2 text-medium-emphasis mb-2">{{ t("SetBase.ui.sidebarStyle") }}</div>
+          <v-alert type="info" variant="tonal">{{ t("SetBase.ui.ptppToolbarStyleNote") }}</v-alert>
+        </div>
 
-        <v-row dense>
-          <v-col cols="12" md="2" class="d-flex align-center justify-center">
-            <v-label>{{ t("SetBase.ui.sidebarStyle") }}</v-label>
-          </v-col>
-          <v-col>
-            <v-alert type="info" variant="tonal">{{ t("SetBase.ui.ptppToolbarStyleNote") }}</v-alert>
-            <v-divider />
-          </v-col>
-        </v-row>
+        <div class="settings-subsection">
+          <div class="text-subtitle-2 text-medium-emphasis mb-1">{{ t("SetBase.ui.sidebarFunctions") }}</div>
+          <v-switch
+            v-model="configStore.contentScript.doubleConfirmAction"
+            color="success"
+            hide-details
+            :label="t('SetBase.ui.confirmTwoStep')"
+          />
 
-        <v-row dense>
-          <v-col cols="12" md="2" class="d-flex align-center justify-center">
-            <v-label>{{ t("SetBase.ui.sidebarFunctions") }}</v-label>
-          </v-col>
-          <v-col>
-            <v-switch
-              v-model="configStore.contentScript.doubleConfirmAction"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.confirmTwoStep')"
-            />
+          <v-switch
+            v-model="configStore.contentScript.dragLinkOnSpeedDial"
+            color="success"
+            hide-details
+            :label="t('SetBase.ui.allowDragLink')"
+          >
+            <template #append>
+              <v-tooltip max-width="400" location="bottom">
+                <template v-slot:activator="{ props }">
+                  <v-icon color="info" icon="mdi-help-circle" v-bind="props" />
+                </template>
+                {{ t("SetBase.ui.dragNote") }}
+              </v-tooltip>
+            </template>
+          </v-switch>
 
-            <v-switch
-              v-model="configStore.contentScript.dragLinkOnSpeedDial"
-              color="success"
-              hide-details
-              :label="t('SetBase.ui.allowDragLink')"
-            >
-              <template #append>
-                <v-tooltip max-width="400" location="bottom">
-                  <template v-slot:activator="{ props }">
-                    <v-icon color="info" icon="mdi-help-circle" v-bind="props" />
-                  </template>
-                  {{ t("SetBase.ui.dragNote") }}
-                </v-tooltip>
-              </template>
-            </v-switch>
-
-            <v-select
-              v-model="configStore.contentScript.socialSiteSearchBy"
-              :disabled="!configStore.contentScript.enabledAtSocialSite"
-              :items="['id', 'title', 'imdb', 'chosen']"
-              :item-title="(item) => t('SetBase.ui.socialSiteSearchBy.' + item)"
-              :item-value="(item) => item"
-              :label="t('SetBase.ui.socialSiteSearchLabel')"
-            />
-          </v-col>
-        </v-row>
+          <v-select
+            v-model="configStore.contentScript.socialSiteSearchBy"
+            :disabled="!configStore.contentScript.enabledAtSocialSite"
+            :items="['id', 'title', 'imdb', 'chosen']"
+            :item-title="(item) => t('SetBase.ui.socialSiteSearchBy.' + item)"
+            :item-value="(item) => item"
+            :label="t('SetBase.ui.socialSiteSearchLabel')"
+          />
+        </div>
       </template>
+    </SettingsSection>
 
-      <v-divider />
-    </v-col>
-  </v-row>
-
-  <v-row>
-    <v-col md="10" lg="8">
+    <SettingsSection :title="t('SetBase.ui.contextMenu')" icon="mdi-menu-open">
       <div class="d-flex align-center">
-        <v-label>{{ t("SetBase.ui.contextMenu") }}</v-label>
         <v-spacer />
         <v-switch v-model="configStore.contextMenus.enabled" color="success" hide-details :label="t('common.enable')" />
       </div>
@@ -212,8 +188,18 @@ defineExpose({
           :label="t('SetBase.ui.contextMenuLinkPush')"
         />
       </template>
-    </v-col>
-  </v-row>
+    </SettingsSection>
+  </div>
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.settings-stack {
+  max-width: 1100px;
+}
+
+.settings-subsection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(var(--v-border-color), 0.18);
+}
+</style>

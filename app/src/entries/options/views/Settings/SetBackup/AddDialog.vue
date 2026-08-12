@@ -14,6 +14,7 @@ import {
   type IBackupMetadata,
 } from "@ptd/backupServer";
 import { REPO_URL } from "~/helper.ts";
+import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
 
 import Editor from "./Editor.vue";
 
@@ -41,10 +42,13 @@ async function updateStoredDownloaderConfigByDefault(type: IBackupServerMetadata
     enabled: true,
     id: nanoid(),
     backupFields: [...BackupFields],
+    backupFieldsVersion: CURRENT_BACKUP_FIELDS_VERSION,
   } as IBackupServerMetadata;
 }
 
 async function saveStoredBackupServerConfig() {
+  const interval = storedBackupServerConfig.value.backupInterval;
+  storedBackupServerConfig.value.nextBackupAt = interval && interval > 0 ? Date.now() : undefined;
   await metadataStore.addBackupServer(storedBackupServerConfig.value as IBackupServerMetadata);
   showDialog.value = false;
 }

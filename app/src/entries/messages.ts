@@ -44,6 +44,7 @@ import {
   ISearchData,
   TSearchSnapshotKey,
   TBackupFields,
+  TBackupTrigger,
   TTorrentDownloadStatus,
   IDownloadTorrentOption,
   IDownloadTorrentResult,
@@ -187,6 +188,8 @@ interface ProtocolMap extends TMessageMap {
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: { backupServerId: string | "local"; backupFields: TBackupFields[] }): boolean;
+  runBackup(data: { backupServerId: string; trigger?: TBackupTrigger }): boolean;
+  cancelBackupRetry(data: string): boolean;
   getBackupHistory(data: string): IBackupFileInfo[];
   deleteBackupHistory(data: { backupServerId: string; path: string }): boolean;
   restoreBackupData(data: { restoreData: IBackupData; restoreOptions?: IRestoreOptions }): boolean;

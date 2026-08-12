@@ -1,4 +1,4 @@
-import { intersection, toMerged } from "es-toolkit";
+import { intersection } from "es-toolkit";
 import { formatDate } from "date-fns";
 import { getBackupServer, IBackupData, IBackupFileInfo } from "@ptd/backupServer";
 import { backupDataToJSZipBlob } from "@ptd/backupServer/utils.ts";
@@ -22,8 +22,19 @@ import { ptdIndexDb } from "../adapter/indexdb.ts";
 import { migrateLegacyStorage } from "@foundation/migration/legacy";
 import { MV3Repository } from "@foundation/storage/repository";
 import { LEGACY_STORAGE_KEYS } from "@foundation/storage/keys";
-import { mergePtppStateIntoRuntimeStores, persistPtppRuntimeMigration } from "@/integration/ptppMigration.ts";
+import {
+  getEffectiveBackupEncryptionKey,
+  normalizeBackupFields,
+  prepareConfigForBackup,
+} from "@foundation/backup/policy";
+import { extendCookieExpiration, latestRecordsFromHistory, mergeRestoredRecords } from "@foundation/backup/restore";
+import {
+  mergePtppStateIntoRuntimeConfig,
+  mergePtppStateIntoRuntimeStores,
+  persistPtppRuntimeMigration,
+} from "@/integration/ptppMigration.ts";
 import type { IPtppLegacyBackupImportPayload, IPtppLegacyBackupImportResult } from "@/shared/types.ts";
+import { BackupFields } from "@/shared/types.ts";
 
 export const storageKey = [
   "config",
@@ -53,7 +64,9 @@ export async function createBackupData(backupFields: TBackupFields[] = []): Prom
   // 处理直接从 chrome.storage.local 读取的字段
   for (const field of storageKey) {
     if (backupFields.includes(field as TBackupFields)) {
-      backupData[field] = await sendMessage("getExtStorage", field);
+      const fieldData = await sendMessage("getExtStorage", field);
+      backupData[field] =
+        field === "config" ? prepareConfigForBackup(fieldData as IConfigPiniaStorageSchema) : fieldData;
     }
   }
 
@@ -91,10 +104,13 @@ export async function exportBackupData(
   backupFields: TBackupFields[] = [],
 ): Promise<boolean> {
   const backupData = await createBackupData(backupFields);
-  const backupFilename = `PTPP_backup_${formatDate(new Date(), "yyyyMMdd'T'HHmm")}.zip`;
+  const backupFilename = `PTPP_backup_${formatDate(new Date(), "yyyyMMdd'T'HHmmssSSS")}.zip`;
 
   const configStore = (await sendMessage("getExtStorage", "config")) as IConfigPiniaStorageSchema;
-  const encryptionKey = configStore?.backup?.encryptionKey ?? "";
+  const encryptionKey = getEffectiveBackupEncryptionKey(
+    configStore?.backup?.encryptionEnabled,
+    configStore?.backup?.encryptionKey,
+  );
 
   logger({ msg: `Exporting backup data to ${backupServerId}`, data: { backupFields, backupFilename } });
   if (backupServerId === "local") {
@@ -105,16 +121,7 @@ export async function exportBackupData(
   } else {
     const backupServerInstance = await getBackupServerInstance(backupServerId);
     backupServerInstance.setEncryptionKey(encryptionKey);
-    const backupStatus = await backupServerInstance.addFile(backupFilename, backupData);
-
-    // 更新最后一次备份时间
-    if (backupStatus) {
-      const metadataStore = (await sendMessage("getExtStorage", "metadata")) as IMetadataPiniaStorageSchema;
-      metadataStore.backupServers[backupServerId].lastBackupAt = new Date().getTime();
-      await sendMessage("setExtStorage", { key: "metadata", value: metadataStore });
-    }
-
-    return backupStatus;
+    return await backupServerInstance.addFile(backupFilename, backupData);
   }
 }
 
@@ -149,12 +156,46 @@ export async function restoreBackupData(
     if (restoreFields.includes(field as TBackupFields)) {
       let fieldData = restoreData[field] as IExtensionStorageSchema[typeof field];
       if (fieldData) {
+        if (field === "config") {
+          const configData = fieldData as IConfigPiniaStorageSchema;
+          const currentConfig = (await sendMessage("getExtStorage", "config")) as IConfigPiniaStorageSchema | undefined;
+          configData.backup ??= {
+            encryptionKey: "",
+            encryptionEnabled: false,
+            enabledAutoBackup: false,
+            autoUploadUserData: { enabled: false, serverId: "" },
+            retry: { max: 3, interval: 5 },
+          };
+          // The key is a local recovery secret and is intentionally not part of backups.
+          // Restoring configuration must therefore keep the current browser's encryption settings.
+          configData.backup.encryptionKey = currentConfig?.backup?.encryptionKey ?? "";
+          configData.backup.encryptionEnabled = currentConfig?.backup?.encryptionEnabled ?? false;
+          configData.backup.autoUploadUserData ??= { enabled: false, serverId: "" };
+          configData.backup.retry ??= { max: 3, interval: 5 };
+        }
+        if (field === "metadata") {
+          const metadataData = fieldData as IMetadataPiniaStorageSchema;
+          for (const server of Object.values(metadataData.backupServers ?? {})) {
+            const normalized = normalizeBackupFields(server.backupFields, server.backupFieldsVersion, BackupFields);
+            server.backupFields = normalized.fields as typeof server.backupFields;
+            server.backupFieldsVersion = normalized.version;
+          }
+        }
         if (field === "userInfo" && keepExistUserInfo) {
           const userInfoStore = ((await sendMessage("getExtStorage", "userInfo")) ?? {}) as TUserInfoStorageSchema;
-          fieldData = toMerged(fieldData, userInfoStore);
+          fieldData = mergeRestoredRecords(
+            fieldData as unknown as Record<string, unknown>,
+            userInfoStore as unknown as Record<string, unknown>,
+            true,
+          ) as TUserInfoStorageSchema;
         }
 
         await sendMessage("setExtStorage", { key: field, value: fieldData });
+        if (field === "userInfo" && !keepExistUserInfo && !restoreFields.includes("metadata")) {
+          const metadataData = (await sendMessage("getExtStorage", "metadata")) as IMetadataPiniaStorageSchema;
+          metadataData.lastUserInfo = latestRecordsFromHistory(fieldData as TUserInfoStorageSchema);
+          await sendMessage("setExtStorage", { key: "metadata", value: metadataData });
+        }
       }
     }
   }
@@ -166,9 +207,7 @@ export async function restoreBackupData(
     for (const cookieData of Object.values(restoreData.cookies!)) {
       for (const cookie of cookieData) {
         // 延长 cookie 过期时间
-        if (expandCookieMinutes > 0) {
-          cookie.expirationDate = Math.max(cookie.expirationDate ?? 0, now) + expandCookieMinutes * 60;
-        }
+        cookie.expirationDate = extendCookieExpiration(cookie.expirationDate, expandCookieMinutes, now);
 
         await sendMessage("setCookie", cookie as unknown as chrome.cookies.SetDetails);
       }
@@ -224,11 +263,7 @@ async function restorePtppCookies(
         }
       }
       if (!cookie.name || typeof cookie.value !== "string") continue;
-      if (cookie.expirationDate && cookie.expirationDate < now) {
-        cookie.expirationDate = now + Math.max(data.expandCookieMinutes ?? 0, 24 * 60) * 60;
-      } else if ((data.expandCookieMinutes ?? 0) > 0) {
-        cookie.expirationDate = Math.max(cookie.expirationDate ?? now, now) + data.expandCookieMinutes! * 60;
-      }
+      cookie.expirationDate = extendCookieExpiration(cookie.expirationDate, data.expandCookieMinutes ?? 0, now);
       jobs.push(sendMessage("setCookie", cookie));
     }
   }
@@ -273,12 +308,22 @@ export async function importPtppLegacyBackup(
     runtimeState.backupServers = {};
   }
 
-  const current = await chrome.storage.local.get(["metadata", "userInfo", "searchResultSnapshot", "keepUploadTask"]);
+  const current = await chrome.storage.local.get([
+    "config",
+    "metadata",
+    "userInfo",
+    "searchResultSnapshot",
+    "keepUploadTask",
+  ]);
   const database = await ptdIndexDb;
   const currentHistory = await database.getAll("download_history");
+  const runtimeMetadata = structuredClone(current.metadata as IMetadataPiniaStorageSchema | undefined);
+  if (selected.has("userInfo") && data.keepExistUserInfo === false && runtimeMetadata?.lastUserInfo) {
+    runtimeMetadata.lastUserInfo = {};
+  }
   const result = mergePtppStateIntoRuntimeStores(runtimeState, {
-    metadata: current.metadata as IMetadataPiniaStorageSchema | undefined,
-    userInfo: current.userInfo as TUserInfoStorageSchema | undefined,
+    metadata: runtimeMetadata,
+    userInfo: data.keepExistUserInfo === false ? {} : (current.userInfo as TUserInfoStorageSchema | undefined),
     searchResultSnapshot: current.searchResultSnapshot as TSearchResultSnapshotStorageSchema | undefined,
     keepUploadTask: current.keepUploadTask as TKeepUploadTaskStorageSchema | undefined,
     downloadHistory: currentHistory,
@@ -292,6 +337,15 @@ export async function importPtppLegacyBackup(
       await transaction.done;
     },
   });
+
+  if (data.fields.includes("config")) {
+    const configMerge = mergePtppStateIntoRuntimeConfig(
+      migrated.state,
+      current.config as Partial<IConfigPiniaStorageSchema> | undefined,
+      true,
+    );
+    if (configMerge.changed) await chrome.storage.local.set({ config: configMerge.config });
+  }
 
   const cookieResult = await restorePtppCookies(data);
   return {

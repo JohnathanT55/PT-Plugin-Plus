@@ -111,13 +111,34 @@ export const BackupFields = [
 export type TBackupFields = (typeof BackupFields)[number];
 
 export type TBackupServerKey = string;
+export type TBackupTrigger = "manual" | "interval" | "userDataRefresh";
+export interface IBackupHistoryEvent {
+  id: string;
+  startedAt: number;
+  finishedAt: number;
+  durationMs: number;
+  status: "success" | "failed";
+  trigger: TBackupTrigger;
+  retryIndex: number;
+  fields: TBackupFields[];
+  error?: string;
+}
 export interface IBackupServerMetadata extends IBackupConfig {
   id: TBackupServerKey;
   enabled: boolean; // 此处仅影响自动备份
   backupFields: TBackupFields[]; // 备份的字段
+  backupFieldsVersion?: number; // 字段选择格式版本，用于只迁移一次后来新增的字段
 
   lastBackupAt?: number; // 上次备份时间
   backupInterval?: number; // 自动备份间隔（小时），不设置或为 0 表示不自动备份
+  nextBackupAt?: number; // 下次固定间隔备份时间
+  lastBackupAttemptAt?: number; // 最近一次尝试时间（成功或失败）
+  lastBackupFailureAt?: number; // 最近一次失败时间
+  lastBackupError?: string; // 已脱敏的最近一次失败原因
+  lastBackupTrigger?: TBackupTrigger; // 最近一次尝试的触发来源
+  backupRetryAt?: number; // 持久化失败重试的计划时间
+  backupRetryCount?: number; // 当前连续失败后的重试序号
+  backupHistory?: IBackupHistoryEvent[]; // 最近的备份运行记录，最新在前
 }
 
 export interface IMetadataPiniaStorageSchema {

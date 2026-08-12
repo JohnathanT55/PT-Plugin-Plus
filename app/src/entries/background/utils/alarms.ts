@@ -6,11 +6,15 @@ import { extStorage } from "@/storage.ts";
 import { onMessage, sendMessage } from "@/messages.ts";
 import { sanitizeDownloadErrorMessage } from "@/shared/downloadError.ts";
 import {
+  BackupFields,
+  IConfigPiniaStorageSchema,
   IDownloadTorrentOption,
   IMetadataPiniaStorageSchema,
   type IDownloadBatchRecord,
   type IDownloadBatchStorageSchema,
   type IDownloadTorrentResult,
+  type TBackupFields,
+  type TBackupTrigger,
 } from "@/shared/types.ts";
 import type { TDurableTaskPayload } from "@/shared/types.ts";
 import {
@@ -19,6 +23,16 @@ import {
   durableTaskIdFromAlarm,
   type IDurableTask,
 } from "@foundation/tasks/durable";
+import {
+  createBackupRetryPlan,
+  DEFAULT_BACKUP_RETRY_INTERVAL_MINUTES,
+  DEFAULT_BACKUP_RETRY_MAX,
+  getBackupIntervalMs,
+  getNextIntervalBackupAt,
+  normalizeBackupFields,
+  shouldUploadAfterUserRefresh,
+} from "@foundation/backup/policy";
+import { prependLimitedHistory } from "@foundation/backup/restore";
 
 import { setupOffscreenDocument } from "./offscreen.ts";
 export enum EJobType {
@@ -29,6 +43,7 @@ export enum EJobType {
 const DOWNLOAD_TASK_PREFIX = "download:";
 const DOWNLOAD_BATCH_TASK_PREFIX = "download-batch:";
 const USER_INFO_RETRY_TASK_ID = "user-info-retry";
+const BACKUP_RETRY_TASK_PREFIX = "backup-retry:";
 const DOWNLOAD_BATCH_STORAGE_VERSION = 1 as const;
 const MAX_RETAINED_DOWNLOAD_BATCHES = 20;
 
@@ -139,6 +154,23 @@ function autoFlushUserInfo(retryIndex: number = 0) {
         },
       });
     }
+
+    // 原版 PT-Plugin-Plus 语义：整轮自动刷新成功，或刷新重试已经耗尽后，
+    // 将一次全量备份上传到用户指定的服务器。
+    if (shouldUploadAfterUserRefresh(failFlushSites.length, retryIndex, retryMax)) {
+      const latestConfig = (await extStorage.getItem("config")) as IConfigPiniaStorageSchema | undefined;
+      const autoUpload = latestConfig?.backup?.autoUploadUserData;
+      if (autoUpload?.enabled) {
+        if (autoUpload.serverId) {
+          await runBackupWithRetry(autoUpload.serverId, "userDataRefresh", 0);
+        } else {
+          sendMessage("logger", {
+            level: "error",
+            msg: "Automatic user-data upload is enabled, but no backup server is selected.",
+          }).catch();
+        }
+      }
+    }
   };
 }
 
@@ -151,53 +183,216 @@ jobs.scheduleJob({
   execute: autoFlushUserInfo(),
 });
 
-/**
- * 自动备份：检查所有已启用且设置了备份间隔的备份服务器，在满足条件时触发备份
- */
-function autoBackup() {
-  return async () => {
-    await setupOffscreenDocument();
+const activeBackupRuns = new Map<string, Promise<boolean>>();
 
-    const metadataStore = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
-    if (!metadataStore?.backupServers) {
-      return;
+function backupRetryTaskId(serverId: string): string {
+  return `${BACKUP_RETRY_TASK_PREFIX}${serverId}`;
+}
+
+async function patchBackupServer(
+  serverId: string,
+  patch: (server: IMetadataPiniaStorageSchema["backupServers"][string]) => void,
+): Promise<boolean> {
+  const metadataStore = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
+  const server = metadataStore?.backupServers?.[serverId];
+  if (!metadataStore || !server) return false;
+  patch(server);
+  await extStorage.setItem("metadata", metadataStore);
+  return true;
+}
+
+async function recordBackupSuccess(
+  serverId: string,
+  trigger: TBackupTrigger,
+  startedAt: number,
+  finishedAt: number,
+  retryIndex: number,
+  fields: TBackupFields[],
+): Promise<void> {
+  await patchBackupServer(serverId, (server) => {
+    server.lastBackupAt = finishedAt;
+    server.lastBackupAttemptAt = finishedAt;
+    server.lastBackupTrigger = trigger;
+    const intervalMs = getBackupIntervalMs(server.backupInterval);
+    server.nextBackupAt = intervalMs ? finishedAt + intervalMs : undefined;
+    server.backupHistory = prependLimitedHistory(server.backupHistory, {
+      id: crypto.randomUUID(),
+      startedAt,
+      finishedAt,
+      durationMs: Math.max(0, finishedAt - startedAt),
+      status: "success",
+      trigger,
+      retryIndex,
+      fields: [...fields],
+    });
+    delete server.lastBackupFailureAt;
+    delete server.lastBackupError;
+    delete server.backupRetryAt;
+    delete server.backupRetryCount;
+  });
+  await durableTasks.cancel(backupRetryTaskId(serverId));
+}
+
+async function recordBackupFailure(
+  serverId: string,
+  trigger: TBackupTrigger,
+  error: unknown,
+  retryIndex: number,
+  startedAt: number,
+  fields: TBackupFields[],
+): Promise<void> {
+  const now = Date.now();
+  let message = sanitizeDownloadErrorMessage(error || "Backup server returned a failure result.");
+  const configStore = (await extStorage.getItem("config")) as IConfigPiniaStorageSchema | undefined;
+  const retryMax = configStore?.backup?.retry?.max ?? DEFAULT_BACKUP_RETRY_MAX;
+  const retryInterval = configStore?.backup?.retry?.interval ?? DEFAULT_BACKUP_RETRY_INTERVAL_MINUTES;
+  const retryTrigger = trigger === "manual" ? undefined : trigger;
+  let retryPlan = retryTrigger ? createBackupRetryPlan(retryIndex, retryMax, retryInterval, now) : undefined;
+
+  if (retryPlan) {
+    try {
+      await durableTasks.schedule({
+        id: backupRetryTaskId(serverId),
+        runAt: retryPlan.runAt,
+        payload: {
+          type: "backupRetry",
+          serverId,
+          trigger: retryTrigger!,
+          retryIndex: retryPlan.retryIndex,
+        },
+      });
+    } catch (scheduleError) {
+      message = sanitizeDownloadErrorMessage(
+        `${message}; retry scheduling failed: ${sanitizeDownloadErrorMessage(scheduleError)}`,
+      );
+      retryPlan = undefined;
+    }
+  }
+
+  await patchBackupServer(serverId, (server) => {
+    server.lastBackupAttemptAt = now;
+    server.lastBackupFailureAt = now;
+    server.lastBackupError = message;
+    server.lastBackupTrigger = trigger;
+    server.backupHistory = prependLimitedHistory(server.backupHistory, {
+      id: crypto.randomUUID(),
+      startedAt,
+      finishedAt: now,
+      durationMs: Math.max(0, now - startedAt),
+      status: "failed",
+      trigger,
+      retryIndex,
+      fields: [...fields],
+      error: message,
+    });
+    if (trigger !== "manual") {
+      server.backupRetryAt = retryPlan?.runAt;
+      server.backupRetryCount = retryPlan?.retryIndex;
+    }
+    if (!retryPlan && trigger === "interval") {
+      const intervalMs = getBackupIntervalMs(server.backupInterval);
+      server.nextBackupAt = intervalMs ? now + intervalMs : undefined;
+    }
+  });
+
+  sendMessage("logger", {
+    level: "error",
+    msg: `Backup failed for [${serverId}]: ${message}`,
+    data: retryPlan ? { retryIndex: retryPlan.retryIndex, retryAt: retryPlan.runAt } : undefined,
+  }).catch();
+}
+
+async function runBackupWithRetry(serverId: string, trigger: TBackupTrigger, retryIndex: number = 0): Promise<boolean> {
+  // Serialize runs for the same server instead of coalescing different triggers.
+  // In particular, an interval backup may contain only selected fields while the
+  // post-refresh upload must always create its own full backup.
+  while (activeBackupRuns.has(serverId)) {
+    try {
+      await activeBackupRuns.get(serverId);
+    } catch {
+      // The completed run records its own failure; the queued trigger must still run.
+    }
+  }
+
+  const run = (async () => {
+    await setupOffscreenDocument();
+    const [metadataStore, configStore] = await Promise.all([
+      extStorage.getItem("metadata") as Promise<IMetadataPiniaStorageSchema | undefined>,
+      extStorage.getItem("config") as Promise<IConfigPiniaStorageSchema | undefined>,
+    ]);
+    const server = metadataStore?.backupServers?.[serverId];
+    if (!server) return false;
+    if (trigger === "interval" && (!server.enabled || !getBackupIntervalMs(server.backupInterval))) return false;
+    if (
+      trigger === "userDataRefresh" &&
+      (!configStore?.backup?.autoUploadUserData?.enabled || configStore.backup.autoUploadUserData.serverId !== serverId)
+    ) {
+      return false;
     }
 
+    const normalizedFields = normalizeBackupFields(server.backupFields, server.backupFieldsVersion, BackupFields);
+    if (normalizedFields.changed) {
+      await patchBackupServer(serverId, (current) => {
+        current.backupFields = normalizedFields.fields as typeof current.backupFields;
+        current.backupFieldsVersion = normalizedFields.version;
+      });
+    }
+
+    const startedAt = Date.now();
+    await patchBackupServer(serverId, (current) => {
+      current.lastBackupAttemptAt = startedAt;
+      current.lastBackupTrigger = trigger;
+    });
+
+    try {
+      const backupFields =
+        trigger === "userDataRefresh" ? [...BackupFields] : (normalizedFields.fields as typeof server.backupFields);
+      const ok = await sendMessage("exportBackupData", { backupServerId: serverId, backupFields });
+      if (!ok) throw new Error("Backup server returned a failure result.");
+      await recordBackupSuccess(serverId, trigger, startedAt, Date.now(), retryIndex, backupFields);
+      sendMessage("logger", { msg: `Backup completed for [${serverId}] (${trigger}).` }).catch();
+      return true;
+    } catch (error) {
+      const backupFields =
+        trigger === "userDataRefresh" ? [...BackupFields] : (normalizedFields.fields as typeof server.backupFields);
+      await recordBackupFailure(serverId, trigger, error, retryIndex, startedAt, backupFields);
+      return false;
+    }
+  })();
+
+  activeBackupRuns.set(serverId, run);
+  try {
+    return await run;
+  } finally {
+    if (activeBackupRuns.get(serverId) === run) activeBackupRuns.delete(serverId);
+  }
+}
+
+/** 检查每个服务器独立的固定间隔计划；定时刷新后上传走上面的独立入口。 */
+function autoBackup() {
+  return async () => {
+    const metadataStore = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
+    if (!metadataStore?.backupServers) return;
     const now = Date.now();
 
-    for (const [serverId, serverConfig] of Object.entries(metadataStore.backupServers)) {
-      // 仅处理已启用且有备份间隔的服务器
-      if (!serverConfig.enabled || !serverConfig.backupInterval || serverConfig.backupInterval <= 0) {
-        continue;
+    for (const [serverId, server] of Object.entries(metadataStore.backupServers)) {
+      if (!server.enabled || !getBackupIntervalMs(server.backupInterval)) continue;
+      if (server.backupRetryAt) continue;
+      const dueAt = getNextIntervalBackupAt(
+        {
+          intervalHours: server.backupInterval,
+          lastBackupAt: server.lastBackupAt,
+          nextBackupAt: server.nextBackupAt,
+        },
+        now,
+      );
+      if (!dueAt) continue;
+      if (server.nextBackupAt !== dueAt) {
+        await patchBackupServer(serverId, (current) => {
+          current.nextBackupAt = dueAt;
+        });
       }
-
-      const intervalMs = serverConfig.backupInterval * 60 * 60 * 1000;
-      const lastBackup = serverConfig.lastBackupAt ?? 0;
-
-      if (now - lastBackup >= intervalMs) {
-        sendMessage("logger", {
-          msg: `Auto-backup triggered for [${serverConfig.name}] (interval: ${serverConfig.backupInterval}h)`,
-        }).catch();
-
-        try {
-          const backupFields = serverConfig.backupFields ?? [];
-          const ok = await sendMessage("exportBackupData", {
-            backupServerId: serverId,
-            backupFields,
-          });
-
-          if (!ok) {
-            sendMessage("logger", {
-              msg: `Auto-backup failed for [${serverConfig.name}] (returned false)`,
-            }).catch();
-          }
-        } catch (e) {
-          const errMsg = e instanceof Error ? e.message : String(e);
-          sendMessage("logger", {
-            msg: `Auto-backup failed for [${serverConfig.name}]: ${errMsg}`,
-          }).catch();
-        }
-      }
+      if (dueAt <= now) await runBackupWithRetry(serverId, "interval", 0);
     }
   };
 }
@@ -332,6 +527,11 @@ async function executeDurableTask(task: IDurableTask<TDurableTaskPayload>): Prom
     return;
   }
 
+  if (task.payload.type === "backupRetry") {
+    await runBackupWithRetry(task.payload.serverId, task.payload.trigger, task.payload.retryIndex);
+    return;
+  }
+
   if (task.payload.type === "downloadBatch") {
     await executeDownloadBatch(task.payload.batchId);
     return;
@@ -386,6 +586,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 durableTasks.restore().catch((error) => {
   const errorMessage = error instanceof Error ? error.message : String(error);
   sendMessage("logger", { msg: `Restoring durable one-shot tasks failed: ${errorMessage}` }).catch();
+});
+
+onMessage("runBackup", async ({ data }) => {
+  return await runBackupWithRetry(data.backupServerId, data.trigger ?? "manual", 0);
+});
+
+onMessage("cancelBackupRetry", async ({ data: serverId }) => {
+  const cancelled = await durableTasks.cancel(backupRetryTaskId(serverId));
+  await patchBackupServer(serverId, (server) => {
+    delete server.backupRetryAt;
+    delete server.backupRetryCount;
+  });
+  return cancelled;
 });
 
 onMessage("reDownloadTorrent", async ({ data }) => {

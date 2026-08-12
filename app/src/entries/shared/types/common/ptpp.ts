@@ -58,6 +58,7 @@ export interface IPtppLegacyBackupImportPayload {
   sourceRevision: string;
   fields: string[];
   expandCookieMinutes?: number;
+  keepExistUserInfo?: boolean;
 }
 
 export interface IPtppLegacyBackupImportResult {

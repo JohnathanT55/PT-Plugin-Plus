@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { backupDataToJSZipBlob, jsZipBlobToBackupData } from "../../app/src/packages/backupServer/utils.ts";
 import { parsePtppBackup } from "../../app/src/entries/shared/ptppBackup.ts";
 import { LEGACY_STORAGE_KEYS } from "../../src/storage/keys.ts";
+import { prepareConfigForBackup } from "../../src/backup/policy.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`PTPP backup parser test failed: ${message}`);
@@ -60,6 +61,10 @@ for (const encryptionKey of ["", "fixture-key"]) {
 
 const currentBackup = {
   manifest: { version: "PT-Plugin-Plus MV3 (fixture)" },
+  config: prepareConfigForBackup({
+    backup: { encryptionEnabled: true, encryptionKey: "fixture-key" },
+    marker: "retained",
+  }),
   collection: {
     defaultGroupId: "group-a",
     groups: [{ id: "group-a", name: "Movies", count: 1 }],
@@ -75,6 +80,12 @@ assert(
   currentBackupRestored.collection.defaultGroupId === "group-a" &&
     currentBackupRestored.collection.items[0].groups[0] === "group-a",
   "current MV3 backup round-trips favorites, groups, and the default group",
+);
+assert(
+  currentBackupRestored.config.backup.encryptionEnabled === true &&
+    !("encryptionKey" in currentBackupRestored.config.backup) &&
+    currentBackupRestored.config.marker === "retained",
+  "current MV3 encrypted archives retain settings without embedding the local recovery secret",
 );
 
 console.log("PTPP backup parser tests passed");

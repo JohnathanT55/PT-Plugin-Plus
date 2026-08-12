@@ -499,16 +499,44 @@
       "backupConfig": "Backup Configuration",
       "backupInterval": "Auto Backup Interval",
       "backupIntervalHint": "Set auto-backup interval (hours). Leave empty or 0 to disable auto backup. Max 48 hours.",
+      "digestAuth": "Digest authentication",
+      "digestAuthHint": "Enable only when the WebDAV server explicitly requires HTTP Digest Authentication. This is not backup encryption; normal OpenList/AList setups usually leave it off.",
       "serverConfig": "Server Configuration"
     },
     "HistoryDialog": {
       "deleteFailure": "Failed to delete backup history [{name}]",
       "deleteSuccess": "Deleted backup history [{name}] successfully",
+      "fieldCount": "{count} data groups",
+      "loadFailure": "Could not load remote backup files: {error}",
+      "retryNumber": "Retry {n}",
       "restore": "Restore Backup",
+      "runTable": {
+        "detail": "Details / Failure reason",
+        "duration": "Duration",
+        "fields": "Content",
+        "result": "Result",
+        "time": "Completed",
+        "trigger": "Trigger"
+      },
+      "status": {
+        "failed": "Failed",
+        "success": "Succeeded"
+      },
+      "summary": {
+        "lastAttempt": "Last attempt",
+        "lastFailure": "Latest failure reason",
+        "lastSuccess": "Last success",
+        "nextRun": "Next interval backup",
+        "trigger": "Latest trigger"
+      },
       "table": {
         "filename": "Backup Filename",
         "size": "Backup Size",
         "time": "Backup Time"
+      },
+      "tabs": {
+        "files": "Remote backup files",
+        "runs": "Run history"
       },
       "title": "Backup History for {name}"
     },
@@ -516,8 +544,11 @@
       "title": "Select content to export locally"
     },
     "RestoreDialog": {
+      "confirmReplaceUserInfo": "Replace mode removes user data currently stored in this browser and keeps only the backup records. Continue?",
+      "cookiePolicyTitle": "Cookie lifetime",
       "decryptKey": "Decryption Key",
-      "expandCookieMinutes": "Try to extend Cookies expiry (minutes)",
+      "expandCookieHint": "Use 0 to keep the expiry stored in the backup. Valid cookies extend from their existing expiry; expired or session cookies extend from restore time.",
+      "expandCookieMinutes": "Additional lifetime (minutes)",
       "failure": "Restore failed: {error}",
       "keepExistUserInfo": "Keep locally fetched user information",
       "loadFailure": "Load failed: {error}",
@@ -533,6 +564,11 @@
       "selectFile": "Select Backup File",
       "success": "Restored successfully",
       "title": "Restore from Backup File",
+      "userInfoMerge": "Keep existing records and merge the backup",
+      "userInfoMergeHint": "Existing local values win; the backup fills missing sites, dates, and fields.",
+      "userInfoPolicyTitle": "User-data restore behavior",
+      "userInfoReplace": "Replace existing records with the backup",
+      "userInfoReplaceHint": "Remove current user data and keep only records contained in the backup.",
       "versionWarning": "Backup data version is higher than the current extension version. Restoring may cause data incompatibility or loss. Continue?"
     },
     "fields": {
@@ -547,20 +583,33 @@
     },
     "localExport": "Local Export",
     "localImport": "Local Import",
+    "searchPlaceholder": "Search backup servers",
     "snackbar": {
       "failure": "Backup failed",
       "success": "Backup successful"
     },
+    "trigger": {
+      "interval": "Interval",
+      "manual": "Manual",
+      "userDataRefresh": "After scheduled refresh"
+    },
     "table": {
       "action": {
         "backupNow": "Backup Now",
+        "viewBackupDetails": "View backup details and history",
         "viewHistoryBackup": "View History Backups"
       },
       "backupFields": "Backup Content",
       "backupInterval": "Auto Backup Interval",
       "everyNHour": "Every {n} h",
+      "failed": "Failed",
+      "lastAttemptAt": "Attempted {time}",
       "lastBackupAt": "Last Backup Time",
-      "notBackup": "Not Backed Up"
+      "nextBackupAt": "Next interval backup: {time}",
+      "notBackup": "Not Backed Up",
+      "retryAt": "Retry {n}: {time}",
+      "status": "Backup Status",
+      "success": "Healthy"
     }
   },
   "SetBase": {
@@ -622,13 +671,17 @@
       "advanced": "Advanced",
       "backup": "Backup & Restore",
       "download": "Download",
-      "general": "General",
+      "general": "Interface",
       "native-bridge": "Native Bridge",
       "search": "Search",
       "search-entity": "@:common.search",
       "social-information": "Social Rating",
       "ui": "Option UI",
+      "userData": "User Data",
       "user-info": "UserInfo"
+    },
+    "section": {
+      "appearance": "Appearance and interface behavior"
     },
     "ui": {
       "allowDragLink": "Allow dragging links to the sidebar button",
@@ -1270,6 +1323,9 @@
     "searchPlanSingleSite": "Single Site"
   },
   "ptppSettings": {
+    "backupRetryHint": "Interval backups and post-refresh backups share this durable retry policy. Pending retries survive browser and service-worker restarts.",
+    "backupRetryInterval": "Backup retry interval",
+    "backupRetryMax": "Maximum backup retries",
     "unifiedImportNotice": "Complete legacy PT-Plugin-Plus ZIP backups are now handled by the normal restore flow. Sites no longer need to be added first, and migration is not limited to user history.",
     "RestorePtppUserDataDialog": {
       "importCancelled": "Import operation cancelled.",
@@ -1284,6 +1340,9 @@
       "title": "Restore PT-Plugin-Plus User History Data"
     },
     "basicConfig": "Basic Configuration",
+    "encryptionDisabledHint": "Backup encryption is off. The saved key remains in this browser but is not used for new backups.",
+    "encryptionEnabledLabel": "Encrypt backups (AES)",
+    "encryptionSection": "Backup encryption",
     "encryptionKeyLabel": "Backup file encryption/decryption key",
     "importConfigInfoLine1": "{repoName} can only import user history data from the original PT-Plugin-Plus. Other configuration files are not supported.",
     "importConfigInfoPrep": "Before importing, please make the following preparations:",
@@ -1294,7 +1353,8 @@
     "importStep4": "Upload the zip package or the extracted <code>userdatas.json</code> file to the input box below.",
     "invalidFileFormat": "Invalid file format, please check if the backup was exported correctly (with the backup encryption feature turned off).",
     "randomGenTitle": "Generate Randomly",
-    "saveKeyNotice": "Note: The key is only saved in the current browser and will not be backed up, please keep it safe; data cannot be recovered if the key is lost after encryption. Leave blank for no encryption.",
+    "retrySection": "Failure retries",
+    "saveKeyNotice": "The key is stored only in this browser and is never written to local or remote backups. Keep it separately; encrypted backups cannot be recovered if it is lost.",
     "selectBackupFile": "Select PTPP Backup File",
     "undoKeyTitle": "Restore previous key"
   },
@@ -1389,6 +1449,11 @@
       "retryOnFail": "If refresh fails, retry",
       "times": "times, with an interval of",
       "unrefreshedSite": "unrefreshed"
+    },
+    "autoUpload": {
+      "enabled": "Upload a full backup after scheduled user-data refresh",
+      "hint": "Triggered only by the scheduled background refresh: one full backup is uploaded after the whole run succeeds or exhausts its retries. Manual user-data refresh, page reloads, and individual site completion do not trigger it.",
+      "target": "Upload data to"
     },
     "enableAutoRefresh": "Enable background auto-refresh?",
     "queueConcurrency": "Request Queue Concurrency",

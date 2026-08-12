@@ -499,16 +499,44 @@
       "backupConfig": "备份配置",
       "backupInterval": "自动备份间隔",
       "backupIntervalHint": "设置自动备份间隔（小时），留空或为 0 表示不自动备份，最大 48 小时",
+      "digestAuth": "Digest 摘要认证",
+      "digestAuthHint": "仅当 WebDAV 服务明确要求 HTTP Digest Authentication 时开启；它不是备份加密，普通 OpenList/AList 配置通常保持关闭。",
       "serverConfig": "服务器配置"
     },
     "HistoryDialog": {
       "deleteFailure": "删除备份历史 [{name}] 失败",
       "deleteSuccess": "删除备份历史 [{name}] 成功",
+      "fieldCount": "{count} 类数据",
+      "loadFailure": "无法读取远端备份文件：{error}",
+      "retryNumber": "第 {n} 次重试",
       "restore": "恢复备份",
+      "runTable": {
+        "detail": "详情 / 失败原因",
+        "duration": "耗时",
+        "fields": "内容",
+        "result": "结果",
+        "time": "完成时间",
+        "trigger": "触发来源"
+      },
+      "status": {
+        "failed": "失败",
+        "success": "成功"
+      },
+      "summary": {
+        "lastAttempt": "最近尝试",
+        "lastFailure": "最近失败原因",
+        "lastSuccess": "最近成功",
+        "nextRun": "下次固定备份",
+        "trigger": "最近触发来源"
+      },
       "table": {
         "filename": "备份文件名",
         "size": "备份大小",
         "time": "备份时间"
+      },
+      "tabs": {
+        "files": "远端备份文件",
+        "runs": "运行记录"
       },
       "title": "{name} 的历史备份"
     },
@@ -516,8 +544,11 @@
       "title": "请选择本地需要导出的内容"
     },
     "RestoreDialog": {
+      "confirmReplaceUserInfo": "覆盖模式会删除当前浏览器中的用户数据，只保留备份记录。确定继续吗？",
+      "cookiePolicyTitle": "Cookie 有效期",
       "decryptKey": "解密密钥",
-      "expandCookieMinutes": "尝试延长Cookies期限（单位：分钟）",
+      "expandCookieHint": "填 0 表示保留备份中的原始期限；未来有效的 Cookie 从原到期时间继续延长，已过期或会话 Cookie 从恢复时间开始计算。",
+      "expandCookieMinutes": "额外延长时间（分钟）",
       "failure": "恢复失败: {error}",
       "keepExistUserInfo": "保留本地已获取过的用户信息",
       "loadFailure": "加载失败: {error}",
@@ -533,6 +564,11 @@
       "selectFile": "选择备份文件",
       "success": "恢复成功",
       "title": "从备份文件中恢复",
+      "userInfoMerge": "保留现有记录并合并备份",
+      "userInfoMergeHint": "本地已有的同名记录优先，备份用于补齐缺少的站点、日期和字段。",
+      "userInfoPolicyTitle": "用户数据恢复方式",
+      "userInfoReplace": "使用备份覆盖现有记录",
+      "userInfoReplaceHint": "删除当前用户数据，只保留备份文件中包含的记录。",
       "versionWarning": "备份数据版本高于当前扩展版本，恢复可能会导致数据不兼容或丢失，是否继续？"
     },
     "fields": {
@@ -547,20 +583,33 @@
     },
     "localExport": "本地导出",
     "localImport": "本地导入",
+    "searchPlaceholder": "搜索备份服务器",
     "snackbar": {
       "failure": "备份失败",
       "success": "备份成功"
     },
+    "trigger": {
+      "interval": "固定间隔",
+      "manual": "手动备份",
+      "userDataRefresh": "定时刷新后"
+    },
     "table": {
       "action": {
         "backupNow": "立即备份",
+        "viewBackupDetails": "查看备份详情与历史",
         "viewHistoryBackup": "查看历史备份"
       },
       "backupFields": "备份内容",
       "backupInterval": "自动备份间隔",
       "everyNHour": "每 {n} 小时",
+      "failed": "失败",
+      "lastAttemptAt": "尝试于 {time}",
       "lastBackupAt": "最近一次备份时间",
-      "notBackup": "未备份"
+      "nextBackupAt": "下次固定备份：{time}",
+      "notBackup": "未备份",
+      "retryAt": "第 {n} 次重试：{time}",
+      "status": "备份状态",
+      "success": "正常"
     }
   },
   "SetBase": {
@@ -620,15 +669,19 @@
     },
     "tab": {
       "advanced": "高级",
-      "backup": "备份恢复",
+      "backup": "备份与恢复",
       "download": "下载",
-      "general": "常规",
+      "general": "界面与交互",
       "native-bridge": "原生通信桥",
       "search": "搜索",
       "search-entity": "@:common.search",
       "social-information": "媒体评分",
       "ui": "界面UI",
+      "userData": "用户数据",
       "user-info": "用户信息"
+    },
+    "section": {
+      "appearance": "外观与界面行为"
     },
     "ui": {
       "allowDragLink": "允许拖拽链接到侧边栏按钮",
@@ -1267,6 +1320,9 @@
     "searchPlanSingleSite": "单个站点"
   },
   "ptppSettings": {
+    "backupRetryHint": "固定间隔备份和定时刷新后自动备份共用此持久化重试策略；浏览器或 service worker 重启不会丢失待执行重试。",
+    "backupRetryInterval": "备份失败重试间隔",
+    "backupRetryMax": "备份失败最大重试次数",
     "unifiedImportNotice": "旧版 PT-Plugin-Plus 完整 ZIP 备份已经并入普通恢复入口，无需预先手动添加站点，也不再只导入用户历史。",
     "RestorePtppUserDataDialog": {
       "importCancelled": "导入操作已取消。",
@@ -1281,6 +1337,9 @@
       "title": "恢复 PT-Plugin-Plus 的用户历史数据信息"
     },
     "basicConfig": "基本配置",
+    "encryptionDisabledHint": "备份加密已关闭；已保存的密钥会保留在当前浏览器，但不会用于新备份。",
+    "encryptionEnabledLabel": "启用备份加密（AES）",
+    "encryptionSection": "备份加密",
     "encryptionKeyLabel": "备份文件加密、解密密钥",
     "importConfigInfoLine1": "{repoName} 只能导入原 PT-Plugin-Plus 的用户历史数据信息，其他配置文件不支持导入。",
     "importConfigInfoPrep": "在导入之前，请做好以下准备：",
@@ -1291,7 +1350,8 @@
     "importStep4": "将压缩包或者从压缩包中解压出的 <code>userdatas.json</code> 文件，上传到下面的输入框中。",
     "invalidFileFormat": "文件格式错误，请检查是否按正确步骤（关闭备份加密功能）导出备份。",
     "randomGenTitle": "随机生成",
-    "saveKeyNotice": "注意：密钥仅保存在当前浏览器，不会备份，请妥善保存；加密后如密钥丢失将无法恢复数据。留空表示不做加密。",
+    "retrySection": "失败重试",
+    "saveKeyNotice": "注意：密钥仅保存在当前浏览器，绝不会写入本地或远端备份。请单独妥善保存；密钥丢失后，加密备份无法恢复。",
     "selectBackupFile": "选择 PTPP 备份文件",
     "undoKeyTitle": "恢复上一个密钥"
   },
@@ -1386,6 +1446,11 @@
       "retryOnFail": "如果刷新失败，则重试",
       "times": "次，每次间隔",
       "unrefreshedSite": "未刷新过"
+    },
+    "autoUpload": {
+      "enabled": "定时自动刷新完成后上传完整备份",
+      "hint": "仅由后台定时自动刷新触发：整轮成功，或失败重试达到上限后上传一次完整备份。手动刷新用户数据、刷新页面以及单个站点完成刷新都不会触发。",
+      "target": "上传数据到"
     },
     "enableAutoRefresh": "是否启用后台定时刷新？",
     "queueConcurrency": "请求队列长度",

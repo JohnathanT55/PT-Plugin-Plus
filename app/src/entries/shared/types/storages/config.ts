@@ -252,9 +252,22 @@ export interface IConfigPiniaStorageSchema {
   backup: {
     // 用于备份文件加密、解密的密钥
     encryptionKey: string;
+    // 原版 PT-Plugin-Plus 显式开关；密钥即使保留，关闭时也不会加密新备份。
+    encryptionEnabled: boolean;
 
-    // TODO 是否开启自动备份
+    // PTD 旧字段，保留用于兼容已有配置；固定间隔备份由各服务器控制。
     enabledAutoBackup: boolean;
+
+    // 老板 PTPP：整轮自动刷新结束后，将全量数据上传到指定服务器。
+    autoUploadUserData: {
+      enabled: boolean;
+      serverId: string;
+    };
+
+    retry: {
+      max: number;
+      interval: number; // 分钟
+    };
   };
 
   socialSiteInformation: IFetchSocialSiteInformationConfig;

@@ -160,5 +160,15 @@ export function createDurableTaskCoordinator<TPayload>(adapter: IDurableTaskAdap
     return store.tasks[taskId];
   }
 
-  return { schedule, restore, handleAlarm, getTask };
+  async function cancel(taskId: string): Promise<boolean> {
+    const removed = await mutateStore((store) => {
+      if (!store.tasks[taskId]) return false;
+      delete store.tasks[taskId];
+      return true;
+    });
+    await adapter.clearAlarm(durableAlarmName(taskId));
+    return removed;
+  }
+
+  return { schedule, restore, handleAlarm, getTask, cancel };
 }

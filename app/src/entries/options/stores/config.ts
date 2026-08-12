@@ -86,6 +86,30 @@ export const useConfigStore = defineStore("config", {
         needsSave = true;
       }
 
+      state.backup ??= {};
+      if (typeof state.backup.encryptionEnabled !== "boolean") {
+        // Preserve the old PTD behavior where a non-empty key implicitly enabled encryption.
+        state.backup.encryptionEnabled = Boolean(state.backup.encryptionKey?.trim());
+        needsSave = true;
+      }
+      if (!state.backup.autoUploadUserData) {
+        state.backup.autoUploadUserData = {
+          enabled: state.autoBackupData === true,
+          serverId: typeof state.autoBackupDataServerId === "string" ? state.autoBackupDataServerId : "",
+        };
+        needsSave = true;
+      }
+      if (!state.backup.retry) {
+        state.backup.retry = { max: 3, interval: 5 };
+        needsSave = true;
+      }
+      for (const key of ["autoBackupData", "autoBackupDataServerId"]) {
+        if (Object.hasOwn(state, key)) {
+          delete state[key];
+          needsSave = true;
+        }
+      }
+
       if (needsSave) {
         context.store.$save();
       }
@@ -343,7 +367,16 @@ export const useConfigStore = defineStore("config", {
 
     backup: {
       encryptionKey: "",
+      encryptionEnabled: false,
       enabledAutoBackup: false,
+      autoUploadUserData: {
+        enabled: false,
+        serverId: "",
+      },
+      retry: {
+        max: 3,
+        interval: 5,
+      },
     },
 
     socialSiteInformation: {
