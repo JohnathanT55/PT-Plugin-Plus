@@ -7,6 +7,7 @@ import {
   TSearchResultSnapshotStorageSchema,
   TKeepUploadTaskStorageSchema,
   TDurableTaskStorageSchema,
+  IDownloadBatchStorageSchema,
 } from "@/shared/types.ts";
 
 export interface IExtensionStorageSchema {
@@ -19,6 +20,7 @@ export interface IExtensionStorageSchema {
   searchResultSnapshot: TSearchResultSnapshotStorageSchema; // 用于存储搜索结果快照
   keepUploadTask: TKeepUploadTaskStorageSchema; // 用于存储辅种任务
   pendingOneShotTasks: TDurableTaskStorageSchema; // 不进入备份的 MV3 一次性后台任务
+  downloadBatchResults: IDownloadBatchStorageSchema; // 不进入备份的后台批量任务与结果
 }
 
 export type TExtensionStorageKey = keyof IExtensionStorageSchema;

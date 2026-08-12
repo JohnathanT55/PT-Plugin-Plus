@@ -14,6 +14,11 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import type { IDownloaderMetadata } from "@/shared/types.ts";
+import {
+  buildSiteDownloadMenuTargets,
+  hasSiteDownloadDirectoryBinding,
+  type DownloadMenuTarget,
+} from "@/shared/downloadTarget.ts";
 
 import { sendTorrentToDownloader } from "./utils.ts";
 
@@ -44,10 +49,31 @@ const addTorrentOptions = ref<Required<Omit<CAddTorrentOptions, "localDownloadOp
   advanceAddTorrentOptions: {},
 });
 
-const suggestFolders = computed(() => selectedDownloader.value?.suggestFolders ?? []);
-const suggestTags = computed(() => selectedDownloader.value?.suggestTags ?? []);
-
 const currentSiteIds = computed(() => [...new Set(torrentItems.map((t) => t.site).filter(Boolean))]);
+const currentSiteId = computed(() => (currentSiteIds.value.length === 1 ? currentSiteIds.value[0] : undefined));
+const currentSiteProfile = computed(() =>
+  currentSiteId.value ? metadataStore.siteDownloadProfiles?.[currentSiteId.value] : undefined,
+);
+const selectedSiteTarget = computed(() =>
+  selectedDownloader.value?.id ? currentSiteProfile.value?.byDownloader?.[selectedDownloader.value.id] : undefined,
+);
+const uniqueStrings = (values: Array<string | undefined>) => [
+  ...new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]),
+];
+const suggestFolders = computed(() =>
+  uniqueStrings([
+    selectedSiteTarget.value?.defaultDirectory,
+    ...(selectedSiteTarget.value?.directories ?? []),
+    ...(selectedDownloader.value?.suggestFolders ?? []),
+  ]),
+);
+const suggestTags = computed(() =>
+  uniqueStrings([
+    selectedSiteTarget.value?.defaultTag,
+    ...(selectedSiteTarget.value?.tags ?? []),
+    ...(selectedDownloader.value?.suggestTags ?? []),
+  ]),
+);
 const enabledDownloadersBySite = computed(() => {
   const ids = currentSiteIds.value;
   if (ids.length === 0) return metadataStore.getEnabledDownloaders;
@@ -56,8 +82,14 @@ const enabledDownloadersBySite = computed(() => {
   return metadataStore.getEnabledDownloaders.filter((d) => intersection.has(d.id));
 });
 const sortedEnabledDownloadersBySite = computed(() =>
-  [...enabledDownloadersBySite.value].sort((a, b) => (b.sortIndex ?? 0) - (a.sortIndex ?? 0)),
+  [...enabledDownloadersBySite.value].sort((a, b) => {
+    const aBound = hasSiteDownloadDirectoryBinding(currentSiteProfile.value?.byDownloader?.[a.id]) ? 1 : 0;
+    const bBound = hasSiteDownloadDirectoryBinding(currentSiteProfile.value?.byDownloader?.[b.id]) ? 1 : 0;
+    return bBound - aBound || (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
+  }),
 );
+const quickTargets = computed(() => buildSiteDownloadMenuTargets(metadataStore, currentSiteId.value));
+const firstGeneralTargetIndex = computed(() => quickTargets.value.findIndex((target) => target.kind === "general"));
 const downloaderTitle = (downloader: IDownloaderMetadata) => `${downloader.name} [${downloader.address}]`;
 const getDownloaderIcon = (x: string) => chrome.runtime.getURL(getDownloaderIconRaw(x));
 
@@ -67,6 +99,12 @@ function restoreAddTorrentOptions(downloader?: IDownloaderMetadata) {
   addTorrentOptions.value.savePath = "";
   addTorrentOptions.value.label = "";
   addTorrentOptions.value.advanceAddTorrentOptions = downloader?.advanceAddTorrentOptions ?? {};
+  const siteTarget = downloader?.id ? currentSiteProfile.value?.byDownloader?.[downloader.id] : undefined;
+  if (hasSiteDownloadDirectoryBinding(siteTarget)) {
+    addTorrentOptions.value.savePath = siteTarget.defaultDirectory || siteTarget.directories[0] || "";
+    addTorrentOptions.value.label = siteTarget.defaultTag || (siteTarget.tags.length === 1 ? siteTarget.tags[0] : "");
+    addTorrentOptions.value.addAtPaused = !(siteTarget.autoStart ?? downloader?.feature?.DefaultAutoStart ?? true);
+  }
 }
 
 watch(selectedDownloader, (value) => {
@@ -100,20 +138,15 @@ async function sendToDownloader() {
   });
 }
 
-function quickSendToDownloader(downloader: IDownloaderMetadata, path: string = "", label?: string) {
-  selectedDownloader.value = downloader;
+function quickSendToDownloader(target: DownloadMenuTarget) {
+  selectedDownloader.value = target.downloader;
 
   // 设置下载推送选项
   addTorrentOptions.value.localDownload = true;
-  addTorrentOptions.value.addAtPaused = !(downloader.feature?.DefaultAutoStart ?? true);
-  addTorrentOptions.value.advanceAddTorrentOptions = downloader.advanceAddTorrentOptions ?? {};
-
-  if (path) {
-    addTorrentOptions.value.savePath = path;
-  }
-  if (label) {
-    addTorrentOptions.value.label = label;
-  }
+  addTorrentOptions.value.addAtPaused = !target.autoStart;
+  addTorrentOptions.value.advanceAddTorrentOptions = target.downloader.advanceAddTorrentOptions ?? {};
+  addTorrentOptions.value.savePath = target.savePath;
+  addTorrentOptions.value.label = target.label;
 
   return sendToDownloader();
 }
@@ -125,17 +158,31 @@ async function dialogEnter() {
   // 如果不是快速发送到客户端模式，则尝试设置默认下载器
   if (!quickSendToClient.value) {
     const lastDownloaderId = metadataStore.lastDownloader?.id;
-    selectedDownloader.value = lastDownloaderId // 如果有上次选择的下载器，则直接使用
-      ? metadataStore.downloaders[lastDownloaderId]
-      : sortedEnabledDownloadersBySite.value.length === 1 // 如果只有一个启用的下载器，则直接使用
-        ? sortedEnabledDownloadersBySite.value[0]
-        : null;
+    const siteDownloaderId = currentSiteProfile.value?.defaultDownloaderId;
+    const siteDownloader = siteDownloaderId
+      ? sortedEnabledDownloadersBySite.value.find(
+          (downloader) =>
+            downloader.id === siteDownloaderId &&
+            hasSiteDownloadDirectoryBinding(currentSiteProfile.value?.byDownloader?.[downloader.id]),
+        )
+      : undefined;
+    selectedDownloader.value = siteDownloader
+      ? siteDownloader
+      : lastDownloaderId // 如果有上次选择的下载器，则直接使用
+        ? metadataStore.downloaders[lastDownloaderId]
+        : sortedEnabledDownloadersBySite.value.length === 1 // 如果只有一个启用的下载器，则直接使用
+          ? sortedEnabledDownloadersBySite.value[0]
+          : null;
+
+    restoreAddTorrentOptions(selectedDownloader.value ?? undefined);
 
     // 将上一次的下载器选项通过 toMerged 合并到当前选项中，而不是直接覆盖
-    addTorrentOptions.value = toMerged(
-      addTorrentOptions.value,
-      metadataStore.lastDownloader?.options ?? {},
-    ) as Required<Omit<CAddTorrentOptions, "localDownloadOption">>;
+    if (!siteDownloader) {
+      addTorrentOptions.value = toMerged(
+        addTorrentOptions.value,
+        metadataStore.lastDownloader?.options ?? {},
+      ) as Required<Omit<CAddTorrentOptions, "localDownloadOption">>;
+    }
   }
 }
 
@@ -177,26 +224,25 @@ function dialogLeave() {
         <v-form v-else>
           <!-- 快速下载选项 -->
           <v-container v-if="quickSendToClient" class="pa-0">
-            <v-list v-if="sortedEnabledDownloadersBySite.length > 0">
-              <template v-for="downloader in sortedEnabledDownloadersBySite" :key="downloader.id">
+            <v-list v-if="quickTargets.length > 0">
+              <template
+                v-for="(target, index) in quickTargets"
+                :key="`${target.kind}-${target.downloaderId}-${target.savePath}-${target.label}`"
+              >
+                <v-divider v-if="index === firstGeneralTargetIndex && firstGeneralTargetIndex > 0" class="my-2" />
                 <v-list-item
-                  v-for="path in ['', ...(downloader.suggestFolders ?? [])]"
-                  :key="path"
-                  :prepend-avatar="getDownloaderIcon(downloader.type)"
-                  :subtitle="path"
-                  :title="downloaderTitle(downloader)"
-                  @click.stop="() => quickSendToDownloader(downloader, path)"
+                  :prepend-avatar="getDownloaderIcon(target.downloader.type)"
+                  :subtitle="
+                    [target.downloader.address, target.savePath, target.label ? `#${target.label}` : '']
+                      .filter(Boolean)
+                      .join(' → ')
+                  "
+                  :title="target.downloader.name"
+                  @click.stop="() => quickSendToDownloader(target)"
                 >
-                  <v-menu activator="parent" open-on-hover location="end">
-                    <v-list density="compact">
-                      <v-list-item
-                        v-for="tag in downloader.suggestTags"
-                        :key="tag"
-                        :title="tag"
-                        @click.stop="() => quickSendToDownloader(downloader, path, tag)"
-                      />
-                    </v-list>
-                  </v-menu>
+                  <template #append>
+                    <v-chip v-if="target.kind === 'site'" color="primary" label size="small">站点专用</v-chip>
+                  </template>
                 </v-list-item>
               </template>
             </v-list>

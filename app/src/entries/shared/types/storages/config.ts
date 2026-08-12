@@ -4,7 +4,7 @@ import type { IFetchSocialSiteInformationConfig } from "@ptd/social";
 import type { TLangCode } from "@/options/plugins/i18n.ts";
 import type { ITimelineUserInfoField } from "@/options/views/Overview/MyData/UserDataTimeline/utils.ts";
 
-import type { TLocalDownloadMethod } from "../common/download.ts";
+import type { TDownloadSizeUnit, TLocalDownloadMethod } from "../common/download.ts";
 
 export const supportTheme = ["auto", "light", "dark"] as const;
 export type supportThemeType = (typeof supportTheme)[number];
@@ -203,6 +203,16 @@ export interface IConfigPiniaStorageSchema {
     allowDirectSendToClient: boolean;
     // 是否使用快速发送到客户端功能（展平 下载器和下载目录 ）
     useQuickSendToClient: boolean;
+
+    // 以下字段沿用 PTPP v1 的含义和命名，便于旧备份无损迁移。
+    downloadFailedRetry: boolean;
+    downloadFailedFailedRetryCount: number;
+    downloadFailedFailedRetryInterval: number;
+    batchDownloadInterval: number;
+    enableBackgroundDownload: boolean;
+    needConfirmWhenExceedSize: boolean;
+    exceedSize: number;
+    exceedSizeUnit: TDownloadSizeUnit;
   };
 
   searchEntity: {

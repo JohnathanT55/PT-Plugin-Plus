@@ -9,7 +9,7 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { notifyCollectionChanged, useCollectionRevision } from "@/options/composables/collectionState.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
-import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
+import { dispatchDownloadOptions, sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 import { formatSize } from "@/options/utils.ts";
 
 import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
@@ -93,9 +93,7 @@ const localDlTorrentDownloadLinkBtnStatus = ref(false);
 async function localDlTorrentDownloadLink() {
   localDlTorrentDownloadLinkBtnStatus.value = true;
   try {
-    await Promise.allSettled(
-      torrentItems.map((torrent) => sendMessage("downloadTorrent", { torrent, downloaderId: "local" })),
-    );
+    await dispatchDownloadOptions(torrentItems.map((torrent) => ({ torrent, downloaderId: "local" })));
   } finally {
     localDlTorrentDownloadLinkBtnStatus.value = false;
   }

@@ -53,6 +53,8 @@ import {
   BridgeStatus,
   IPtppLegacyBackupImportPayload,
   IPtppLegacyBackupImportResult,
+  IQueueDownloadBatchRequest,
+  IQueueDownloadBatchResult,
 } from "@/shared/types.ts";
 
 import { isDebug } from "~/helper.ts";
@@ -77,6 +79,7 @@ interface ProtocolMap extends TMessageMap {
 
   // 1.4 chrome.alarms
   reDownloadTorrent(data: AugmentedRequired<IDownloadTorrentOption, "downloadId" | "leftInterval">): void;
+  queueDownloadBatch(data: IQueueDownloadBatchRequest): IQueueDownloadBatchResult;
 
   // 1.5 chrome.cookies
   getAllCookies(data: chrome.cookies.GetAllDetails): chrome.cookies.Cookie[];
@@ -156,6 +159,7 @@ interface ProtocolMap extends TMessageMap {
   resumeClientTorrent(data: { downloaderId: string; id: any }): boolean;
 
   downloadTorrent(data: IDownloadTorrentOption): IDownloadTorrentResult;
+  createDownloadHistory(data: IDownloadTorrentOption): TTorrentDownloadKey;
 
   getDownloadHistory(): ITorrentDownloadMetadata[];
   getDownloadHistoryById(downloadId: TTorrentDownloadKey): ITorrentDownloadMetadata;

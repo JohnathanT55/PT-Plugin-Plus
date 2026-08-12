@@ -566,7 +566,14 @@
   "SetBase": {
     "download": {
       "allowDirectSendToClient": "是否允许直接将链接（而不是种子文件）发送到下载服务器（如非必要请勿启用）",
+      "batchDownloadInterval": "批量下载时间间隔",
+      "downloadFailedRetry": "下载失败后自动重试",
+      "downloadFailedRetryCount": "最大重试次数",
+      "downloadFailedRetryInterval": "重试间隔",
+      "enableBackgroundDownload": "在后台执行批量下载任务并在完成后通知",
       "enableSiteFilter": "启用站点过滤器（启用后可在下载器设置中配置每个下载器可使用的站点）",
+      "exceedSize": "批量种子总体积确认阈值",
+      "exceedSizeUnit": "单位",
       "initDownloaderTorrentOnEnter": "进入 我的下载器 页面时，自动加载下载器中的种子信息",
       "localDownloadIgnoreInterval": "本地下载时忽略站点下载间隔限制",
       "localDownloadMethod": "本地下载方式",
@@ -579,6 +586,7 @@
         "webTip": "打开下载链接对应的页面（只适用于最简单的方式，如果不符合条件，则会回落到 @:SetBase.download.localDownloadMethodOptions.extension ）"
       },
       "localDownloadTitle": "本地下载",
+      "needConfirmWhenExceedSize": "批量种子总体积超过阈值时二次确认",
       "myClientTitle": "我的下载器页面设置",
       "pushDownloadServerTitle": "下载服务器推送",
       "quickSendToClientNote": "启用快速推送后，插件会在推送下载任务时，做以下默认操作：<br />1. 展平 下载器和下载目录 选项供直接点击推送。<br />2. 鼠标移到选项时，则会暂开标签列表，点击时会额外添加标签信息。<br />3. 均采用本地中转模式推送种子，且 `是否自动开始下载` 等基本设置项和下载器专有配置项值由下载器设置和站点设置决定。",

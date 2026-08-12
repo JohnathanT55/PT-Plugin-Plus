@@ -12,5 +12,11 @@ export interface IDurableUserInfoRetryTaskPayload {
   retryIndex: number;
 }
 
-export type TDurableTaskPayload = IDurableDownloadTaskPayload | IDurableUserInfoRetryTaskPayload;
+export interface IDurableDownloadBatchTaskPayload {
+  type: "downloadBatch";
+  batchId: string;
+}
+
+export type TDurableTaskPayload =
+  IDurableDownloadTaskPayload | IDurableUserInfoRetryTaskPayload | IDurableDownloadBatchTaskPayload;
 export type TDurableTaskStorageSchema = IDurableTaskStore<TDurableTaskPayload>;

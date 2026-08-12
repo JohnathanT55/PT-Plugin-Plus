@@ -59,6 +59,33 @@ export const useConfigStore = defineStore("config", {
         needsSave = true;
       }
 
+      // PTPP v1 stored these download settings at the config root. Preserve
+      // them when an old backup is restored into the MV3 nested config store.
+      state.download ??= {};
+      const legacyDownloadKeys = [
+        "downloadFailedRetry",
+        "downloadFailedFailedRetryCount",
+        "downloadFailedFailedRetryInterval",
+        "batchDownloadInterval",
+        "enableBackgroundDownload",
+        "needConfirmWhenExceedSize",
+        "exceedSize",
+        "exceedSizeUnit",
+      ];
+      for (const key of legacyDownloadKeys) {
+        if (Object.hasOwn(state, key)) {
+          state.download[key] = state[key];
+          delete state[key];
+          needsSave = true;
+        }
+      }
+
+      const validSizeUnits = new Set(["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB"]);
+      if (!validSizeUnits.has(state.download.exceedSizeUnit)) {
+        state.download.exceedSizeUnit = "GiB";
+        needsSave = true;
+      }
+
       if (needsSave) {
         context.store.$save();
       }
@@ -283,6 +310,14 @@ export const useConfigStore = defineStore("config", {
       localDownloadMethod: "browser",
       ignoreSiteDownloadIntervalWhenLocalDownload: true,
       useQuickSendToClient: true,
+      downloadFailedRetry: false,
+      downloadFailedFailedRetryCount: 3,
+      downloadFailedFailedRetryInterval: 5,
+      batchDownloadInterval: 0,
+      enableBackgroundDownload: false,
+      needConfirmWhenExceedSize: true,
+      exceedSize: 10,
+      exceedSizeUnit: "GiB",
     },
 
     searchEntity: {

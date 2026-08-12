@@ -3,7 +3,7 @@ import { computed, ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import type { CAddTorrentOptions } from "@ptd/downloader";
 
-import type { IKeepUploadTask } from "@/shared/types.ts";
+import type { IDownloadTorrentOption, IKeepUploadTask } from "@/shared/types.ts";
 import { sendMessage } from "@/messages.ts";
 import { formatSize, formatDate } from "@/options/utils.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -12,6 +12,7 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
+import { dispatchDownloadOptions } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
 const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
@@ -107,6 +108,7 @@ async function sendTorrentsToDownloader(task: IKeepUploadTask, items: IKeepUploa
   }
 
   try {
+    const downloadOptions: IDownloadTorrentOption[] = [];
     for (const item of items) {
       const now = new Date();
       const replacements: Record<string, string> = {
@@ -134,7 +136,7 @@ async function sendTorrentsToDownloader(task: IKeepUploadTask, items: IKeepUploa
         }
       }
 
-      const result = await sendMessage("downloadTorrent", {
+      downloadOptions.push({
         torrent: {
           site: item.site,
           title: item.title,
@@ -147,10 +149,9 @@ async function sendTorrentsToDownloader(task: IKeepUploadTask, items: IKeepUploa
         downloaderId: task.downloadOptions.downloaderId,
         addTorrentOptions,
       });
-      if (result.downloadStatus === "failed") {
-        throw new Error(result.errorMessage || item.title);
-      }
     }
+    const result = await dispatchDownloadOptions(downloadOptions);
+    if (result.failedCount > 0) throw new Error(`${result.failedCount}/${result.totalCount}`);
     runtimeStore.showSnakebar(t("KeepUploadTask.sendSingleSuccess"), { color: "success" });
   } catch (e) {
     const rawReason = e instanceof Error ? e.message : String(e);

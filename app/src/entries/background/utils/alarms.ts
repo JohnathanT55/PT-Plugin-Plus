@@ -4,7 +4,14 @@ import { EResultParseStatus, type TSiteID } from "@ptd/site/types/base.ts";
 
 import { extStorage } from "@/storage.ts";
 import { onMessage, sendMessage } from "@/messages.ts";
-import { IDownloadTorrentOption, IMetadataPiniaStorageSchema } from "@/shared/types.ts";
+import { sanitizeDownloadErrorMessage } from "@/shared/downloadError.ts";
+import {
+  IDownloadTorrentOption,
+  IMetadataPiniaStorageSchema,
+  type IDownloadBatchRecord,
+  type IDownloadBatchStorageSchema,
+  type IDownloadTorrentResult,
+} from "@/shared/types.ts";
 import type { TDurableTaskPayload } from "@/shared/types.ts";
 import {
   createDurableTaskCoordinator,
@@ -20,7 +27,10 @@ export enum EJobType {
 }
 
 const DOWNLOAD_TASK_PREFIX = "download:";
+const DOWNLOAD_BATCH_TASK_PREFIX = "download-batch:";
 const USER_INFO_RETRY_TASK_ID = "user-info-retry";
+const DOWNLOAD_BATCH_STORAGE_VERSION = 1 as const;
+const MAX_RETAINED_DOWNLOAD_BATCHES = 20;
 
 const jobs = defineJobScheduler();
 
@@ -201,9 +211,129 @@ jobs.scheduleJob({
   execute: autoBackup(),
 });
 
+function createEmptyDownloadBatchStore(): IDownloadBatchStorageSchema {
+  return { version: DOWNLOAD_BATCH_STORAGE_VERSION, batches: {} };
+}
+
+async function loadDownloadBatchStore(): Promise<IDownloadBatchStorageSchema> {
+  const stored = await extStorage.getItem("downloadBatchResults");
+  if (stored?.version !== DOWNLOAD_BATCH_STORAGE_VERSION || !stored.batches) {
+    return createEmptyDownloadBatchStore();
+  }
+  return stored;
+}
+
+async function saveDownloadBatchStore(store: IDownloadBatchStorageSchema): Promise<void> {
+  await extStorage.setItem("downloadBatchResults", store);
+}
+
+function pruneCompletedDownloadBatches(store: IDownloadBatchStorageSchema): void {
+  const completed = Object.values(store.batches)
+    .filter((batch) => batch.status === "completed")
+    .sort((a, b) => (b.completedAt ?? b.createdAt) - (a.completedAt ?? a.createdAt));
+  for (const batch of completed.slice(MAX_RETAINED_DOWNLOAD_BATCHES)) delete store.batches[batch.id];
+}
+
+async function showDownloadBatchNotification(batch: IDownloadBatchRecord): Promise<void> {
+  await chrome.notifications.create(`ptpp-download-batch:${batch.id}`, {
+    type: "basic",
+    iconUrl: chrome.runtime.getURL("icons/logo/128.png"),
+    title: "PT-Plugin-Plus",
+    message: `批量下载完成：成功 ${batch.successCount}，失败 ${batch.failedCount}，共 ${batch.totalCount} 项。`,
+    requireInteraction: true,
+  });
+}
+
+async function executeDownloadBatch(batchId: string): Promise<void> {
+  await setupOffscreenDocument();
+  let store = await loadDownloadBatchStore();
+  let batch = store.batches[batchId];
+  if (!batch || batch.status === "completed") return;
+
+  const index = batch.currentIndex;
+  const queuedOption = batch.items[index];
+  if (!queuedOption) {
+    batch.status = "completed";
+    batch.completedAt = Date.now();
+    batch.items = [];
+    pruneCompletedDownloadBatches(store);
+    await saveDownloadBatchStore(store);
+    await showDownloadBatchNotification(batch);
+    return;
+  }
+
+  let result: IDownloadTorrentResult;
+  try {
+    const existingHistory = queuedOption.downloadId
+      ? await sendMessage("getDownloadHistoryById", queuedOption.downloadId).catch(() => undefined)
+      : undefined;
+    result =
+      existingHistory?.downloadStatus === "completed"
+        ? { downloadId: queuedOption.downloadId!, downloadStatus: "completed" }
+        : await sendMessage("downloadTorrent", {
+            ...queuedOption,
+            backgroundBatchId: batchId,
+            leftInterval: 0,
+          });
+  } catch (error) {
+    result = {
+      downloadId: queuedOption.downloadId ?? 0,
+      downloadStatus: "failed",
+      errorMessage: sanitizeDownloadErrorMessage(error),
+    };
+  }
+
+  // A site interval or a configured retry has already rescheduled this same
+  // durable batch task through reDownloadTorrent. Keep the cursor in place.
+  if (result.downloadStatus === "pending") {
+    store = await loadDownloadBatchStore();
+    batch = store.batches[batchId];
+    if (batch?.items[index]) {
+      batch.items[index] = { ...batch.items[index], downloadId: result.downloadId, backgroundBatchId: batchId };
+      await saveDownloadBatchStore(store);
+    }
+    return;
+  }
+
+  store = await loadDownloadBatchStore();
+  batch = store.batches[batchId];
+  if (!batch || batch.status === "completed" || batch.currentIndex !== index) return;
+  batch.results[index] = {
+    index,
+    downloadId: result.downloadId,
+    downloadStatus: result.downloadStatus,
+    ...(result.errorMessage ? { errorMessage: result.errorMessage } : {}),
+  };
+  if (result.downloadStatus === "completed") batch.successCount += 1;
+  else batch.failedCount += 1;
+  batch.currentIndex += 1;
+
+  if (batch.currentIndex >= batch.totalCount) {
+    batch.status = "completed";
+    batch.completedAt = Date.now();
+    batch.items = [];
+    pruneCompletedDownloadBatches(store);
+    await saveDownloadBatchStore(store);
+    await showDownloadBatchNotification(batch);
+    return;
+  }
+
+  await saveDownloadBatchStore(store);
+  await durableTasks.schedule({
+    id: `${DOWNLOAD_BATCH_TASK_PREFIX}${batchId}`,
+    runAt: Date.now() + Math.max(0, batch.intervalSeconds) * 1000,
+    payload: { type: "downloadBatch", batchId },
+  });
+}
+
 async function executeDurableTask(task: IDurableTask<TDurableTaskPayload>): Promise<void> {
   if (task.payload.type === "userInfoRetry") {
     await autoFlushUserInfo(task.payload.retryIndex)();
+    return;
+  }
+
+  if (task.payload.type === "downloadBatch") {
+    await executeDownloadBatch(task.payload.batchId);
     return;
   }
 
@@ -260,6 +390,20 @@ durableTasks.restore().catch((error) => {
 
 onMessage("reDownloadTorrent", async ({ data }) => {
   const runAt = Date.now() + Math.max(0, data.leftInterval);
+  if (data.backgroundBatchId) {
+    const store = await loadDownloadBatchStore();
+    const batch = store.batches[data.backgroundBatchId];
+    if (batch && batch.status === "pending" && batch.items[batch.currentIndex]) {
+      batch.items[batch.currentIndex] = { ...data, leftInterval: 0 };
+      await saveDownloadBatchStore(store);
+      await durableTasks.schedule({
+        id: `${DOWNLOAD_BATCH_TASK_PREFIX}${data.backgroundBatchId}`,
+        runAt,
+        payload: { type: "downloadBatch", batchId: data.backgroundBatchId },
+      });
+    }
+    return;
+  }
   const taskKey = data.downloadId > 0 ? String(data.downloadId) : crypto.randomUUID();
   try {
     await durableTasks.schedule({
@@ -277,4 +421,47 @@ onMessage("reDownloadTorrent", async ({ data }) => {
     );
     throw error;
   }
+});
+
+onMessage("queueDownloadBatch", async ({ data }) => {
+  const batchId = crypto.randomUUID();
+  const intervalSeconds = Number.isFinite(data.intervalSeconds) ? Math.max(0, data.intervalSeconds) : 0;
+  await setupOffscreenDocument();
+  const items = [] as IDownloadTorrentOption[];
+  for (const item of data.items) {
+    const downloadId = item.downloadId ?? (await sendMessage("createDownloadHistory", item));
+    items.push({ ...item, downloadId, retryIndex: 0, backgroundBatchId: batchId });
+  }
+  const store = await loadDownloadBatchStore();
+  store.batches[batchId] = {
+    id: batchId,
+    createdAt: Date.now(),
+    intervalSeconds,
+    currentIndex: 0,
+    items,
+    results: {},
+    totalCount: data.items.length,
+    successCount: 0,
+    failedCount: 0,
+    status: "pending",
+  };
+  pruneCompletedDownloadBatches(store);
+  await saveDownloadBatchStore(store);
+
+  if (data.items.length > 0) {
+    try {
+      await durableTasks.schedule({
+        id: `${DOWNLOAD_BATCH_TASK_PREFIX}${batchId}`,
+        runAt: Date.now(),
+        payload: { type: "downloadBatch", batchId },
+      });
+    } catch (error) {
+      const rollbackStore = await loadDownloadBatchStore();
+      delete rollbackStore.batches[batchId];
+      await saveDownloadBatchStore(rollbackStore);
+      throw error;
+    }
+  }
+
+  return { batchId, totalCount: data.items.length };
 });

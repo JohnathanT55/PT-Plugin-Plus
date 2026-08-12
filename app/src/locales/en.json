@@ -567,7 +567,14 @@
     "download": {
       "MyClientTitle": "My Downloader",
       "allowDirectSendToClient": "Allow sending links directly (instead of torrent files) to the download server (Do not enable unless necessary)",
+      "batchDownloadInterval": "Batch download interval",
+      "downloadFailedRetry": "Retry failed downloads",
+      "downloadFailedRetryCount": "Maximum retry count",
+      "downloadFailedRetryInterval": "Retry interval",
+      "enableBackgroundDownload": "Run batch downloads in the background and notify when complete",
       "enableSiteFilter": "Enable site filter (configure per-downloader site filtering in downloader settings)",
+      "exceedSize": "Batch size confirmation threshold",
+      "exceedSizeUnit": "Unit",
       "initDownloaderTorrentOnEnter": "Automatically load torrents from the downloader when entering the My Downloader page",
       "localDownloadIgnoreInterval": "Ignore site download interval limit for local downloads",
       "localDownloadMethod": "Local Download Method",
@@ -580,6 +587,7 @@
         "webTip": "Open the page corresponding to the download link (only applicable to the simplest method; if conditions are not met, it will fall back to @:SetBase.download.localDownloadMethodOptions.extension )"
       },
       "localDownloadTitle": "Local Download",
+      "needConfirmWhenExceedSize": "Confirm when the total batch size exceeds the threshold",
       "pushDownloadServerTitle": "Push to Download Server",
       "quickSendToClientNote": "When quick push is enabled, the plugin will perform the following default actions when pushing download tasks:<br />1. Flatten the downloader and download directory options for direct click-to-push.<br />2. When hovering over an option, the label list will temporarily open; clicking will additionally add label information.<br />3. All use local relay mode to push torrents, and basic settings like 'auto-start download' and downloader-specific configs are determined by downloader and site settings.",
       "saveDownloadHistory": "Save download history (Please do not disable this function unless necessary)",

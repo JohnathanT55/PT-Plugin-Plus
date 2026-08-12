@@ -3,9 +3,9 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { CAddTorrentOptions } from "@ptd/downloader";
 
-import { sendMessage } from "@/messages.ts";
 import { useResetableRef } from "@/options/directives/useResetableRef.ts";
 import type { ITorrentDownloadMetadata } from "@/shared/types.ts";
+import { dispatchDownloadOptions } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
 import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 
@@ -50,26 +50,15 @@ function submitDownloadFinish(reDownloadType: TReDownloadType) {
 function reDownload(reDownloadType: TReDownloadType) {
   isReDownloading.value[reDownloadType] = true;
   // 对 old 和 local 直接调用下载方法；downloader 使用下方 PTPP 锚定菜单。
-  const promises = [];
-
-  for (const history of torrentItems) {
-    if (history) {
-      const historyTorrent = history.torrent;
-      if (reDownloadType === "local" || history.downloaderId === "local") {
-        promises.push(sendMessage("downloadTorrent", { torrent: historyTorrent, downloaderId: "local" }));
-      } else {
-        promises.push(
-          sendMessage("downloadTorrent", {
-            torrent: historyTorrent,
-            downloaderId: history.downloaderId,
-            addTorrentOptions: (history.addTorrentOptions ?? {}) as CAddTorrentOptions,
-          }),
-        );
-      }
-    }
-  }
-
-  Promise.all(promises).finally(() => {
+  dispatchDownloadOptions(
+    torrentItems.map((history) => ({
+      torrent: history.torrent,
+      downloaderId: reDownloadType === "local" ? "local" : history.downloaderId,
+      ...(reDownloadType !== "local" && history.downloaderId !== "local"
+        ? { addTorrentOptions: (history.addTorrentOptions ?? {}) as CAddTorrentOptions }
+        : {}),
+    })),
+  ).finally(() => {
     submitDownloadFinish(reDownloadType);
   });
 }

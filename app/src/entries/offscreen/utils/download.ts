@@ -24,6 +24,7 @@ import type {
   IDownloadTorrentResult,
   AugmentedRequired,
 } from "@/shared/types.ts";
+import { sanitizeDownloadErrorMessage } from "@/shared/downloadError.ts";
 
 import { logger } from "./logger.ts";
 import { getSiteInstance } from "./site.ts";
@@ -190,6 +191,8 @@ function buildDownloadHistory(downloadOption: IDownloadTorrentOption): ITorrentD
   } as ITorrentDownloadMetadata;
 }
 
+onMessage("createDownloadHistory", async ({ data }) => await setDownloadHistory(buildDownloadHistory(data)));
+
 const lastSiteDownloadAt = new Map<string, number>();
 
 async function isAllowedSaveDownloadHistory(): Promise<boolean> {
@@ -279,7 +282,35 @@ async function downloadTorrent(downloadOption: IDownloadTorrentOption) {
     errorMessage = getErrorMessage(e);
   }
 
-  await setDownloadStatus(downloadId, downloadStatus);
+  // PTPP v1 retried failed remote pushes. In MV3 the wait must not live in
+  // this offscreen document, so persist the next attempt through the
+  // service-worker alarm coordinator instead of setTimeout/sleep.
+  if (
+    !isDownloadToLocalFile &&
+    downloadStatus === "failed" &&
+    (configStoreRaw?.download?.downloadFailedRetry ?? false)
+  ) {
+    const retryIndex = Math.max(0, downloadOption.retryIndex ?? 0);
+    const retryMax = Math.max(0, Number(configStoreRaw.download.downloadFailedFailedRetryCount ?? 0));
+    if (retryIndex < retryMax) {
+      const retryIntervalSeconds = Math.max(0, Number(configStoreRaw.download.downloadFailedFailedRetryInterval ?? 0));
+      logger({
+        msg: `Download task #${downloadId} failed; scheduling retry #${retryIndex + 1}/${retryMax}.`,
+      });
+      await sendMessage("reDownloadTorrent", {
+        ...downloadOption,
+        downloadId,
+        retryIndex: retryIndex + 1,
+        leftInterval: retryIntervalSeconds * 1000,
+      });
+      downloadStatus = "pending";
+    }
+  }
+
+  await patchDownloadHistory(downloadId, {
+    downloadStatus,
+    errorMessage: errorMessage ? sanitizeDownloadErrorMessage(errorMessage) : undefined,
+  }).catch();
   return { downloadId, downloadStatus, errorMessage } as IDownloadTorrentResult;
 }
 
@@ -405,13 +436,7 @@ async function downloadTorrentToRemote(
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
+  return sanitizeDownloadErrorMessage(error);
 }
 
 export async function getDownloadHistory() {

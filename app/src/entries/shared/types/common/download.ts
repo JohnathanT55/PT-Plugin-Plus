@@ -15,6 +15,9 @@ export const LocalDownloadMethod = [
 
 export type TLocalDownloadMethod = (typeof LocalDownloadMethod)[number];
 
+export const DownloadSizeUnits = ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB"] as const;
+export type TDownloadSizeUnit = (typeof DownloadSizeUnits)[number];
+
 export interface IDownloadTorrentOption {
   downloadId?: TTorrentDownloadKey;
   torrent: Partial<ITorrent>;
@@ -33,6 +36,47 @@ export interface IDownloadTorrentOption {
 
   // 当下载到对应id的下载器中时
   addTorrentOptions?: CAddTorrentOptions;
+
+  // Internal MV3 scheduling state. These fields are deliberately excluded
+  // from backup UI and only travel with a pending download task.
+  retryIndex?: number;
+  backgroundBatchId?: string;
+}
+
+export interface IQueueDownloadBatchRequest {
+  items: IDownloadTorrentOption[];
+  intervalSeconds: number;
+}
+
+export interface IQueueDownloadBatchResult {
+  batchId: string;
+  totalCount: number;
+}
+
+export interface IDownloadBatchItemResult {
+  index: number;
+  downloadId?: TTorrentDownloadKey;
+  downloadStatus: TTorrentDownloadStatus;
+  errorMessage?: string;
+}
+
+export interface IDownloadBatchRecord {
+  id: string;
+  createdAt: number;
+  completedAt?: number;
+  intervalSeconds: number;
+  currentIndex: number;
+  items: IDownloadTorrentOption[];
+  results: Record<number, IDownloadBatchItemResult>;
+  totalCount: number;
+  successCount: number;
+  failedCount: number;
+  status: "pending" | "completed";
+}
+
+export interface IDownloadBatchStorageSchema {
+  version: 1;
+  batches: Record<string, IDownloadBatchRecord>;
 }
 
 export interface ITorrentDownloadMetadata extends Pick<ITorrent, "title" | "subTitle" | "url" | "link"> {
@@ -47,6 +91,7 @@ export interface ITorrentDownloadMetadata extends Pick<ITorrent, "title" | "subT
 
   downloadRequestConfig?: AxiosRequestConfig;
   addTorrentResult?: CAddTorrentResult;
+  errorMessage?: string;
 
   // Stable content key used to make legacy PTPP history imports idempotent.
   ptppMigrationKey?: string;

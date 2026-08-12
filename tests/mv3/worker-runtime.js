@@ -157,6 +157,10 @@ const collectionSearchContextSource = fs.readFileSync(path.join(root, "src/colle
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
 const alarmsSource = fs.readFileSync(path.join(root, "app/src/entries/background/utils/alarms.ts"), "utf8");
 const offscreenDownloadSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/download.ts"), "utf8");
+const downloadDispatchSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/components/SentToDownloaderDialog/utils.ts"),
+  "utf8",
+);
 const snapshotSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/SearchResultSnapshot/Index.vue"),
   "utf8",
@@ -333,7 +337,12 @@ assert(
 );
 assert(
   downloadHistorySource.includes("safeDownloadDetail") &&
-    !downloadHistorySource.includes("JSON.stringify(downloadDetail, null, 2)"),
+    downloadHistorySource.includes('errorMessage: history.errorMessage || ""') &&
+    !downloadHistorySource.includes("JSON.stringify(downloadDetail, null, 2)") &&
+    offscreenDownloadSource.includes("sanitizeDownloadErrorMessage") &&
+    offscreenDownloadSource.includes(
+      "errorMessage: errorMessage ? sanitizeDownloadErrorMessage(errorMessage) : undefined",
+    ),
   "download-history details never render raw request URLs, headers, or credentials",
 );
 assert(
@@ -356,6 +365,28 @@ assert(
   "a delayed download does not return before its durable task has been persisted",
 );
 assert(
+  offscreenDownloadSource.includes("downloadFailedFailedRetryCount") &&
+    offscreenDownloadSource.includes("retryIndex: retryIndex + 1") &&
+    alarmsSource.includes('onMessage("queueDownloadBatch"') &&
+    alarmsSource.includes("downloadBatchResults") &&
+    alarmsSource.includes("showDownloadBatchNotification") &&
+    alarmsSource.includes("requireInteraction: true") &&
+    alarmsSource.includes("sanitizeDownloadErrorMessage(error)") &&
+    alarmsSource.includes('existingHistory?.downloadStatus === "completed"'),
+  "failed retries and background batches survive worker eviction and avoid replaying completed history",
+);
+assert(
+  downloadDispatchSource.includes("executeSerialBatch") &&
+    downloadDispatchSource.includes("batchDownloadInterval") &&
+    downloadDispatchSource.includes("shouldConfirmBatchSize") &&
+    downloadDispatchSource.includes('sendMessage("queueDownloadBatch"'),
+  "all download entry points share foreground serial, background, interval and size-confirmation policy",
+);
+assert(
+  searchActionSource.includes("dispatchDownloadOptions") && keepUploadTaskSource.includes("dispatchDownloadOptions"),
+  "local search downloads and keep-upload batches use the shared PTPP execution policy",
+);
+assert(
   downloadHistorySource.includes('sendMessage("clearDownloadHistory"') &&
     downloadHistorySource.includes("clearAllDownloadHistory") &&
     snapshotSource.includes("clearAllSearchSnapshots") &&
@@ -373,6 +404,11 @@ assert(
   snapshotSource.includes('@all-delete="handleSnapshotsDeleted"') &&
     snapshotSource.includes("tableSelected.value.filter((id) => !deletedIds.has(id))"),
   "snapshot deletion immediately removes stale selected IDs",
+);
+assert(
+  downloadHistorySource.includes('@all-delete="handleDownloadHistoryDeleted"') &&
+    downloadHistorySource.includes("tableSelected.value.filter((id) => !deletedIds.has(id))"),
+  "download-history deletion immediately removes stale selected IDs",
 );
 assert(
   navButtonSource.includes("max-height: 36px !important") &&

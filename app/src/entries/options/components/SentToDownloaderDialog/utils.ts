@@ -1,11 +1,13 @@
 import type { ITorrent } from "@ptd/site";
 import type { CAddTorrentOptions } from "@ptd/downloader";
-import type { TDownloaderKey } from "@/shared/types/storages/metadata.ts";
-import { formatDate } from "@/options/utils.ts";
+import type { IDownloadTorrentOption, TDownloaderKey } from "@/shared/types.ts";
+import { formatDate, formatSize } from "@/options/utils.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { useConfigStore } from "@/options/stores/config.ts";
 import { sendMessage } from "@/messages.ts";
-import { executePreflightedBatch } from "@/shared/batchPreflight.ts";
+import { preflightBatch } from "@/shared/batchPreflight.ts";
+import { batchTorrentSizeBytes, executeSerialBatch, shouldConfirmBatchSize } from "@/shared/downloadBatchPolicy.ts";
 
 export interface TorrentDownloadAssignment {
   torrent: ITorrent;
@@ -18,6 +20,71 @@ export interface SendTorrentSummary {
   successCount: number;
   pendingCount: number;
   failedCount: number;
+}
+
+export async function dispatchDownloadOptions(items: IDownloadTorrentOption[]): Promise<SendTorrentSummary> {
+  const runtimeStore = useRuntimeStore();
+  const configStore = useConfigStore();
+
+  if (items.length === 0) {
+    runtimeStore.showSnakebar("似乎并没有任务发送到下载器", { color: "warning" });
+    return { totalCount: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
+  }
+
+  if (
+    shouldConfirmBatchSize(
+      items.map((item) => item.torrent),
+      configStore.download.needConfirmWhenExceedSize,
+      configStore.download.exceedSize,
+      configStore.download.exceedSizeUnit,
+    )
+  ) {
+    const totalSize = formatSize(batchTorrentSizeBytes(items.map((item) => item.torrent)));
+    const confirmed = window.confirm(
+      `所选种子总体积约为 ${totalSize}，已超过 ${configStore.download.exceedSize} ${configStore.download.exceedSizeUnit}。是否继续推送？`,
+    );
+    if (!confirmed) {
+      runtimeStore.showSnakebar("已取消批量推送", { color: "info" });
+      return { totalCount: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
+    }
+  }
+
+  if (configStore.download.enableBackgroundDownload) {
+    await sendMessage("queueDownloadBatch", {
+      items,
+      intervalSeconds: configStore.download.batchDownloadInterval,
+    });
+    runtimeStore.showSnakebar(`已创建包含 ${items.length} 项的后台下载任务`, { color: "success" });
+    return { totalCount: items.length, successCount: 0, pendingCount: items.length, failedCount: 0 };
+  }
+
+  const status = await executeSerialBatch(
+    items,
+    async (item) => {
+      try {
+        return await sendMessage("downloadTorrent", item);
+      } catch (error) {
+        runtimeStore.showSnakebar(`[${item.torrent.title}] 下载失败！错误信息： ${error}`, { color: "error" });
+        return undefined;
+      }
+    },
+    Math.max(0, Number(configStore.download.batchDownloadInterval ?? 0)) * 1000,
+  );
+
+  const failedCount = status.filter((item) => !item || item.downloadStatus === "failed").length;
+  const pendingCount = status.filter((item) => item?.downloadStatus === "pending").length;
+  runtimeStore.showSnakebar(
+    `成功发送 ${status.length - failedCount} 个任务到下载器` +
+      (pendingCount > 0 ? `（${pendingCount}在下载队列中）` : "") +
+      (failedCount > 0 ? `，有 ${failedCount} 个任务发送失败` : ""),
+    { color: failedCount > 0 ? "warning" : "success" },
+  );
+  return {
+    totalCount: status.length,
+    successCount: status.length - failedCount,
+    pendingCount,
+    failedCount,
+  };
 }
 
 function replaceInteractivePlaceholders(addTorrentOptions: CAddTorrentOptions): CAddTorrentOptions {
@@ -86,45 +153,28 @@ export async function sendTorrentAssignments(assignments: TorrentDownloadAssignm
     baseReplaceMap["search:plan"] = metadataStore.getSearchSolutionName(runtimeStore.search.searchPlanKey);
   }
 
-  const execution = await executePreflightedBatch(
-    assignments,
-    async (assignment) => {
-      const downloader = metadataStore.downloaders[assignment.downloaderId];
-      if (!downloader?.enabled) {
-        throw new Error(`下载器 ${assignment.downloaderId} 不存在或已停用`);
-      }
-      if (assignment.torrent.site && downloader.excludedSites?.includes(assignment.torrent.site)) {
-        throw new Error(`下载器 ${downloader.name} 已排除站点 ${assignment.torrent.site}`);
-      }
-      return {
-        assignment,
-        addTorrentOptions: await buildTorrentOptions(assignment, baseReplaceMap),
-      };
-    },
-    async ({ assignment, addTorrentOptions }) => {
-      try {
-        return await sendMessage("downloadTorrent", {
-          torrent: assignment.torrent,
-          downloaderId: assignment.downloaderId,
-          addTorrentOptions,
-        });
-      } catch (error) {
-        runtimeStore.showSnakebar(`[${assignment.torrent.title}] 发送到下载器失败！错误信息： ${error}`, {
-          color: "error",
-        });
-        return undefined;
-      }
-    },
-  );
+  const preflight = await preflightBatch(assignments, async (assignment) => {
+    const downloader = metadataStore.downloaders[assignment.downloaderId];
+    if (!downloader?.enabled) {
+      throw new Error(`下载器 ${assignment.downloaderId} 不存在或已停用`);
+    }
+    if (assignment.torrent.site && downloader.excludedSites?.includes(assignment.torrent.site)) {
+      throw new Error(`下载器 ${downloader.name} 已排除站点 ${assignment.torrent.site}`);
+    }
+    return {
+      assignment,
+      addTorrentOptions: await buildTorrentOptions(assignment, baseReplaceMap),
+    };
+  });
 
-  if (!execution.preflight.ok) {
-    const failedTitles = execution.preflight.failures
+  if (!preflight.ok) {
+    const failedTitles = preflight.failures
       .map(({ index }) => assignments[index]?.torrent.title || assignments[index]?.torrent.id || `#${index + 1}`)
       .slice(0, 3)
       .join("、");
     runtimeStore.showSnakebar(
-      `批量预检失败，未发送任何任务；请检查 ${execution.preflight.failures.length} 项配置` +
-        (failedTitles ? `（${failedTitles}${execution.preflight.failures.length > 3 ? "…" : ""}）` : ""),
+      `批量预检失败，未发送任何任务；请检查 ${preflight.failures.length} 项配置` +
+        (failedTitles ? `（${failedTitles}${preflight.failures.length > 3 ? "…" : ""}）` : ""),
       { color: "error" },
     );
     return {
@@ -135,26 +185,13 @@ export async function sendTorrentAssignments(assignments: TorrentDownloadAssignm
     };
   }
 
-  const status = execution.results;
-
-  const failedCount = status.filter((item) => !item || item.downloadStatus === "failed").length;
-  const pendingCount = status.filter((item) => item?.downloadStatus === "pending").length;
-  if (status.length === 0) {
-    runtimeStore.showSnakebar("似乎并没有任务发送到下载器", { color: "warning" });
-    return { totalCount: 0, successCount: 0, pendingCount: 0, failedCount: 0 };
-  }
-  runtimeStore.showSnakebar(
-    `成功发送 ${status.length - failedCount} 个任务到下载器` +
-      (pendingCount > 0 ? `（${pendingCount}在下载队列中）` : "") +
-      (failedCount > 0 ? `，有 ${failedCount} 个任务发送失败` : ""),
-    { color: failedCount > 0 ? "warning" : "success" },
+  return await dispatchDownloadOptions(
+    preflight.prepared.map(({ assignment, addTorrentOptions }) => ({
+      torrent: assignment.torrent,
+      downloaderId: assignment.downloaderId,
+      addTorrentOptions,
+    })),
   );
-  return {
-    totalCount: status.length,
-    successCount: status.length - failedCount,
-    pendingCount,
-    failedCount,
-  };
 }
 
 export function sendTorrentToDownloader(

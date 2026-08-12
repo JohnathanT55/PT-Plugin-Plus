@@ -83,6 +83,13 @@ async function confirmDeleteDownloadHistory(downloadHistoryId: TTorrentDownloadK
   return await sendMessage("deleteDownloadHistoryById", downloadHistoryId);
 }
 
+function handleDownloadHistoryDeleted() {
+  const deletedIds = new Set(toDeleteIds.value);
+  tableSelected.value = tableSelected.value.filter((id) => !deletedIds.has(id));
+  toDeleteIds.value = [];
+  throttleLoadDownloadHistory();
+}
+
 async function clearAllDownloadHistory() {
   const count = downloadHistoryList.value.length;
   if (!count || !confirm(t("DownloadHistory.clearConfirm", { count }))) return;
@@ -120,6 +127,7 @@ const safeDownloadDetail = computed(() => {
     savePath: history.addTorrentOptions?.savePath || "",
     label: history.addTorrentOptions?.label || "",
     addAtPaused: history.addTorrentOptions?.addAtPaused ?? false,
+    errorMessage: history.errorMessage || "",
   };
 });
 
@@ -276,7 +284,7 @@ onUnmounted(() => {
     v-model="showDeleteDialog"
     :to-delete-ids="toDeleteIds"
     :confirm-delete="confirmDeleteDownloadHistory"
-    @all-delete="() => throttleLoadDownloadHistory()"
+    @all-delete="handleDownloadHistoryDeleted"
   />
 
   <v-dialog v-model="showDownloadDetailDialog" width="800">
