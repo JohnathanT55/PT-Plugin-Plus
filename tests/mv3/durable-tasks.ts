@@ -196,4 +196,13 @@ try {
 assert(alarmFailureRejected, "alarm creation failure is reported to the caller");
 assert(!failedAlarmStore.tasks["alarm-failure"], "alarm creation failure removes the unusable persisted task");
 
+await secondRestart.schedule({
+  id: "cancelled-backup-retry",
+  runAt: now + 60_000,
+  payload: { type: "userInfoRetry", value: 4 },
+});
+assert(await secondRestart.cancel("cancelled-backup-retry"), "a pending task can be cancelled after recovery");
+assert(!store.tasks["cancelled-backup-retry"], "cancelling removes the persisted task");
+assert(!alarms.has(durableAlarmName("cancelled-backup-retry")), "cancelling clears the Chrome alarm");
+
 console.log("Durable MV3 one-shot task scheduling and worker-restart recovery passed.");

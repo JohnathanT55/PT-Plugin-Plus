@@ -37,13 +37,18 @@ async function checkConnect() {
   }
   return false;
 }
+
+function resolveMetaText(value?: string) {
+  return value?.startsWith("i18n.") ? t(value.slice(5)) : value;
+}
 </script>
 
 <template>
-  <v-card class="mb-5">
-    <v-form v-if="clientConfig" v-model="formValid" fast-fail>
-      <v-container class="pa-0">
-        <v-label class="my-2">{{ t("common.basicInfo") }}</v-label>
+  <v-form v-if="clientConfig" v-model="formValid" fast-fail>
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="text-subtitle-1">{{ t("common.basicInfo") }}</v-card-title>
+      <v-divider />
+      <v-card-text>
         <v-row>
           <v-col cols="12" md="4">
             <v-text-field v-model="clientConfig.type" :label="t('common.type')" disabled hide-details />
@@ -67,40 +72,46 @@ async function checkConnect() {
             />
           </v-col>
         </v-row>
+      </v-card-text>
+    </v-card>
 
-        <v-label class="my-2">{{ t("SetBackup.Editor.serverConfig") }}</v-label>
-
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="text-subtitle-1">{{ t("SetBackup.Editor.serverConfig") }}</v-card-title>
+      <v-divider />
+      <v-card-text>
         <v-row no-gutters>
           <v-col v-for="metaField in clientMeta.requiredField" :key="metaField.key" class="my-1" cols="12">
             <v-textarea
               v-if="metaField.type === 'strings'"
               v-model="clientConfig.config[metaField.key! as string]"
               :hide-details="false"
-              :label="metaField.name"
-              :messages="metaField.description ?? undefined"
+              :label="resolveMetaText(metaField.name)"
+              :messages="resolveMetaText(metaField.description)"
             />
             <v-text-field
               v-else-if="metaField.type === 'string'"
               v-model="clientConfig.config[metaField.key! as string]"
               :hide-details="false"
-              :label="metaField.name"
-              :messages="metaField.description ?? undefined"
+              :label="resolveMetaText(metaField.name)"
+              :messages="resolveMetaText(metaField.description)"
             />
             <v-switch
               v-else-if="metaField.type === 'boolean'"
               v-model="clientConfig.config[metaField.key! as string]"
               :hide-details="false"
-              :label="metaField.name"
-              :messages="metaField.description ?? undefined"
+              :label="resolveMetaText(metaField.name)"
+              :messages="resolveMetaText(metaField.description)"
               color="success"
             />
           </v-col>
         </v-row>
+      </v-card-text>
+    </v-card>
 
-        <v-divider class="my-2" />
-
-        <v-label class="my-2">{{ t("SetBackup.Editor.backupConfig") }}</v-label>
-
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="text-subtitle-1">{{ t("SetBackup.Editor.backupConfig") }}</v-card-title>
+      <v-divider />
+      <v-card-text>
         <v-row no-gutters>
           <v-col cols="12">
             <v-text-field
@@ -128,17 +139,17 @@ async function checkConnect() {
             />
           </v-col>
         </v-row>
+      </v-card-text>
+    </v-card>
 
-        <ConnectCheckButton
-          :check-fn="checkConnect"
-          :reset-timeout="3e3"
-          @after:check-connect="
-            () => emits('update:configValid', formValid && true) // 不管是否测试成功，都允许用户进行下一步操作（保存下载服务器配置）
-          "
-        />
-      </v-container>
-    </v-form>
-  </v-card>
+    <ConnectCheckButton
+      :check-fn="checkConnect"
+      :reset-timeout="3e3"
+      @after:check-connect="
+        () => emits('update:configValid', formValid && true) // 不管是否测试成功，都允许用户进行下一步操作（保存下载服务器配置）
+      "
+    />
+  </v-form>
 </template>
 
 <style scoped lang="scss"></style>

@@ -9,6 +9,7 @@ import type {
 
 import type {
   IBackupServerMetadata,
+  IConfigPiniaStorageSchema,
   IDownloaderMetadata,
   IMetadataPiniaStorageSchema,
   IPtppMigrationMetadata,
@@ -21,6 +22,7 @@ import type {
 } from "@/shared/types.ts";
 import { getPtdIndexDb } from "@/shared/indexdb.ts";
 import { mergePtppRuntimeData, type PtppRuntimeDataMergeResult } from "./ptppRuntimeData.ts";
+import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
 
 export interface PtppRuntimeMergeResult {
   metadata: IMetadataPiniaStorageSchema;
@@ -29,6 +31,11 @@ export interface PtppRuntimeMergeResult {
 }
 
 export interface PtppRuntimeStorageMergeResult extends PtppRuntimeMergeResult, PtppRuntimeDataMergeResult {}
+
+export interface PtppRuntimeConfigMergeResult {
+  config: Partial<IConfigPiniaStorageSchema>;
+  changed: boolean;
+}
 
 export interface PtppRuntimePersistence {
   setStorage(values: Record<string, unknown>): Promise<void>;
@@ -63,6 +70,46 @@ export const SUPPORTED_PTD_DOWNLOADER_TYPES = [
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+export function mergePtppStateIntoRuntimeConfig(
+  state: MV3State,
+  existingConfig: Partial<IConfigPiniaStorageSchema> | undefined,
+  overwriteLegacyBackupSettings: boolean = false,
+): PtppRuntimeConfigMergeResult {
+  const config = clone(existingConfig ?? {});
+  const legacy = state.settings.legacyOptions ?? {};
+  let changed = false;
+
+  config.backup ??= {} as IConfigPiniaStorageSchema["backup"];
+  if (typeof config.backup.encryptionEnabled !== "boolean") {
+    const legacyKey = typeof legacy.encryptSecretKey === "string" ? legacy.encryptSecretKey : "";
+    if (!config.backup.encryptionKey && legacyKey) config.backup.encryptionKey = legacyKey;
+    config.backup.encryptionEnabled = legacy.encryptBackupData === true && Boolean(config.backup.encryptionKey?.trim());
+    if (typeof legacy.encryptBackupData !== "boolean") {
+      config.backup.encryptionEnabled = Boolean(config.backup.encryptionKey?.trim());
+    }
+    changed = true;
+  }
+  const legacyHasAutoUpload =
+    typeof legacy.autoBackupData === "boolean" || typeof legacy.autoBackupDataServerId === "string";
+  if (legacyHasAutoUpload && (overwriteLegacyBackupSettings || !config.backup.autoUploadUserData)) {
+    config.backup.autoUploadUserData = {
+      enabled: legacy.autoBackupData === true,
+      serverId: typeof legacy.autoBackupDataServerId === "string" ? legacy.autoBackupDataServerId : "",
+    };
+    changed = true;
+  }
+  if (!config.backup.autoUploadUserData) {
+    config.backup.autoUploadUserData = { enabled: false, serverId: "" };
+    changed = true;
+  }
+  if (!config.backup.retry) {
+    config.backup.retry = { max: 3, interval: 5 };
+    changed = true;
+  }
+
+  return { config, changed };
 }
 
 function unique(values: unknown[]): string[] {
@@ -185,7 +232,9 @@ function backupServerToRuntime(server: BackupServerRecord): IBackupServerMetadat
       "searchResultSnapshot",
       "keepUploadTask",
       "downloadHistory",
+      "collection",
     ],
+    backupFieldsVersion: CURRENT_BACKUP_FIELDS_VERSION,
     lastBackupAt: server.lastBackupTime,
     config: {
       address: server.address,
@@ -388,7 +437,18 @@ export async function persistPtppRuntimeMigration(
 export async function initializePtppRuntimeMigration(): Promise<IPtppMigrationMetadata> {
   const repository = new MV3Repository();
   const state = await repository.initialize();
-  const current = await chrome.storage.local.get(["metadata", "userInfo", "searchResultSnapshot", "keepUploadTask"]);
+  const current = await chrome.storage.local.get([
+    "config",
+    "metadata",
+    "userInfo",
+    "searchResultSnapshot",
+    "keepUploadTask",
+  ]);
+  const configMerge = mergePtppStateIntoRuntimeConfig(
+    state,
+    current.config as Partial<IConfigPiniaStorageSchema> | undefined,
+  );
+  if (configMerge.changed) await chrome.storage.local.set({ config: configMerge.config });
   const now = Date.now();
   const probe = mergePtppStateIntoRuntimeMetadata(
     state,

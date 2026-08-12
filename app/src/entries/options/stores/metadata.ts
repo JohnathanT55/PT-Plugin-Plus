@@ -13,6 +13,7 @@ import {
 } from "@ptd/site";
 
 import {
+  BackupFields,
   IBackupServerMetadata,
   IDownloaderMetadata,
   IMediaServerMetadata,
@@ -25,6 +26,7 @@ import {
   ISearchSolutionMetadata,
   ISiteDownloadProfile,
 } from "@/shared/types.ts";
+import { normalizeBackupFields } from "@foundation/backup/policy";
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -36,7 +38,20 @@ type TSimplePatchFieldKey = keyof Pick<
 >;
 
 export const useMetadataStore = defineStore("metadata", {
-  persistWebExt: true,
+  persistWebExt: {
+    afterRestore: (context) => {
+      const state = context.store.$state as IMetadataPiniaStorageSchema;
+      let needsSave = false;
+      for (const server of Object.values(state.backupServers ?? {})) {
+        const normalized = normalizeBackupFields(server.backupFields, server.backupFieldsVersion, BackupFields);
+        if (!normalized.changed) continue;
+        server.backupFields = normalized.fields as IBackupServerMetadata["backupFields"];
+        server.backupFieldsVersion = normalized.version;
+        needsSave = true;
+      }
+      if (needsSave) context.store.$save();
+    },
+  },
   state: (): IMetadataPiniaStorageSchema => ({
     sites: {},
     solutions: {},
@@ -362,6 +377,11 @@ export const useMetadataStore = defineStore("metadata", {
       Value extends IMetadataPiniaStorageSchema[Field][Id][Key],
     >(schemaKey: Field, id: Id, key: Key | string, value: Value | any) {
       set(this[schemaKey][id], key, value);
+      if (schemaKey === "backupServers" && key === "enabled" && value === false) {
+        await this.$save();
+        await sendMessage("cancelBackupRetry", String(id)).catch(() => false);
+        return;
+      }
       await this.$save();
     },
 
@@ -556,6 +576,13 @@ export const useMetadataStore = defineStore("metadata", {
     },
 
     async addBackupServer(backupServerConfig: IBackupServerMetadata) {
+      const normalized = normalizeBackupFields(
+        backupServerConfig.backupFields,
+        backupServerConfig.backupFieldsVersion,
+        BackupFields,
+      );
+      backupServerConfig.backupFields = normalized.fields as IBackupServerMetadata["backupFields"];
+      backupServerConfig.backupFieldsVersion = normalized.version;
       this.backupServers[backupServerConfig.id] = backupServerConfig;
       await this.$save();
     },
@@ -563,6 +590,14 @@ export const useMetadataStore = defineStore("metadata", {
     async removeBackupServer(backupServerId: string) {
       delete this.backupServers[backupServerId];
       await this.$save();
+      await sendMessage("cancelBackupRetry", backupServerId).catch(() => false);
+
+      const configStore = useConfigStore();
+      if (configStore.backup.autoUploadUserData.serverId === backupServerId) {
+        configStore.backup.autoUploadUserData.enabled = false;
+        configStore.backup.autoUploadUserData.serverId = "";
+        await configStore.$save();
+      }
     },
   },
 });

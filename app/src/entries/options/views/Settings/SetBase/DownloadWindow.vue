@@ -3,15 +3,15 @@ import { useI18n } from "vue-i18n";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import { DownloadSizeUnits, LocalDownloadMethod } from "@/shared/types.ts";
+import SettingsSection from "./SettingsSection.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
 </script>
 
 <template>
-  <v-row>
-    <v-col md="10" lg="8">
-      <v-label>{{ t("SetBase.download.pushDownloadServerTitle") }}</v-label>
+  <div class="settings-stack">
+    <SettingsSection :title="t('SetBase.download.pushDownloadServerTitle')" icon="mdi-download-network-outline">
       <v-switch
         v-model="configStore.download.saveDownloadHistory"
         :label="t('SetBase.download.saveDownloadHistory')"
@@ -79,12 +79,9 @@ const configStore = useConfigStore();
           />
         </v-col>
       </v-row>
-    </v-col>
-  </v-row>
+    </SettingsSection>
 
-  <v-row>
-    <v-col md="10" lg="8">
-      <v-label>{{ t("SetBase.download.localDownloadTitle") }}</v-label>
+    <SettingsSection :title="t('SetBase.download.localDownloadTitle')" icon="mdi-download-box-outline">
       <v-select
         v-model="configStore.download.localDownloadMethod"
         :label="t('SetBase.download.localDownloadMethod')"
@@ -103,8 +100,12 @@ const configStore = useConfigStore();
         hide-details
         :label="t('SetBase.download.localDownloadIgnoreInterval')"
       />
-    </v-col>
-  </v-row>
+    </SettingsSection>
+  </div>
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.settings-stack {
+  max-width: 1100px;
+}
+</style>

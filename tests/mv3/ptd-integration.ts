@@ -1,6 +1,7 @@
 import { migrateLegacyStorage } from "../../src/migration/legacy";
 import { LEGACY_STORAGE_KEYS } from "../../src/storage/keys";
 import {
+  mergePtppStateIntoRuntimeConfig,
   mergePtppStateIntoRuntimeStores,
   persistPtppRuntimeMigration,
 } from "../../app/src/entries/integration/ptppMigration";
@@ -21,6 +22,10 @@ const migrated = migrateLegacyStorage(
   {
     [LEGACY_STORAGE_KEYS.config]: {
       defaultClientId: "qb-fixture",
+      autoBackupData: true,
+      autoBackupDataServerId: "webdav-fixture",
+      encryptBackupData: true,
+      encryptSecretKey: "fixture-secret",
       sites: [
         {
           id: "fixture-site",
@@ -150,6 +155,29 @@ state.metadata.storageRevision = "fixture-revision";
 const siteId = state.hostToSiteId["tracker.example.invalid"];
 assert(siteId, "legacy host receives a stable siteId");
 
+const configMerge = mergePtppStateIntoRuntimeConfig(state, undefined);
+assert(configMerge.changed, "legacy automatic upload settings create an MV3 backup configuration");
+assert(
+  configMerge.config.backup?.autoUploadUserData.enabled === true &&
+    configMerge.config.backup.autoUploadUserData.serverId === "webdav-fixture",
+  "legacy automatic user-data upload and its selected server are retained",
+);
+assert(
+  configMerge.config.backup?.retry.max === 3 && configMerge.config.backup.retry.interval === 5,
+  "backup retries receive durable defaults",
+);
+assert(
+  configMerge.config.backup?.encryptionEnabled === true && configMerge.config.backup.encryptionKey === "fixture-secret",
+  "legacy local encryption settings migrate to the explicit MV3 switch",
+);
+const currentConfigMerge = mergePtppStateIntoRuntimeConfig(state, {
+  backup: { encryptionKey: "", enabledAutoBackup: false } as any,
+});
+assert(
+  currentConfigMerge.config.backup?.autoUploadUserData.enabled === true,
+  "legacy automatic upload is restored when an older MV3 config lacks the new nested field",
+);
+
 const runtimeMerge = mergePtppStateIntoRuntimeStores(state, {}, [siteId], ["qBittorrent", "Transmission"], 2000);
 assert(runtimeMerge.changed, "first PTPP to PTD runtime merge changes metadata");
 assert(
@@ -163,6 +191,10 @@ assert(
 assert(
   runtimeMerge.metadata.downloaders["qb-fixture"]?.address === "https://downloader.example.invalid",
   "legacy downloader address is retained in the PTD runtime store",
+);
+assert(
+  runtimeMerge.metadata.backupServers["webdav-fixture"]?.backupFields.includes("collection") === true,
+  "migrated WebDAV servers include favorites and groups by default",
 );
 assert(
   runtimeMerge.metadata.defaultDownloader.id === "qb-fixture",

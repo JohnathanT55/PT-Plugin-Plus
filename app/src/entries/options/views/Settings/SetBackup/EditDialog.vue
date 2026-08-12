@@ -6,6 +6,7 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import type { IBackupServerMetadata, TBackupServerKey } from "@/shared/types.ts";
 
 import Editor from "./Editor.vue";
+import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
 
 const showDialog = defineModel<boolean>();
 const { clientId } = defineProps<{
@@ -23,6 +24,19 @@ function dialogEnter() {
 }
 
 function editClientConfig() {
+  const existingInterval = metadataStore.backupServers[clientId]?.backupInterval;
+  if (clientConfig.value && clientConfig.value.backupInterval !== existingInterval) {
+    const interval = clientConfig.value.backupInterval;
+    clientConfig.value.nextBackupAt =
+      interval && interval > 0
+        ? clientConfig.value.lastBackupAt
+          ? clientConfig.value.lastBackupAt + interval * 60 * 60 * 1000
+          : Date.now()
+        : undefined;
+    delete clientConfig.value.backupRetryAt;
+    delete clientConfig.value.backupRetryCount;
+  }
+  if (clientConfig.value) clientConfig.value.backupFieldsVersion = CURRENT_BACKUP_FIELDS_VERSION;
   metadataStore.addBackupServer(clientConfig.value as IBackupServerMetadata);
   showDialog.value = false;
 }

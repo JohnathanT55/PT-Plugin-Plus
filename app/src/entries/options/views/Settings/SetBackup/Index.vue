@@ -7,7 +7,7 @@ import type { DataTableHeader } from "vuetify";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { formatDate } from "@/options/utils.ts";
-import { BackupFields, type TBackupServerKey } from "@/shared/types.ts";
+import { BackupFields, type TBackupServerKey, type TBackupTrigger } from "@/shared/types.ts";
 import { sendMessage } from "@/messages.ts";
 
 import NavButton from "@/options/components/NavButton.vue";
@@ -41,10 +41,16 @@ const fullTableHeader = [
   },
   { title: t("SetBackup.table.backupInterval"), key: "backupInterval", align: "center" },
   { title: t("SetBackup.table.lastBackupAt"), key: "lastBackupAt", align: "end" },
+  { title: t("SetBackup.table.status"), key: "status", align: "start", sortable: false },
   { title: t("common.enable"), key: "enabled", align: "center" },
   { title: t("common.action"), key: "action", sortable: false },
 ] as DataTableHeader[];
 const tableSelected = ref<TBackupServerKey[]>([]);
+const tableSearch = ref("");
+
+function triggerLabel(trigger: TBackupTrigger) {
+  return t(`SetBackup.trigger.${trigger}`);
+}
 
 const localBackup = Symbol("localBackup");
 const doBackupStatus = ref<Record<TBackupServerKey | symbol, boolean>>({});
@@ -52,11 +58,14 @@ async function doBackup(backupServerId: TBackupServerKey | symbol) {
   doBackupStatus.value[backupServerId] = true;
 
   if (typeof backupServerId == "string") {
-    const backupFields = metadataStore.backupServers[backupServerId].backupFields ?? [...BackupFields];
-    const backupStatus = await sendMessage("exportBackupData", { backupFields, backupServerId });
-    if (backupStatus) {
-      runtimeStore.showSnakebar(t("SetBackup.snackbar.success"), { color: "success" });
-    } else {
+    try {
+      const backupStatus = await sendMessage("runBackup", { backupServerId, trigger: "manual" });
+      if (backupStatus) {
+        runtimeStore.showSnakebar(t("SetBackup.snackbar.success"), { color: "success" });
+      } else {
+        runtimeStore.showSnakebar(t("SetBackup.snackbar.failure"), { color: "error" });
+      }
+    } catch {
       runtimeStore.showSnakebar(t("SetBackup.snackbar.failure"), { color: "error" });
     }
   } else if (backupServerId == localBackup) {
@@ -92,9 +101,9 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
 </script>
 
 <template>
-  <v-alert :title="t('route.Settings.SetBackup')" type="info" />
-  <v-card class="set-backup">
-    <v-card-title class="ptpp-page-toolbar">
+  <v-alert class="mb-3" :title="t('route.Settings.SetBackup')" density="compact" type="info" variant="tonal" />
+  <v-card class="set-backup" variant="outlined">
+    <v-card-title class="ptpp-page-toolbar px-3 py-2">
       <v-row class="ma-0">
         <NavButton :text="t('common.btn.add')" color="success" icon="mdi-plus" @click="showAddDialog = true" />
         <NavButton
@@ -123,15 +132,25 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
 
         <v-spacer />
 
-        <v-text-field clearable density="compact" hide-details label="Search" max-width="500" single-line />
+        <v-text-field
+          v-model="tableSearch"
+          clearable
+          density="compact"
+          hide-details
+          :label="t('SetBackup.searchPlaceholder')"
+          max-width="420"
+          prepend-inner-icon="mdi-magnify"
+          single-line
+        />
       </v-row>
     </v-card-title>
 
     <v-data-table
       v-model="tableSelected"
       :headers="fullTableHeader"
-      :filter-keys="['id']"
+      :filter-keys="['id', 'name', 'type']"
       :items="metadataStore.getBackupServers"
+      :search="tableSearch"
       item-value="id"
       class="table-stripe table-header-no-wrap"
       show-select
@@ -154,7 +173,41 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
       </template>
 
       <template #item.lastBackupAt="{ item }">
-        {{ item.lastBackupAt ? formatDate(item.lastBackupAt) : "notBackup" }}
+        <div class="py-1 text-no-wrap">
+          <div>{{ item.lastBackupAt ? formatDate(item.lastBackupAt) : t("SetBackup.table.notBackup") }}</div>
+          <div v-if="item.lastBackupAttemptAt" class="text-caption text-medium-emphasis">
+            {{ t("SetBackup.table.lastAttemptAt", { time: formatDate(item.lastBackupAttemptAt) }) }}
+          </div>
+        </div>
+      </template>
+
+      <template #item.status="{ item }">
+        <div class="d-flex flex-column ga-1 py-1">
+          <v-chip
+            v-if="item.lastBackupError"
+            :title="item.lastBackupError"
+            color="error"
+            prepend-icon="mdi-alert-circle-outline"
+            size="small"
+          >
+            {{ t("SetBackup.table.failed") }}
+          </v-chip>
+          <v-chip v-else-if="item.lastBackupAt" color="success" prepend-icon="mdi-check-circle-outline" size="small">
+            {{ t("SetBackup.table.success") }}
+          </v-chip>
+          <v-chip v-if="item.lastBackupTrigger" size="x-small" variant="outlined">
+            {{ triggerLabel(item.lastBackupTrigger) }}
+          </v-chip>
+          <span v-if="item.lastBackupError" class="text-error text-caption backup-error" :title="item.lastBackupError">
+            {{ item.lastBackupError }}
+          </span>
+          <span v-if="item.backupRetryAt" class="text-warning text-caption">
+            {{ t("SetBackup.table.retryAt", { time: formatDate(item.backupRetryAt), n: item.backupRetryCount ?? 1 }) }}
+          </span>
+          <span v-else-if="item.nextBackupAt && item.backupInterval" class="text-medium-emphasis text-caption">
+            {{ t("SetBackup.table.nextBackupAt", { time: formatDate(item.nextBackupAt) }) }}
+          </span>
+        </div>
       </template>
 
       <template #item.enabled="{ item }">
@@ -177,7 +230,7 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
             @click="doBackup(item.id)"
           />
           <v-btn
-            :title="t('SetBackup.table.action.viewHistoryBackup')"
+            :title="t('SetBackup.table.action.viewBackupDetails')"
             icon="mdi-view-list"
             size="small"
             @click="showHistory(item.id)"
@@ -211,4 +264,11 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
   <RestoreDialog v-model="showRestoreDialog" :restore-metadata="{ type: 'file' }" />
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.backup-error {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

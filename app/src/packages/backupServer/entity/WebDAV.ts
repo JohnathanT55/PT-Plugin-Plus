@@ -26,7 +26,12 @@ export const serverMetaData: IBackupMetadata<WebDAVConfig> = {
     { name: "地址", key: "address", type: "string" },
     { name: "用户名", key: "loginName", type: "string" },
     { name: "密码", key: "loginPwd", type: "string" },
-    { name: "Digest", key: "digest", type: "boolean" },
+    {
+      name: "i18n.SetBackup.Editor.digestAuth",
+      key: "digest",
+      type: "boolean",
+      description: "i18n.SetBackup.Editor.digestAuthHint",
+    },
   ],
 };
 

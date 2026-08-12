@@ -18,7 +18,7 @@ interface IPtppBackupManifest {
 
 export interface IParsedPtppBackup {
   manifest: IPtppBackupManifest;
-  payload: Omit<IPtppLegacyBackupImportPayload, "fields" | "expandCookieMinutes">;
+  payload: Omit<IPtppLegacyBackupImportPayload, "fields" | "expandCookieMinutes" | "keepExistUserInfo">;
   availableFields: TBackupFields[];
   hasCollections: boolean;
 }

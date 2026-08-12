@@ -100,6 +100,7 @@ function loadRemoteBackupFile() {
     })
       .then((data) => {
         restoreData.value = data;
+        isDecryptKeyValid.value = true;
         buildBackupOptions();
       })
       .catch((err) => {
@@ -153,11 +154,21 @@ const isDoingRestore = ref<boolean>(false);
 function doRestore() {
   isDoingRestore.value = true;
 
+  if (
+    restoreOptions.value.fields?.includes("userInfo") &&
+    restoreOptions.value.keepExistUserInfo === false &&
+    !confirm(t("SetBackup.RestoreDialog.confirmReplaceUserInfo"))
+  ) {
+    isDoingRestore.value = false;
+    return;
+  }
+
   if (legacyBackup.value) {
     sendMessage("importPtppLegacyBackup", {
       ...legacyBackup.value.payload,
       fields: restoreOptions.value.fields ?? [],
       expandCookieMinutes: restoreOptions.value.expandCookieMinutes,
+      keepExistUserInfo: restoreOptions.value.keepExistUserInfo,
     })
       .then((result) => {
         runtimeStore.showSnakebar(
@@ -331,32 +342,67 @@ function resetDialog() {
               </v-col>
             </v-row>
 
-            <v-number-input
-              v-model="restoreOptions.expandCookieMinutes"
-              :label="t('SetBackup.RestoreDialog.expandCookieMinutes')"
-              :disabled="!restoreOptions.fields?.includes('cookies')"
-              persistent-hint
-              :min="0"
-              :step="1"
-            >
-              <template #details>
-                <v-chip
-                  v-for="minutes in ['PT30M', 'PT1H', 'PT12H', 'P1D', 'P1W', 'P1M', 'P6M', 'P1Y']"
-                  :key="minutes"
-                  class="mr-1"
-                  size="small"
-                  @click="() => (restoreOptions.expandCookieMinutes = convertIsoDurationToMinutes(minutes))"
-                >
-                  {{ minutes }}
-                </v-chip>
-              </template>
-            </v-number-input>
+            <v-card class="mt-4" variant="outlined" :disabled="!restoreOptions.fields?.includes('cookies')">
+              <v-card-title class="text-subtitle-1 d-flex align-center ga-2">
+                <v-icon color="primary" icon="mdi-cookie-clock" />
+                {{ t("SetBackup.RestoreDialog.cookiePolicyTitle") }}
+              </v-card-title>
+              <v-card-text>
+                <v-number-input
+                  v-model="restoreOptions.expandCookieMinutes"
+                  :label="t('SetBackup.RestoreDialog.expandCookieMinutes')"
+                  :disabled="!restoreOptions.fields?.includes('cookies')"
+                  :hint="t('SetBackup.RestoreDialog.expandCookieHint')"
+                  persistent-hint
+                  :min="0"
+                  :step="1"
+                />
+                <div class="d-flex flex-wrap ga-2 mt-3">
+                  <v-chip
+                    v-for="preset in [
+                      { label: '30m', value: 'PT30M' },
+                      { label: '1h', value: 'PT1H' },
+                      { label: '12h', value: 'PT12H' },
+                      { label: '1d', value: 'P1D' },
+                      { label: '1w', value: 'P1W' },
+                      { label: '1mo', value: 'P1M' },
+                      { label: '6mo', value: 'P6M' },
+                      { label: '1y', value: 'P1Y' },
+                    ]"
+                    :key="preset.value"
+                    :color="
+                      restoreOptions.expandCookieMinutes === convertIsoDurationToMinutes(preset.value)
+                        ? 'primary'
+                        : undefined
+                    "
+                    size="small"
+                    variant="tonal"
+                    @click="restoreOptions.expandCookieMinutes = convertIsoDurationToMinutes(preset.value)"
+                  >
+                    {{ preset.label }}
+                  </v-chip>
+                </div>
+              </v-card-text>
+            </v-card>
 
-            <v-switch
-              v-model="restoreOptions.keepExistUserInfo"
-              color="success"
-              :label="t('SetBackup.RestoreDialog.keepExistUserInfo')"
-            />
+            <v-card class="mt-4" variant="outlined" :disabled="!restoreOptions.fields?.includes('userInfo')">
+              <v-card-title class="text-subtitle-1 d-flex align-center ga-2">
+                <v-icon color="primary" icon="mdi-database-sync" />
+                {{ t("SetBackup.RestoreDialog.userInfoPolicyTitle") }}
+              </v-card-title>
+              <v-card-text>
+                <v-radio-group v-model="restoreOptions.keepExistUserInfo" hide-details>
+                  <v-radio :label="t('SetBackup.RestoreDialog.userInfoMerge')" :value="true" color="success" />
+                  <div class="text-caption text-medium-emphasis ml-8 mb-2">
+                    {{ t("SetBackup.RestoreDialog.userInfoMergeHint") }}
+                  </div>
+                  <v-radio :label="t('SetBackup.RestoreDialog.userInfoReplace')" :value="false" color="warning" />
+                  <div class="text-caption text-medium-emphasis ml-8">
+                    {{ t("SetBackup.RestoreDialog.userInfoReplaceHint") }}
+                  </div>
+                </v-radio-group>
+              </v-card-text>
+            </v-card>
           </v-window-item>
         </v-window>
       </v-card-text>

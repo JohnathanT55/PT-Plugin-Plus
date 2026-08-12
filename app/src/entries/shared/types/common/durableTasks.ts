@@ -1,5 +1,6 @@
 import type { IDurableTaskStore } from "@foundation/tasks/durable";
 import type { IDownloadTorrentOption, TTorrentDownloadKey } from "./download.ts";
+import type { TBackupTrigger } from "../storages/metadata.ts";
 
 export interface IDurableDownloadTaskPayload {
   type: "download";
@@ -17,6 +18,16 @@ export interface IDurableDownloadBatchTaskPayload {
   batchId: string;
 }
 
+export interface IDurableBackupRetryTaskPayload {
+  type: "backupRetry";
+  serverId: string;
+  trigger: Exclude<TBackupTrigger, "manual">;
+  retryIndex: number;
+}
+
 export type TDurableTaskPayload =
-  IDurableDownloadTaskPayload | IDurableUserInfoRetryTaskPayload | IDurableDownloadBatchTaskPayload;
+  | IDurableDownloadTaskPayload
+  | IDurableUserInfoRetryTaskPayload
+  | IDurableDownloadBatchTaskPayload
+  | IDurableBackupRetryTaskPayload;
 export type TDurableTaskStorageSchema = IDurableTaskStore<TDurableTaskPayload>;
