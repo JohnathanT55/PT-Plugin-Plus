@@ -143,6 +143,19 @@ await call("Accessibility.enable");
 // the remaining cases with a false "still open" result.
 await call("Page.reload");
 await new Promise((resolve) => setTimeout(resolve, 1_000));
+await call("Runtime.evaluate", {
+  expression: `(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((item) => /欢迎使用|Welcome/i.test(item.innerText));
+    const button = dialog && [...dialog.querySelectorAll('button')]
+      .find((item) => /开始使用|Get started/i.test(item.innerText.trim()));
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`,
+  returnByValue: true,
+});
+await new Promise((resolve) => setTimeout(resolve, 300));
 
 // An MV3 service worker is expected to disappear while idle. Wake it through the
 // inspected extension page so the audit does not depend on a lucky lifecycle

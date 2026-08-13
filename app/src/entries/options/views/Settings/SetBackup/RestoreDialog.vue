@@ -202,21 +202,24 @@ function doRestore() {
     return;
   }
 
-  let warnRestore = compareVersion(restoreData.value.manifest.version, __EXT_VERSION__) == 1;
-  if (!warnRestore || confirm(t("SetBackup.RestoreDialog.versionWarning"))) {
-    sendMessage("restoreBackupData", { restoreData: restoreData.value!, restoreOptions: restoreOptions.value })
-      .then(() => {
-        runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.success"), { color: "success" });
-        showDialog.value = false;
-      })
-      .catch((err) => {
-        runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.failure", { error: err }), { color: "error" });
-        console.error(err);
-      })
-      .finally(() => {
-        isDoingRestore.value = false;
-      });
+  const warnRestore = compareVersion(restoreData.value.manifest.version, __EXT_VERSION__) == 1;
+  if (warnRestore && !confirm(t("SetBackup.RestoreDialog.versionWarning"))) {
+    isDoingRestore.value = false;
+    return;
   }
+
+  sendMessage("restoreBackupData", { restoreData: restoreData.value!, restoreOptions: restoreOptions.value })
+    .then(() => {
+      runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.success"), { color: "success" });
+      showDialog.value = false;
+    })
+    .catch((err) => {
+      runtimeStore.showSnakebar(t("SetBackup.RestoreDialog.failure", { error: err }), { color: "error" });
+      console.error(err);
+    })
+    .finally(() => {
+      isDoingRestore.value = false;
+    });
 }
 
 function convertIsoDurationToMinutes(duration: string): number {
