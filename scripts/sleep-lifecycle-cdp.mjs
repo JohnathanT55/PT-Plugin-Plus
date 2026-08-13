@@ -117,7 +117,10 @@ try {
         enabled: false,
       };
       metadata.sites = {};
-      metadata.lastUserInfoAutoFlushAt = 0;
+      // A restarted MV3 worker immediately evaluates the normal ten-minute
+      // refresh job. Keep that independent job inside its interval so the
+      // probe measures only the injected retry task after wake.
+      metadata.lastUserInfoAutoFlushAt = ${preparedAt};
       const pending = data.pendingOneShotTasks ?? { version: 1, tasks: {} };
       pending.tasks[${JSON.stringify(taskId)}] = {
         id: ${JSON.stringify(taskId)},

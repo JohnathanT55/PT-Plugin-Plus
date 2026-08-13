@@ -1,9 +1,12 @@
 import process from "node:process";
 
 const [endpoint = "http://127.0.0.1:9223", backupPath, action = "inspect"] = process.argv.slice(2);
+const supportedActions = new Set(["inspect", "restore", "cancel-warning"]);
 
-if (!backupPath) {
-  console.error("Usage: node scripts/legacy-import-cdp.mjs <endpoint> <backup.zip> [inspect|restore]");
+if (!backupPath || !supportedActions.has(action)) {
+  console.error(
+    "Usage: node scripts/legacy-import-cdp.mjs <endpoint> <backup.zip> [inspect|restore|cancel-warning]",
+  );
   process.exit(2);
 }
 
@@ -31,17 +34,27 @@ let commandId = 0;
 const pending = new Map();
 socket.addEventListener("message", (event) => {
   const message = JSON.parse(String(event.data));
-  if (!message.id || !pending.has(message.id)) return;
-  const { resolve, reject } = pending.get(message.id);
-  pending.delete(message.id);
-  if (message.error) reject(new Error(`${message.error.code}: ${message.error.message}`));
-  else resolve(message.result);
+  if (message.id && pending.has(message.id)) {
+    const { resolve, reject, timer } = pending.get(message.id);
+    pending.delete(message.id);
+    clearTimeout(timer);
+    if (message.error) reject(new Error(`${message.error.code}: ${message.error.message}`));
+    else resolve(message.result);
+    return;
+  }
+  if (message.method === "Page.javascriptDialogOpening" && ["restore", "cancel-warning"].includes(action)) {
+    call("Page.handleJavaScriptDialog", { accept: action === "restore" }).catch(() => undefined);
+  }
 });
 
-function call(method, params = {}) {
+function call(method, params = {}, timeoutMs = 30_000) {
   const id = ++commandId;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`${method} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    pending.set(id, { resolve, reject, timer });
     socket.send(JSON.stringify({ id, method, params }));
   });
 }
@@ -52,7 +65,11 @@ async function evaluate(expression, awaitPromise = false) {
     awaitPromise,
     returnByValue: true,
   });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text || "Runtime evaluation failed.");
+  if (result.exceptionDetails) {
+    throw new Error(
+      result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Runtime evaluation failed.",
+    );
+  }
   return result.result.value;
 }
 
@@ -64,6 +81,22 @@ async function waitFor(expression, timeoutMs = 15000) {
   }
   throw new Error(`Timed out waiting for: ${expression}`);
 }
+
+await call("Page.enable");
+await waitFor(`document.readyState === 'complete' && Boolean(document.querySelector('#app'))`, 30_000);
+await evaluate(`(() => {
+  const welcomeDialog = [...document.querySelectorAll('[role="dialog"]')]
+    .find((item) => /欢迎使用|Welcome/i.test(item.innerText));
+  const welcomeButton = welcomeDialog && [...welcomeDialog.querySelectorAll('button')]
+    .find((item) => /开始使用|Get started/i.test(item.innerText.trim()));
+  welcomeButton?.click();
+  location.hash = '#/set-backup';
+  return true;
+})()`);
+await waitFor(
+  `location.hash === '#/set-backup' && [...document.querySelectorAll('button')].some((item) => item.innerText.includes('本地导入'))`,
+  30_000,
+);
 
 const baseline = await evaluate(
   `chrome.storage.local.get(null).then((data) => ({
@@ -77,22 +110,28 @@ const baseline = await evaluate(
 );
 
 await evaluate(`(() => {
-  if (document.querySelector('input[type="file"]')) return true;
+  const visibleFileInput = [...document.querySelectorAll('input[type="file"]')]
+    .find((item) => item.getClientRects().length > 0);
+  if (visibleFileInput) return true;
   const button = [...document.querySelectorAll('button')].find((item) => item.innerText.includes('本地导入'));
   if (!button) throw new Error('Local import button was not found.');
   button.click();
   return true;
 })()`);
-await waitFor(`Boolean(document.querySelector('input[type="file"]'))`);
+await waitFor(
+  `[...document.querySelectorAll('input[type="file"]')].some((item) => item.getClientRects().length > 0)`,
+);
 
 const inputResult = await call("Runtime.evaluate", {
-  expression: `document.querySelector('input[type="file"]')`,
+  expression: `[...document.querySelectorAll('input[type="file"]')]
+    .find((item) => item.getClientRects().length > 0)`,
 });
 const inputObjectId = inputResult.result.objectId;
 if (!inputObjectId) throw new Error("The backup file input could not be resolved.");
 
 await call("DOM.setFileInputFiles", { files: [backupPath], objectId: inputObjectId });
-const restoreDialogMatcher = `/已识别为旧版|恢复选项|Restore options|Restore Options/.test(item.innerText)`;
+const restoreDialogMatcher =
+  `item.getClientRects().length > 0 && /已识别为旧版|恢复选项|Restore options|Restore Options/.test(item.innerText)`;
 await waitFor(`[...document.querySelectorAll('[role="dialog"]')].some((item) => ${restoreDialogMatcher})`);
 
 const restoreDialog = await evaluate(`(() => {
@@ -142,6 +181,59 @@ if (action === "restore") {
   }))`,
     true,
   );
+} else if (action === "cancel-warning") {
+  await evaluate(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((item) => ${restoreDialogMatcher});
+    const button = [...(dialog?.querySelectorAll('button') ?? [])]
+      .find((item) => /^(完成|确定|Finish|OK)$/i.test(item.innerText.trim()));
+    if (!button) throw new Error('Restore confirmation button was not found.');
+    button.click();
+    return true;
+  })()`);
+  await waitFor(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((item) => ${restoreDialogMatcher});
+    const buttons = [...(dialog?.querySelectorAll('button') ?? [])];
+    const cancel = buttons.find((item) => /^(取消|Cancel)$/i.test(item.innerText.trim()));
+    const finish = buttons.find((item) => /^(完成|确定|Finish|OK)$/i.test(item.innerText.trim()));
+    return Boolean(dialog && cancel && finish && !cancel.disabled && !finish.disabled);
+  })()`);
+  const afterWarning = await evaluate(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((item) => ${restoreDialogMatcher});
+    return {
+      visible: Boolean(dialog),
+      buttons: [...(dialog?.querySelectorAll('button') ?? [])]
+        .map((button) => ({ text: button.innerText.trim(), disabled: button.disabled }))
+        .filter((button) => button.text),
+    };
+  })()`);
+  await evaluate(`(() => {
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((item) => ${restoreDialogMatcher});
+    const cancel = [...(dialog?.querySelectorAll('button') ?? [])]
+      .find((item) => /^(取消|Cancel)$/i.test(item.innerText.trim()));
+    cancel?.click();
+    return Boolean(cancel);
+  })()`);
+  await waitFor(`![...document.querySelectorAll('[role="dialog"]')].some((item) => ${restoreDialogMatcher})`);
+  const afterCancel = await evaluate(
+    `chrome.storage.local.get(null).then((data) => ({
+      sites: Object.keys(data.metadata?.sites ?? {}).length,
+      downloaders: Object.keys(data.metadata?.downloaders ?? {}).length,
+      userInfoSites: Object.keys(data.userInfo ?? {}).length,
+      keepUploadTasks: Array.isArray(data.keepUploadTask)
+        ? data.keepUploadTask.length
+        : Object.keys(data.keepUploadTask ?? {}).length,
+    }))`,
+    true,
+  );
+  const dataUnchanged = ["sites", "downloaders", "userInfoSites", "keepUploadTasks"].every(
+    (key) => afterCancel[key] === baseline[key],
+  );
+  restoreResult = { warningCancelled: true, afterWarning, dialogClosed: true, afterCancel, dataUnchanged };
+  if (!dataUnchanged) process.exitCode = 1;
 }
 
 console.log(
