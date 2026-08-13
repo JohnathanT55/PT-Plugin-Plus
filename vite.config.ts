@@ -37,7 +37,7 @@ const optionalPermissions: string[] = [];
 
 // @ts-ignore
 const git_count = git.count("HEAD");
-const base_version = `${pkg.version}.${git_count}`;
+const base_version = pkg.version;
 const commit_version = `${base_version}+${git.short(__dirname)}`;
 
 // https://vitejs.dev/config/

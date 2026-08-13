@@ -92,13 +92,12 @@ const inputObjectId = inputResult.result.objectId;
 if (!inputObjectId) throw new Error("The backup file input could not be resolved.");
 
 await call("DOM.setFileInputFiles", { files: [backupPath], objectId: inputObjectId });
-await waitFor(
-  `[...document.querySelectorAll('[role="dialog"]')].some((item) => item.innerText.includes('已识别为旧版'))`,
-);
+const restoreDialogMatcher = `/已识别为旧版|恢复选项|Restore options|Restore Options/.test(item.innerText)`;
+await waitFor(`[...document.querySelectorAll('[role="dialog"]')].some((item) => ${restoreDialogMatcher})`);
 
 const restoreDialog = await evaluate(`(() => {
   const dialog = [...document.querySelectorAll('[role="dialog"]')]
-    .find((item) => item.innerText.includes('已识别为旧版'));
+    .find((item) => ${restoreDialogMatcher});
   return {
     text: dialog?.innerText ?? '',
     controls: [...(dialog?.querySelectorAll('input') ?? [])].map((input) => ({
@@ -118,19 +117,17 @@ let restoreResult;
 if (action === "restore") {
   await evaluate(`(() => {
     const dialog = [...document.querySelectorAll('[role="dialog"]')]
-      .find((item) => item.innerText.includes('已识别为旧版'));
+      .find((item) => ${restoreDialogMatcher});
     const button = [...(dialog?.querySelectorAll('button') ?? [])]
       .find((item) => /^(完成|确定|Finish|OK)$/i.test(item.innerText.trim()));
     if (!button) throw new Error('Restore confirmation button was not found.');
     button.click();
     return true;
   })()`);
-  await waitFor(
-    `![...document.querySelectorAll('[role="dialog"]')].some((item) => item.innerText.includes('已识别为旧版'))`,
-    120000,
-  );
+  await waitFor(`![...document.querySelectorAll('[role="dialog"]')].some((item) => ${restoreDialogMatcher})`, 120000);
   await new Promise((resolve) => setTimeout(resolve, 1000));
-  restoreResult = await evaluate(`chrome.storage.local.get(null).then((data) => ({
+  restoreResult = await evaluate(
+    `chrome.storage.local.get(null).then((data) => ({
     sites: Object.keys(data.metadata?.sites ?? {}).length,
     downloaders: Object.keys(data.metadata?.downloaders ?? {}).length,
     backupServers: Object.keys(data.metadata?.backupServers ?? {}).length,
@@ -142,8 +139,12 @@ if (action === "restore") {
     collectionGroups: Array.isArray(data.collection?.groups) ? data.collection.groups.length : null,
     bridgeVersion: data.ptppRuntimeMigration?.bridgeVersion ?? data['ptpp.runtime.migration']?.bridgeVersion ?? null,
     visibleNotices: [...document.querySelectorAll('.v-snackbar')].filter((item) => getComputedStyle(item).display !== 'none').map((item) => item.innerText.trim()),
-  }))`, true);
+  }))`,
+    true,
+  );
 }
 
-console.log(JSON.stringify({ target: { id: target.id, url: target.url }, baseline, restoreDialog, restoreResult }, null, 2));
+console.log(
+  JSON.stringify({ target: { id: target.id, url: target.url }, baseline, restoreDialog, restoreResult }, null, 2),
+);
 socket.close();

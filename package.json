@@ -19,10 +19,12 @@
     "build": "vite build",
     "build:firefox": "cross-env TARGET=firefox vite build",
     "validate": "node scripts/validate-mv3.js",
+    "audit:chrome-store": "node scripts/audit-chrome-store.mjs",
+    "package:chrome": "pnpm validate && pnpm audit:chrome-store && node scripts/package-chrome-release.mjs",
     "test:runtime": "node tests/mv3/worker-runtime.js",
     "test:release-cdp": "node tests/mv3/release-cdp-audit.mjs",
     "test:toolbar-cdp": "node tests/mv3/toolbar-cdp-audit.mjs",
-    "verify": "pnpm typecheck && pnpm typecheck:foundation && pnpm test && pnpm build && pnpm validate && pnpm test:runtime",
+    "verify": "pnpm typecheck && pnpm typecheck:foundation && pnpm test && pnpm build && pnpm validate && pnpm audit:chrome-store && pnpm test:runtime",
     "format": "prettier --write app vite.config.ts scripts tests src"
   },
   "dependencies": {

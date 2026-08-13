@@ -578,7 +578,11 @@ const durableTasks = createDurableTaskCoordinator<TDurableTaskPayload>({
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (!durableTaskIdFromAlarm(alarm.name)) return;
-  durableTasks.handleAlarm(alarm.name).catch(() => {
+  const handle = () => durableTasks.handleAlarm(alarm.name);
+  const handled = navigator.locks
+    ? navigator.locks.request(`ptpp-durable-task:${alarm.name}`, handle)
+    : handle();
+  handled.catch(() => {
     sendMessage("logger", { msg: `A durable one-shot task failed; see its download history status.` }).catch();
   });
 });

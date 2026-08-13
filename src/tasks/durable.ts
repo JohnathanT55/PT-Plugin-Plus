@@ -1,5 +1,6 @@
 export const DURABLE_TASK_STORAGE_VERSION = 1 as const;
 export const DURABLE_ALARM_PREFIX = "ptpp-once:";
+export const DURABLE_TASK_RUNNING_LEASE_MS = 30 * 60 * 1000;
 
 export type TDurableTaskState = "scheduled" | "running";
 
@@ -95,7 +96,11 @@ export function createDurableTaskCoordinator<TPayload>(adapter: IDurableTaskAdap
     const store = normalizeStore(await adapter.load());
     const now = adapter.now();
     for (const task of Object.values(store.tasks)) {
-      await adapter.createAlarm(durableAlarmName(task.id), Math.max(task.runAt, now));
+      const retryAt =
+        task.state === "running"
+          ? Math.max(task.runAt, (task.startedAt ?? task.runAt) + DURABLE_TASK_RUNNING_LEASE_MS, now)
+          : Math.max(task.runAt, now);
+      await adapter.createAlarm(durableAlarmName(task.id), retryAt);
     }
     return Object.keys(store.tasks).length;
   }
@@ -106,10 +111,42 @@ export function createDurableTaskCoordinator<TPayload>(adapter: IDurableTaskAdap
     if (runningTaskIds.has(taskId)) return true;
 
     const store = normalizeStore(await adapter.load());
-    const task = store.tasks[taskId];
+    let task = store.tasks[taskId];
     if (!task) {
       await adapter.clearAlarm(alarmName);
       return true;
+    }
+
+    if (task.state === "running") {
+      const retryAt = (task.startedAt ?? task.runAt) + DURABLE_TASK_RUNNING_LEASE_MS;
+      if (retryAt > adapter.now()) {
+        await adapter.createAlarm(alarmName, retryAt);
+        return true;
+      }
+      const recoveredTask = await mutateStore((currentStore) => {
+        const currentTask = currentStore.tasks[taskId];
+        const currentRetryAt = currentTask
+          ? (currentTask.startedAt ?? currentTask.runAt) + DURABLE_TASK_RUNNING_LEASE_MS
+          : Number.POSITIVE_INFINITY;
+        if (
+          currentTask?.generation === task.generation &&
+          currentTask.state === "running" &&
+          currentRetryAt <= adapter.now()
+        ) {
+          const replacement: IDurableTask<TPayload> = {
+            ...currentTask,
+            generation: currentTask.generation + 1,
+            state: "scheduled",
+            runAt: adapter.now(),
+          };
+          delete replacement.startedAt;
+          currentStore.tasks[taskId] = replacement;
+          return replacement;
+        }
+        return undefined;
+      });
+      if (!recoveredTask) return true;
+      task = recoveredTask;
     }
 
     if (task.runAt > adapter.now()) {
@@ -122,7 +159,7 @@ export function createDurableTaskCoordinator<TPayload>(adapter: IDurableTaskAdap
     try {
       claimed = await mutateStore((currentStore) => {
         const currentTask = currentStore.tasks[taskId];
-        if (currentTask?.generation === task.generation) {
+        if (currentTask?.generation === task.generation && currentTask.state === "scheduled") {
           currentTask.state = "running";
           currentTask.startedAt = adapter.now();
           return true;
