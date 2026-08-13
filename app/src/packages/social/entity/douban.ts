@@ -132,6 +132,8 @@ interface IDoubanPtGen extends IPtgenApiResponse {
   year?: string;
   region?: string[];
   genre?: string[];
+  imdb_id?: string;
+  imdb_link?: string;
 }
 
 export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
@@ -142,6 +144,7 @@ export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
     ...(data.aka ?? []),
   ]);
   const titles = Array.from(uniqueTitles).filter(Boolean);
+  const imdbId = parseImdb(data.imdb_id ?? data.imdb_link);
 
   return {
     site: "douban",
@@ -152,6 +155,7 @@ export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
     releaseYear: data.year ?? "",
     region: data.region?.[0] ?? "",
     genres: data.genre ?? [],
+    external_ids: imdbId ? { imdb: imdbId } : undefined,
     ratingScore: Number(data.douban_rating_average ?? 0),
     ratingCount: Number(data.douban_votes ?? 0),
     createAt: +Date.now(),
@@ -186,7 +190,9 @@ export async function fetchInformation(
       ),
     );
 
-    resDict.title = pageParser$1(data).titles.join(" / ");
+    const pageInformation = pageParser$1(data);
+    resDict.title = pageInformation.titles.join(" / ");
+    resDict.external_ids = pageInformation.external_ids;
 
     resDict.poster = (ld_json.image ?? "")
       .replace(/s(_ratio_poster|pic)/g, "l$1")

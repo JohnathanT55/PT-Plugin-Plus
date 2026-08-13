@@ -666,7 +666,7 @@
       "movieSuggestionDescription": "Restores the archived PTPP pre-search movie list. Details and ratings reuse PTD's media cache; Enter still performs a direct search when providers fail.",
       "movieSuggestionEnabled": "Show movie suggestions while typing",
       "movieSuggestionLabel": "Movie Search Suggestions",
-      "movieSuggestionSearchById": "Search by Douban/IMDb ID (recommended)",
+      "movieSuggestionSearchById": "Prefer IMDb ID, fall back to Douban (recommended)",
       "movieSuggestionSearchByTitle": "Search by movie title",
       "movieSuggestionSearchMode": "Search mode after selecting a suggestion",
       "quickSiteFilter": "Quick Site Filter In Search Page",

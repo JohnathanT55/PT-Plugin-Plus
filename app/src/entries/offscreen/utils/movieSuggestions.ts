@@ -1,5 +1,5 @@
 import type { ISocialInformation, ISocialMovieSuggestion, ISocialMovieSuggestionResult } from "@ptd/social";
-import { fetchMovieSuggestions } from "@ptd/social";
+import { fetchMovieSuggestions, preferMovieSuggestionImdb } from "@ptd/social";
 
 import { onMessage, sendMessage } from "@/messages.ts";
 import type { IConfigPiniaStorageSchema } from "@/shared/types.ts";
@@ -26,21 +26,24 @@ function mergeSocialInformation(
 ): ISocialMovieSuggestion {
   if (!information) return item;
 
-  return {
-    ...item,
-    title: information.title?.split(" / ")[0]?.trim() || item.title,
-    originalTitle:
-      information.title
-        ?.split(" / ")
-        .slice(1)
-        .map((title) => title.trim())
-        .filter(Boolean)
-        .join(" / ") || item.originalTitle,
-    poster: information.poster || item.poster,
-    year: information.releaseYear || item.year,
-    ratingScore: information.ratingScore || item.ratingScore,
-    ratingCount: information.ratingCount || item.ratingCount,
-  };
+  return preferMovieSuggestionImdb(
+    {
+      ...item,
+      title: information.title?.split(" / ")[0]?.trim() || item.title,
+      originalTitle:
+        information.title
+          ?.split(" / ")
+          .slice(1)
+          .map((title) => title.trim())
+          .filter(Boolean)
+          .join(" / ") || item.originalTitle,
+      poster: information.poster || item.poster,
+      year: information.releaseYear || item.year,
+      ratingScore: information.ratingScore || item.ratingScore,
+      ratingCount: information.ratingCount || item.ratingCount,
+    },
+    information.external_ids,
+  );
 }
 
 export async function queryMovieSuggestions(
@@ -90,6 +93,7 @@ export async function enrichMovieSuggestion(item: ISocialMovieSuggestion): Promi
   try {
     const information = await getSocialInformation(item.site, item.id, {
       requireMetadata: true,
+      requireExternalIds: item.site === "douban",
     });
     const enriched = mergeSocialInformation(item, information);
     const poster = await fetchPosterDataUrl("visible", item.poster, information?.poster);

@@ -5,6 +5,7 @@ export type TMovieSuggestionSearchMode = "id" | "title";
 export interface ISocialMovieSuggestion {
   site: "douban" | "imdb";
   id: string;
+  imdbId?: string;
   title: string;
   originalTitle?: string;
   year?: string;
@@ -13,6 +14,31 @@ export interface ISocialMovieSuggestion {
   ratingCount?: number;
   sourceUrl: string;
   searchTerm: string;
+}
+
+function normalizeImdbId(value?: string) {
+  return value
+    ?.trim()
+    .match(/tt\d{7,10}/i)?.[0]
+    ?.toLowerCase();
+}
+
+export function preferMovieSuggestionImdb(
+  item: ISocialMovieSuggestion,
+  externalIds?: { imdb?: string },
+): ISocialMovieSuggestion {
+  const imdbId = normalizeImdbId(externalIds?.imdb ?? item.imdbId);
+  if (!imdbId) return item;
+
+  return {
+    ...item,
+    imdbId,
+    searchTerm: `imdb|${imdbId}`,
+  };
+}
+
+export function getMovieSuggestionSearchTerm(item: ISocialMovieSuggestion, mode: TMovieSuggestionSearchMode) {
+  return mode === "title" ? item.title : preferMovieSuggestionImdb(item).searchTerm;
 }
 
 export interface ISocialMovieSuggestionResult {
