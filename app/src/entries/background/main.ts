@@ -10,6 +10,7 @@ import "./utils/contextMenus.ts";
 import "./utils/omnibox.ts";
 import "./utils/alarms.ts";
 import "./utils/webRequest.ts";
+import "./utils/legacyBackup.ts";
 
 initializePtppRuntimeMigration()
   .then((report) => {
