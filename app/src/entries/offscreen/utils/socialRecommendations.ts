@@ -103,7 +103,7 @@ function transformBlob(blob: Blob): Promise<string> {
   });
 }
 
-async function fetchPosterDataUrl(
+export async function fetchPosterDataUrl(
   enrichment: TRecommendationEnrichmentMode,
   ...posters: Array<string | undefined>
 ): Promise<string | undefined> {

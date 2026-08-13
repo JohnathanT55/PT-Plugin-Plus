@@ -110,6 +110,36 @@ export const useConfigStore = defineStore("config", {
         }
       }
 
+      state.searchEntity ??= {};
+      const legacyBeforeSearching = state.beforeSearchingOptions;
+      if (legacyBeforeSearching && typeof legacyBeforeSearching === "object") {
+        if (typeof legacyBeforeSearching.getMovieInformation === "boolean") {
+          state.searchEntity.movieSuggestionEnabled = legacyBeforeSearching.getMovieInformation;
+        }
+        if (Number.isFinite(legacyBeforeSearching.maxMovieInformationCount)) {
+          state.searchEntity.movieSuggestionCount = legacyBeforeSearching.maxMovieInformationCount;
+        }
+        if (["id", "name"].includes(legacyBeforeSearching.searchModeForItem)) {
+          state.searchEntity.movieSuggestionSearchMode =
+            legacyBeforeSearching.searchModeForItem === "name" ? "title" : "id";
+        }
+        delete state.beforeSearchingOptions;
+        needsSave = true;
+      }
+      if (typeof state.searchEntity.movieSuggestionEnabled !== "boolean") {
+        state.searchEntity.movieSuggestionEnabled = true;
+        needsSave = true;
+      }
+      const suggestionCount = Math.min(10, Math.max(1, Math.round(state.searchEntity.movieSuggestionCount ?? 5)));
+      if (state.searchEntity.movieSuggestionCount !== suggestionCount) {
+        state.searchEntity.movieSuggestionCount = suggestionCount;
+        needsSave = true;
+      }
+      if (!["id", "title"].includes(state.searchEntity.movieSuggestionSearchMode)) {
+        state.searchEntity.movieSuggestionSearchMode = "id";
+        needsSave = true;
+      }
+
       if (needsSave) {
         context.store.$save();
       }
@@ -356,6 +386,9 @@ export const useConfigStore = defineStore("config", {
 
       quickSiteFilter: true,
       showHotRecommendations: true,
+      movieSuggestionEnabled: true,
+      movieSuggestionCount: 5,
+      movieSuggestionSearchMode: "id",
     },
 
     mediaServerEntity: {

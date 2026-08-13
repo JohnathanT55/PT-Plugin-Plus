@@ -137,6 +137,14 @@ const optionsNavigationSource = fs.readFileSync(
   "utf8",
 );
 const optionsTopbarSource = fs.readFileSync(path.join(root, "app/src/entries/options/views/Layout/Topbar.vue"), "utf8");
+const movieSuggestionSource = fs.readFileSync(
+  path.join(root, "app/src/entries/offscreen/utils/movieSuggestions.ts"),
+  "utf8",
+);
+const movieSuggestionSettingsSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Settings/SetBase/SearchEntityWindow.vue"),
+  "utf8",
+);
 const collectionSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/MyCollection/Index.vue"),
   "utf8",
@@ -434,6 +442,26 @@ assert(
     quickFilterSource.includes("const resultCounts = computed") &&
     !quickFilterSource.includes("searchResult.filter"),
   "large search pages cap row count and avoid repeated result scans, resize observers, and favorite-state requests",
+);
+assert(
+  optionsTopbarSource.includes('sendMessage("queryMovieSuggestions"') &&
+    optionsTopbarSource.includes('sendMessage("getMovieSuggestionDetails"') &&
+    optionsTopbarSource.includes("movieSuggestionSearchMode") &&
+    optionsTopbarSource.includes("startSearchEntity"),
+  "the existing PTPP topbar adds selectable movie candidates without replacing its search route",
+);
+assert(
+  movieSuggestionSource.includes("suggestionCache") &&
+    movieSuggestionSource.includes("suggestionRequests") &&
+    movieSuggestionSource.includes("direct torrent search remains available") &&
+    movieSuggestionSource.includes("getSocialInformation"),
+  "movie candidates deduplicate and cache lookups, reuse PTD metadata, and fail back to direct search",
+);
+assert(
+  movieSuggestionSettingsSource.includes("movieSuggestionEnabled") &&
+    movieSuggestionSettingsSource.includes("movieSuggestionCount") &&
+    movieSuggestionSettingsSource.includes("movieSuggestionSearchMode"),
+  "search settings expose the archived PTPP candidate switch, count, and selection behavior",
 );
 
 console.log("MV3 application manifest, entries, and imported framework modules passed smoke checks.");

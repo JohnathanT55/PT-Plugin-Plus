@@ -74,6 +74,41 @@ const hiddenTagNamesText = computed({
       />
     </SettingsSection>
 
+    <SettingsSection
+      :title="t('SetBase.searchEntity.movieSuggestionLabel')"
+      :description="t('SetBase.searchEntity.movieSuggestionDescription')"
+      icon="mdi-movie-search-outline"
+    >
+      <v-switch
+        v-model="configStore.searchEntity.movieSuggestionEnabled"
+        :label="t('SetBase.searchEntity.movieSuggestionEnabled')"
+        color="success"
+        hide-details
+      />
+
+      <template v-if="configStore.searchEntity.movieSuggestionEnabled">
+        <v-number-input
+          v-model="configStore.searchEntity.movieSuggestionCount"
+          :label="t('SetBase.searchEntity.movieSuggestionCount')"
+          :max="10"
+          :min="1"
+          controlVariant="default"
+          hide-details
+        />
+
+        <v-select
+          v-model="configStore.searchEntity.movieSuggestionSearchMode"
+          :items="[
+            { title: t('SetBase.searchEntity.movieSuggestionSearchById'), value: 'id' },
+            { title: t('SetBase.searchEntity.movieSuggestionSearchByTitle'), value: 'title' },
+          ]"
+          :label="t('SetBase.searchEntity.movieSuggestionSearchMode')"
+          class="mt-3"
+          hide-details
+        />
+      </template>
+    </SettingsSection>
+
     <SettingsSection :title="t('SetBase.searchEntity.filterLabel')" icon="mdi-filter-cog-outline">
       <v-switch
         v-model="configStore.searchEntity.saveLastFilter"

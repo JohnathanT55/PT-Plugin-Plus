@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import PQueue from "p-queue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import { useRoute, useRouter } from "vue-router";
@@ -7,6 +8,8 @@ import { useRoute, useRouter } from "vue-router";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import { sendMessage } from "@/messages.ts";
+import type { ISocialMovieSuggestion } from "@ptd/social";
 
 import { REPO_URL } from "~/helper";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -30,6 +33,14 @@ const appendMenu = computed<Array<{ title: string; icon: string; [str: string]: 
 const searchKey = ref<string>("");
 const searchPlanKey = ref<string>("default");
 const navigationToggleBusy = ref(false);
+const movieSuggestions = ref<ISocialMovieSuggestion[]>([]);
+const movieSuggestionMenuOpen = ref(false);
+const movieSuggestionLoading = ref(false);
+const movieSuggestionFailed = ref(false);
+const searchInputRevision = ref(0);
+let movieSuggestionTimer: ReturnType<typeof setTimeout> | undefined;
+let movieSuggestionRequestId = 0;
+let suppressedMovieSuggestionQuery: string | undefined;
 
 const searchPlans = computed(() =>
   metadataStore.getSearchSolutions
@@ -42,6 +53,9 @@ const searchPlans = computed(() =>
 );
 
 function startSearchEntity() {
+  const normalizedSearchKey = typeof searchKey.value === "string" ? searchKey.value.trim() : "";
+  searchKey.value = normalizedSearchKey;
+  movieSuggestionMenuOpen.value = false;
   router.push({
     name: "SearchEntity",
     query: {
@@ -52,7 +66,104 @@ function startSearchEntity() {
   });
 }
 
+function selectMovieSuggestion(rawItem: unknown) {
+  const item = rawItem as ISocialMovieSuggestion;
+  const selectedSearchTerm =
+    configStore.searchEntity.movieSuggestionSearchMode === "title" ? item.title : item.searchTerm;
+  suppressedMovieSuggestionQuery = selectedSearchTerm;
+  movieSuggestions.value = [];
+  searchKey.value = selectedSearchTerm;
+  startSearchEntity();
+  // VCombobox applies its own selection model after the slotted row click.
+  // Re-assert the PTPP advanced-search term on the next tick so the visible
+  // input never degrades to a bare Douban/IMDb ID.
+  void nextTick(() => {
+    searchKey.value = selectedSearchTerm;
+    searchInputRevision.value += 1;
+  });
+}
+
+function updateMovieSuggestion(enrichedItem: ISocialMovieSuggestion) {
+  movieSuggestions.value = movieSuggestions.value.map((item) =>
+    item.site === enrichedItem.site && item.id === enrichedItem.id ? enrichedItem : item,
+  );
+}
+
+async function enrichMovieSuggestions(requestId: number, items: ISocialMovieSuggestion[]) {
+  const queue = new PQueue({ concurrency: 3 });
+  await Promise.all(
+    items.map((item) =>
+      queue.add(async () => {
+        try {
+          const result = await sendMessage("getMovieSuggestionDetails", { item });
+          if (requestId === movieSuggestionRequestId) updateMovieSuggestion(result.item);
+        } catch {
+          // Basic candidates remain usable when every metadata provider fails.
+        }
+      }),
+    ),
+  );
+}
+
+async function loadMovieSuggestions(query: string) {
+  const requestId = ++movieSuggestionRequestId;
+  movieSuggestionLoading.value = true;
+  movieSuggestionFailed.value = false;
+
+  try {
+    const result = await sendMessage("queryMovieSuggestions", {
+      query,
+      count: configStore.searchEntity.movieSuggestionCount,
+    });
+    if (requestId !== movieSuggestionRequestId) return;
+
+    movieSuggestions.value = result.items;
+    movieSuggestionFailed.value = result.failed;
+    movieSuggestionMenuOpen.value = true;
+    void enrichMovieSuggestions(requestId, [...result.items]);
+  } catch {
+    if (requestId !== movieSuggestionRequestId) return;
+    movieSuggestions.value = [];
+    movieSuggestionFailed.value = true;
+    movieSuggestionMenuOpen.value = true;
+  } finally {
+    if (requestId === movieSuggestionRequestId) movieSuggestionLoading.value = false;
+  }
+}
+
+function scheduleMovieSuggestions(value: unknown) {
+  if (movieSuggestionTimer) clearTimeout(movieSuggestionTimer);
+  const query = typeof value === "string" ? value.trim() : "";
+
+  if (suppressedMovieSuggestionQuery === query) {
+    suppressedMovieSuggestionQuery = undefined;
+    movieSuggestionRequestId += 1;
+    movieSuggestions.value = [];
+    movieSuggestionFailed.value = false;
+    movieSuggestionMenuOpen.value = false;
+    movieSuggestionLoading.value = false;
+    return;
+  }
+  suppressedMovieSuggestionQuery = undefined;
+
+  if (!configStore.searchEntity.movieSuggestionEnabled || !query) {
+    movieSuggestionRequestId += 1;
+    movieSuggestions.value = [];
+    movieSuggestionFailed.value = false;
+    movieSuggestionMenuOpen.value = false;
+    movieSuggestionLoading.value = false;
+    return;
+  }
+
+  movieSuggestionTimer = setTimeout(() => void loadMovieSuggestions(query), 500);
+}
+
+function movieSuggestionPoster(item: ISocialMovieSuggestion) {
+  return item.poster && !/doubanio\.com/.test(item.poster) ? item.poster : "/icons/movie_placeholder.png";
+}
+
 function searchRecommendation(title: string) {
+  suppressedMovieSuggestionQuery = title;
   searchKey.value = title;
   startSearchEntity();
 }
@@ -77,6 +188,7 @@ watch(
   () => route.query,
   (newQuery) => {
     if (newQuery?.search && (newQuery.search as string) !== searchKey.value) {
+      suppressedMovieSuggestionQuery = newQuery.search as string;
       searchKey.value = newQuery.search as string;
     }
     if (newQuery?.plan && (newQuery.plan as string) !== searchPlanKey.value) {
@@ -84,6 +196,9 @@ watch(
     }
   },
 );
+
+watch(searchKey, scheduleMovieSuggestions);
+onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer));
 </script>
 
 <template>
@@ -112,16 +227,86 @@ watch(
 
     <!-- 搜索输入框 -->
     <v-combobox
+      :key="searchInputRevision"
       v-model="searchKey"
+      v-model:menu="movieSuggestionMenuOpen"
+      :items="movieSuggestions"
+      :loading="movieSuggestionLoading"
       :placeholder="t('layout.header.searchTip')"
       class="ptpp-search-input pl-2"
       clearable
       enterkeyhint="search"
       hide-details
+      item-title="searchTerm"
+      item-value="searchTerm"
+      no-filter
+      :return-object="false"
       style="width: 300px"
       type="search"
       @keyup.enter="startSearchEntity"
     >
+      <template #prepend-item>
+        <v-list-item
+          v-if="typeof searchKey === 'string' && searchKey.trim()"
+          prepend-icon="mdi-magnify"
+          :title="t('layout.header.movieSuggestions.directSearch', { key: searchKey.trim() })"
+          @mousedown.prevent
+          @click.stop="startSearchEntity"
+        />
+        <v-divider v-if="movieSuggestions.length > 0" />
+      </template>
+
+      <template #item="{ item }">
+        <v-list-item
+          class="ptpp-movie-suggestion"
+          @mousedown.prevent
+          @pointerdown.prevent.stop
+          @click.stop="selectMovieSuggestion(item.raw)"
+        >
+          <template #prepend>
+            <v-img
+              :src="movieSuggestionPoster(item.raw)"
+              class="ptpp-movie-suggestion-poster mr-3"
+              cover
+              referrerpolicy="no-referrer"
+            >
+              <template #error>
+                <v-img src="/icons/movie_placeholder.png" class="ptpp-movie-suggestion-poster" cover />
+              </template>
+            </v-img>
+          </template>
+
+          <v-list-item-title class="d-flex align-center ga-2">
+            <span class="text-truncate">{{ item.raw.title }}</span>
+            <span v-if="item.raw.year" class="text-caption text-medium-emphasis">({{ item.raw.year }})</span>
+          </v-list-item-title>
+          <v-list-item-subtitle v-if="item.raw.originalTitle" class="text-truncate">
+            {{ item.raw.originalTitle }}
+          </v-list-item-subtitle>
+
+          <template #append>
+            <div v-if="item.raw.ratingScore" class="ptpp-movie-suggestion-rating">
+              <v-icon color="amber-darken-2" icon="mdi-star" size="x-small" />
+              {{ Number(item.raw.ratingScore).toFixed(1) }}
+            </div>
+          </template>
+        </v-list-item>
+      </template>
+
+      <template #append-item>
+        <v-list-item
+          v-if="!movieSuggestionLoading && movieSuggestions.length === 0 && movieSuggestionFailed"
+          prepend-icon="mdi-cloud-alert-outline"
+          :title="t('layout.header.movieSuggestions.loadFailed')"
+          :subtitle="t('layout.header.movieSuggestions.directSearchFallback')"
+        />
+        <v-list-item
+          v-else-if="!movieSuggestionLoading && movieSuggestions.length === 0"
+          prepend-icon="mdi-movie-search-outline"
+          :title="t('layout.header.movieSuggestions.empty')"
+        />
+      </template>
+
       <template #append>
         <!-- 搜索按键 -->
         <v-btn
@@ -279,5 +464,23 @@ watch(
   align-items: center;
   align-self: stretch;
   padding-top: 0;
+}
+
+.ptpp-movie-suggestion {
+  min-height: 72px;
+}
+
+.ptpp-movie-suggestion-poster {
+  border-radius: 2px;
+  height: 58px;
+  width: 40px;
+}
+
+.ptpp-movie-suggestion-rating {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  gap: 3px;
+  min-width: 42px;
 }
 </style>
