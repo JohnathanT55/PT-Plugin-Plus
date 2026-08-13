@@ -662,6 +662,13 @@
       "mediaSearchLimit": "单次搜索结果数量",
       "mediaSearchLimitMessage": "请不要一次性加载过多的搜索结果，未作 virtual‑scroll 优化，可能会导致浏览器卡死，同时也会影响媒体服务器的性能",
       "mediaServerSearchConfig": "媒体服务器搜索配置",
+      "movieSuggestionCount": "最多显示的影片候选数量",
+      "movieSuggestionDescription": "沿用老板 PTPP 的搜索前影片候选；候选资料与评分复用 PTD 的媒体信息缓存，外部服务失败时仍可按 Enter 直接搜索。",
+      "movieSuggestionEnabled": "输入关键词时显示影片候选",
+      "movieSuggestionLabel": "影片搜索候选",
+      "movieSuggestionSearchById": "按豆瓣／IMDb 编号搜索（推荐）",
+      "movieSuggestionSearchByTitle": "按影片标题搜索",
+      "movieSuggestionSearchMode": "点击候选后的搜索方式",
       "quickSiteFilter": "直接显示站点筛选栏",
       "saveLastSearchFilter": "保存上一次使用的搜索筛选词",
       "searchPlanLabel": "搜索方案",
@@ -1255,6 +1262,12 @@
         "noSummary": "暂无简介",
         "refresh": "刷新热门推荐",
         "title": "热门推荐"
+      },
+      "movieSuggestions": {
+        "directSearch": "直接搜索“{key}”",
+        "directSearchFallback": "仍可按 Enter 直接搜索当前关键词",
+        "empty": "没有找到相关影片，可按 Enter 直接搜索",
+        "loadFailed": "影片候选暂时不可用"
       },
       "navBarTip": "点击显示/隐藏导航栏",
       "searchPlan": {

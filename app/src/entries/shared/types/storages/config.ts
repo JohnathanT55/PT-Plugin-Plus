@@ -235,6 +235,11 @@ export interface IConfigPiniaStorageSchema {
     quickSiteFilter: boolean;
     // 是否在搜索框中展示热门推荐按钮
     showHotRecommendations: boolean;
+
+    // 老板 PTPP：输入关键词时从豆瓣取得影片候选，不改变现有顶栏布局。
+    movieSuggestionEnabled: boolean;
+    movieSuggestionCount: number;
+    movieSuggestionSearchMode: "id" | "title";
   };
 
   // 配置同样在 searchEntity 页面（偷懒下）

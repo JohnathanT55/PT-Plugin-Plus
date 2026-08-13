@@ -662,6 +662,13 @@
       "mediaSearchLimit": "Number of search results per request",
       "mediaSearchLimitMessage": "Please do not load too many search results at once. It's not optimized with virtual-scroll, which may cause the browser to freeze and affect the performance of the media server.",
       "mediaServerSearchConfig": "Media Server Search Configuration",
+      "movieSuggestionCount": "Maximum movie suggestions",
+      "movieSuggestionDescription": "Restores the archived PTPP pre-search movie list. Details and ratings reuse PTD's media cache; Enter still performs a direct search when providers fail.",
+      "movieSuggestionEnabled": "Show movie suggestions while typing",
+      "movieSuggestionLabel": "Movie Search Suggestions",
+      "movieSuggestionSearchById": "Search by Douban/IMDb ID (recommended)",
+      "movieSuggestionSearchByTitle": "Search by movie title",
+      "movieSuggestionSearchMode": "Search mode after selecting a suggestion",
       "quickSiteFilter": "Quick Site Filter In Search Page",
       "saveLastSearchFilter": "Save last used search filter",
       "searchPlanLabel": "Search Plan",
@@ -1258,6 +1265,12 @@
         "noSummary": "No summary",
         "refresh": "Refresh hot recommendations",
         "title": "Hot Recommendations"
+      },
+      "movieSuggestions": {
+        "directSearch": "Search directly for “{key}”",
+        "directSearchFallback": "Press Enter to search the current keyword directly",
+        "empty": "No matching movie. Press Enter to search directly.",
+        "loadFailed": "Movie suggestions are temporarily unavailable"
       },
       "navBarTip": "Click to show/hide the navigation bar",
       "searchPlan": {

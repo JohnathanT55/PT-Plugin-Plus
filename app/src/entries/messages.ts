@@ -10,6 +10,8 @@ import type {
 } from "@ptd/site";
 import type {
   ISocialInformation,
+  ISocialMovieSuggestion,
+  ISocialMovieSuggestionResult,
   ISocialRecommendationItem,
   ISocialRecommendationsResult,
   TSupportSocialSite$1,
@@ -184,6 +186,8 @@ interface ProtocolMap extends TMessageMap {
 
   // 2.5 社交信息 ( utils/socialInformation )
   getSocialInformation(data: { site: TSupportSocialSite$1; sid: string }): ISocialInformation;
+  queryMovieSuggestions(data: { query: string; count?: number; flush?: boolean }): ISocialMovieSuggestionResult;
+  getMovieSuggestionDetails(data: { item: ISocialMovieSuggestion }): { item: ISocialMovieSuggestion };
   getSocialRecommendations(data?: {
     flush?: boolean;
     enrichment?: "all" | "none" | "visible";
