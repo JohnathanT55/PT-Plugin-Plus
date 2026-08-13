@@ -295,8 +295,11 @@
         "aliveWeek": "相对周数"
       },
       "multiOpen": "批量打开",
+      "multiOpenHint": "打开选中的站点；未选择时打开全部可用站点",
       "noSiteSelectedCancelRefresh": "未选择任何站点，取消刷新",
       "noSiteSelectedRefreshAll": "未选择任何站点，默认刷新全部站点",
+      "noOpenableSite": "没有可打开的站点",
+      "noRefreshableSite": "没有可刷新的站点",
       "normalizeLevelName": "使用站点定义的等级名称",
       "onlyShowUserLevelRequirement": "只显示等级要求中的升级队列",
       "selectColumns": "过滤列",
@@ -351,7 +354,7 @@
       "pushTo": "推送到…",
       "save": "保存",
       "sendToDefault": "发送到默认下载器",
-      "sendToDownloader": "发送到下载器"
+      "sendToDownloader": "推送到……"
     },
     "AdvanceFilterGenerateDialog": {
       "completed": "完成人数",

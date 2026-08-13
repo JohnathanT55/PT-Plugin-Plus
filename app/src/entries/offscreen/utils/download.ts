@@ -6,6 +6,7 @@ import { isEmpty } from "es-toolkit/compat";
 import {
   getDownloader,
   getRemoteTorrentFile,
+  getParsedTorrentInfoForVerification,
   type CTorrent,
   type CAddTorrentOptions,
   type TorrentClientStatus,
@@ -123,16 +124,7 @@ export async function getTorrentInfoForVerification(torrent: ITorrent) {
 
   const parsedTorrent = await getRemoteTorrentFile(downloadRequestConfig);
 
-  // 返回可序列化的种子信息
-  return {
-    infoHash: (parsedTorrent as unknown as { infoHash: string }).infoHash ?? "",
-    name: parsedTorrent.info.name ?? "unknown",
-    length: parsedTorrent.info.length ?? 0,
-    files: (parsedTorrent.info.files || []).map((f) => ({
-      path: f.path,
-      length: f.length,
-    })),
-  };
+  return getParsedTorrentInfoForVerification(parsedTorrent);
 }
 
 onMessage("getTorrentInfoForVerification", async ({ data: torrent }) => await getTorrentInfoForVerification(torrent));

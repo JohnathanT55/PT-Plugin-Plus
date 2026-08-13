@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -12,6 +12,7 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useTableCustomFilter } from "@/options/directives/useAdvanceFilter.ts";
 import { formatDate, formatSize, formatTimeAgo } from "@/options/utils.ts";
+import { sendMessage } from "@/messages.ts";
 
 import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -21,13 +22,15 @@ import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
 
 import { formatRatio } from "./utils/format.ts";
-import { tableData, initTableData, cancelFlushSiteLastUserInfo, flushSiteLastUserInfo } from "./utils/lastUserData.ts";
+import { tableData, initTableData, flushSiteLastUserInfo } from "./utils/lastUserData.ts";
+import { resolveOpenSiteIds, resolveRefreshSiteIds } from "./utils/siteActions.ts";
 
 const { t } = useI18n();
 const router = useRouter();
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
+const tableSelected = ref<TSiteID[]>([]);
 
 type TExtendDataTableHeader = DataTableHeader & { props?: any };
 
@@ -122,12 +125,26 @@ watchDebounced(
 );
 
 async function multiFlush() {
-  const flushSiteIds: TSiteID[] = tableData.value.map((item) => item.site);
+  const flushSiteIds = resolveRefreshSiteIds(tableSelected.value, tableData.value);
 
   if (flushSiteIds.length > 0) {
-    flushSiteLastUserInfo(flushSiteIds);
+    if (tableSelected.value.length === 0) {
+      runtimeStore.showSnakebar(t("MyData.index.noSiteSelectedRefreshAll"), { color: "info" });
+    }
+    await flushSiteLastUserInfo(flushSiteIds);
   } else {
-    runtimeStore.showSnakebar(t("MyData.index.noSiteSelectedCancelRefresh"), { color: "warning" });
+    runtimeStore.showSnakebar(t("MyData.index.noRefreshableSite"), { color: "warning" });
+  }
+}
+
+async function multiOpen() {
+  const openSiteIds = resolveOpenSiteIds(tableSelected.value, tableData.value);
+  const urls = (await Promise.all(openSiteIds.map(async (siteId) => await metadataStore.getSiteUrl(siteId)))).filter(
+    (url) => /^https?:\/\//i.test(url),
+  );
+  const openedCount = await sendMessage("openSiteTabs", urls);
+  if (openedCount === 0) {
+    runtimeStore.showSnakebar(t("MyData.index.noOpenableSite"), { color: "warning" });
   }
 }
 
@@ -145,21 +162,22 @@ function viewStatistic() {
   <v-card class="ptpp-my-data-card">
     <v-card-title class="ptpp-my-data-toolbar">
       <v-row align="center" class="ma-0 ga-2">
-        <!-- 刷新，取消刷新 -->
+        <!-- 老版 PTPP 交互：刷新期间按钮保持绿色，仅显示加载状态并防止重复提交。 -->
         <NavButton
-          v-if="runtimeStore.isUserInfoFlush"
-          :text="t('MyData.index.flushCancel')"
-          color="red"
-          icon="mdi-cancel"
-          @click="cancelFlushSiteLastUserInfo"
-        />
-
-        <NavButton
-          v-else
           :text="t('MyData.index.flushSelectSite')"
           color="green"
           icon="mdi-cached"
+          :loading="runtimeStore.isUserInfoFlush"
+          :disabled="runtimeStore.isUserInfoFlush"
           @click="multiFlush"
+        />
+
+        <NavButton
+          color="indigo"
+          icon="mdi-open-in-new"
+          :text="t('MyData.index.multiOpen')"
+          :title="t('MyData.index.multiOpenHint')"
+          @click="multiOpen"
         />
 
         <v-btn
@@ -275,6 +293,7 @@ function viewStatistic() {
       </v-row>
     </v-card-title>
     <v-data-table
+      v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['site'] /* 对每个item值只检索一次 */"
       :headers="tableHeader"
@@ -285,6 +304,9 @@ function viewStatistic() {
       :sort-by="configStore.tableBehavior.MyData.sortBy"
       class="ptpp-my-data-table table-stripe table-header-no-wrap"
       hover
+      item-selectable="selectable"
+      item-value="site"
+      show-select
       @update:itemsPerPage="(v) => configStore.updateTableBehavior('MyData', 'itemsPerPage', v)"
       @update:sortBy="(v) => configStore.updateTableBehavior('MyData', 'sortBy', v)"
     >
@@ -506,7 +528,16 @@ function viewStatistic() {
       </template>
 
       <template #item.status="{ item }">
-        <ResultParseStatus v-if="item.status !== EResultParseStatus.success" :status="item.status" />
+        <v-progress-circular
+          v-if="runtimeStore.userInfo.flushPlan[item.site]"
+          class="ptpp-site-refresh-progress"
+          color="green"
+          indeterminate
+          :title="t('resultParseStatus.working')"
+          :width="3"
+          size="30"
+        />
+        <ResultParseStatus v-else-if="item.status !== EResultParseStatus.success" :status="item.status" />
       </template>
     </v-data-table>
   </v-card>

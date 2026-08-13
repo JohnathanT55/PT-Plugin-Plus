@@ -21,6 +21,7 @@ export { sleep } from "~/helper.ts";
 import type { ISiteUserConfig } from "../types";
 import type { IExtensionStorageSchema } from "@/storage.ts";
 import type { IMetadataPiniaStorageSchema } from "@/shared/types/storages/metadata.ts";
+import type { INavigationDocument } from "@/messages.ts";
 
 // 默认允许 pkg/site 中的 axios 请求替换 unsafeHeader
 export const axios = setupRetryWhenCloudflareBlock(setupReplaceUnsafeHeader(axiosRaw));
@@ -59,4 +60,13 @@ export async function retrieveStore(store: keyof IExtensionStorageSchema, keyPat
  */
 export async function cookie(detail: chrome.cookies.CookieDetails): Promise<chrome.cookies.Cookie | null> {
   return await sendMessage("getCookie", detail);
+}
+
+/**
+ * Load a URL as an ordinary inactive browser navigation and return its DOM
+ * source. This is deliberately opt-in for sites which reject XHR/fetch and is
+ * serialized by the background implementation.
+ */
+export async function captureNavigationDocument(url: string): Promise<INavigationDocument> {
+  return await sendMessage("captureNavigationDocument", { url });
 }

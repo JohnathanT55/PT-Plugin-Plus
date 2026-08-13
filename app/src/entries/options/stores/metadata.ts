@@ -200,7 +200,11 @@ export const useMetadataStore = defineStore("metadata", {
         const siteUserConfig = state.sites[siteId];
         const siteMetadata = await getDefinedSiteMetadata(siteId);
 
-        if (siteUserConfig.isOffline || siteMetadata.isDead) {
+        if (
+          siteUserConfig.isOffline ||
+          siteMetadata.isDead ||
+          siteUserConfig.allowSearch === false
+        ) {
           return;
         }
 
@@ -265,6 +269,14 @@ export const useMetadataStore = defineStore("metadata", {
         let solution = state.solutions[solutionId] as ISearchSolutionMetadata;
         let solutionItems = [];
         for (const solutionItem of solution.solutions) {
+          const siteUserConfig = state.sites[solutionItem.siteId];
+          if (
+            !siteUserConfig ||
+            siteUserConfig.isOffline ||
+            siteUserConfig.allowSearch === false
+          ) {
+            continue;
+          }
           if (solutionItem.id === "default") {
             const searchEntries = await this.getSiteDefaultSearchSolution(solutionItem.siteId);
             if (searchEntries) {

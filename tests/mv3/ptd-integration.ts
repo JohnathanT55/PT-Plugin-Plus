@@ -213,7 +213,7 @@ assert(
     !resolvedRuntimeTarget.requiresSelection,
   "site default downloader, directory, and tag resolve for direct push",
 );
-assert(runtimeMerge.report.bridgeVersion === 2, "runtime migration marker records the bridge version");
+assert(runtimeMerge.report.bridgeVersion === 4, "runtime migration marker records the bridge version");
 assert(
   runtimeMerge.userInfo[siteId]["2026-01-01"].uploaded === 1024 ** 3 &&
     runtimeMerge.userInfo[siteId]["2026-01-01"].ratio === 2.5 &&
@@ -258,8 +258,30 @@ assert(
   persistenceEvents.length === 3 &&
     !persistenceEvents[0].value.metadata.ptppMigration &&
     persistenceEvents[1].value.length === 2 &&
-    persistenceEvents[2].value.metadata.ptppMigration.bridgeVersion === 2,
+    persistenceEvents[2].value.metadata.ptppMigration.bridgeVersion === 4,
   "runtime persistence writes the completion marker only after all data domains",
+);
+
+const v3Metadata = structuredClone(runtimeMerge.metadata);
+v3Metadata.ptppMigration = { ...runtimeMerge.report, bridgeVersion: 3 };
+v3Metadata.sites.azusa = {
+  allowSearch: false,
+  allowQueryUserInfo: false,
+  allowContentScript: true,
+};
+const repairedAzusa = mergePtppStateIntoRuntimeStores(
+  state,
+  { metadata: v3Metadata },
+  [siteId, "azusa"],
+  ["qBittorrent", "Transmission"],
+  2001,
+);
+assert(
+  repairedAzusa.changed &&
+    repairedAzusa.report.bridgeVersion === 4 &&
+    repairedAzusa.metadata.sites.azusa.allowSearch === true &&
+    repairedAzusa.metadata.sites.azusa.allowQueryUserInfo === true,
+  "bridge v4 removes the obsolete Azusa search and user-info restrictions",
 );
 
 const failedPersistenceEvents: Array<{ type: string; value: any }> = [];

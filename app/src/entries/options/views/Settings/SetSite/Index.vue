@@ -312,7 +312,11 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.allowSearch="{ item }">
         <v-switch
           v-model="item.userConfig.allowSearch"
-          :disabled="item.metadata.isDead || item.userConfig.isOffline || !Object.hasOwn(item.metadata, 'search')"
+          :disabled="
+            item.metadata.isDead ||
+            item.userConfig.isOffline ||
+            !item.metadata.search
+          "
           class="table-switch-btn"
           color="success"
           hide-details
@@ -322,7 +326,11 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.allowQueryUserInfo="{ item }">
         <v-switch
           v-model="item.userConfig.allowQueryUserInfo"
-          :disabled="item.metadata.isDead || item.userConfig.isOffline || !Object.hasOwn(item.metadata, 'userInfo')"
+          :disabled="
+            item.metadata.isDead ||
+            item.userConfig.isOffline ||
+            !item.metadata.userInfo
+          "
           class="table-switch-btn"
           color="success"
           hide-details

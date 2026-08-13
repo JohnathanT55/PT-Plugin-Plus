@@ -90,6 +90,7 @@ function dialogEnter() {
   // 生成站点列表
   Promise.all(
     metadataStore.getAddedSiteIds
+      .filter((siteId) => metadataStore.sites[siteId].allowSearch !== false)
       .sort((a, b) => Number(metadataStore.sites[b].allowSearch) - Number(metadataStore.sites[a].allowSearch))
       .map(async (siteId) => ({
         siteId,

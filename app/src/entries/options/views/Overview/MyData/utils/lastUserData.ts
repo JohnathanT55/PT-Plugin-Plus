@@ -26,14 +26,19 @@ async function updatePerSiteData(siteId: TSiteID, siteUserInfoData: IUserInfo) {
   // 再单独加载一遍该站点的配置信息，以免缺失
   const allAddedSiteMetadata = await loadAllAddedSiteMetadata([siteId]);
   const siteMeta = allAddedSiteMetadata[siteId];
+  const siteUserConfig = metadataStore.sites[siteId];
 
   perSiteLastUserData.value[siteId] = {
     ...fixUserInfo(siteUserInfoData),
     site: siteId,
-    siteUserConfig: metadataStore.sites[siteId],
+    siteUserConfig,
     siteName: siteMeta.combinedSiteName,
     // 对 isDead 或者 isOffline 的站点不允许选择（ https://github.com/pt-plugins/PT-depiler/pull/140 ）
     selectable: !(siteMeta.isDead || siteMeta.isOffline),
+    refreshable:
+      !(siteMeta.isDead || siteMeta.isOffline) &&
+      siteMeta.hasUserInfo &&
+      siteUserConfig.allowQueryUserInfo !== false,
 
     // 预先计算 多少天未访问站点，以防止在 template 中反复计算
     lastAccessDuration:
@@ -78,24 +83,30 @@ export async function initTableData() {
   await Promise.allSettled(tasks);
 }
 
-export function flushSiteLastUserInfo(sites: TSiteID[]) {
+export async function flushSiteLastUserInfo(sites: TSiteID[]) {
   const runtimeStore = useRuntimeStore();
-  for (const site of sites) {
+  const refreshableSites = sites.filter(
+    (site) =>
+      metadataStore.sites[site]?.allowQueryUserInfo !== false &&
+      perSiteLastUserData.value[site]?.refreshable !== false,
+  );
+  const tasks = refreshableSites.map(async (site) => {
     runtimeStore.userInfo.flushPlan[site] = true;
 
-    sendMessage("getSiteUserInfoResult", site)
-      .then((userInfo) => updatePerSiteData(site, userInfo))
-      .catch((e) => {
-        // 首先检查是否还在刷新，如果没有，则说明队列已经取消了，此时不报错
-        if (!runtimeStore.userInfo.flushPlan[site]) {
-          runtimeStore.showSnakebar(`获取站点 [${site}] 用户信息失败`, { color: "error" });
-          console.error(e);
-        }
-      })
-      .finally(() => {
-        runtimeStore.userInfo.flushPlan[site] = false;
-      });
-  }
+    try {
+      const userInfo = await sendMessage("getSiteUserInfoResult", site);
+      await updatePerSiteData(site, userInfo);
+    } catch (e) {
+      // 首先检查是否还在刷新，如果没有，则说明队列已经取消了，此时不报错
+      if (runtimeStore.userInfo.flushPlan[site]) {
+        runtimeStore.showSnakebar(`获取站点 [${site}] 用户信息失败`, { color: "error" });
+        console.error(e);
+      }
+    } finally {
+      runtimeStore.userInfo.flushPlan[site] = false;
+    }
+  });
+  await Promise.allSettled(tasks);
 }
 
 export async function cancelFlushSiteLastUserInfo() {
