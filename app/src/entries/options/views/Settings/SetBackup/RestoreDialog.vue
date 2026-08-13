@@ -178,6 +178,7 @@ function doRestore() {
             userHistory: result.importedCounts.userHistory ?? 0,
             downloadHistory: result.importedCounts.downloadHistory ?? 0,
             cookies: result.restoredCookies,
+            failedCookies: result.failedCookies,
             skipped: result.skippedSiteIds.length,
           }),
           { color: result.failedCookies > 0 || result.warningCount > 0 ? "warning" : "success" },
@@ -327,6 +328,17 @@ function resetDialog() {
               <div v-if="legacyBackup.hasCollections" class="mt-1 text-caption">
                 {{ t("SetBackup.RestoreDialog.legacyCollectionsNotice") }}
               </div>
+            </v-alert>
+            <v-alert
+              v-if="
+                legacyBackup &&
+                ['cookies', 'config', 'metadata'].some((field) => restoreOptions.fields?.includes(field as TBackupFields))
+              "
+              class="mb-3"
+              type="warning"
+              variant="tonal"
+            >
+              {{ t("SetBackup.RestoreDialog.legacyCredentialsNotice") }}
             </v-alert>
             <v-label>{{ t("SetBackup.RestoreDialog.restoreOptions") }}</v-label>
             <v-row no-gutters>

@@ -1,5 +1,6 @@
 import CryptoJS from "crypto-js";
 import JSZip from "jszip";
+import { readFileSync } from "node:fs";
 
 import { backupDataToJSZipBlob, jsZipBlobToBackupData } from "../../app/src/packages/backupServer/utils.ts";
 import { parsePtppBackup } from "../../app/src/entries/shared/ptppBackup.ts";
@@ -86,6 +87,27 @@ assert(
     !("encryptionKey" in currentBackupRestored.config.backup) &&
     currentBackupRestored.config.marker === "retained",
   "current MV3 encrypted archives retain settings without embedding the local recovery secret",
+);
+
+const offscreenBackupSource = readFileSync("app/src/entries/offscreen/utils/backup.ts", "utf8");
+const backgroundLegacyImportSource = readFileSync("app/src/entries/background/utils/legacyBackup.ts", "utf8");
+const restoreDialogSource = readFileSync(
+  "app/src/entries/options/views/Settings/SetBackup/RestoreDialog.vue",
+  "utf8",
+);
+assert(
+  !offscreenBackupSource.includes('onMessage("importPtppLegacyBackup"') &&
+    !/chrome\.storage\.local\.(get|set|remove)/.test(offscreenBackupSource),
+  "legacy import never accesses unavailable storage APIs from the Chrome offscreen document",
+);
+assert(
+  backgroundLegacyImportSource.includes('onMessage("importPtppLegacyBackup"') &&
+    backgroundLegacyImportSource.includes("chrome.storage.local"),
+  "legacy import is owned by the MV3 service worker where storage and cookie APIs are available",
+);
+assert(
+  restoreDialogSource.includes("legacyCredentialsNotice"),
+  "legacy import explicitly warns before restoring credentials and cookies",
 );
 
 console.log("PTPP backup parser tests passed");
