@@ -16,18 +16,18 @@ const clientConfig = defineModel<IDownloaderMetadata>();
 const emits = defineEmits<{
   (e: "update:configValid", value: boolean): void;
 }>();
-const clientMeta = computedAsync<TorrentClientMetaData>(
-  async () => await getDownloaderMetaData(clientConfig.value!.type),
-  {} as TorrentClientMetaData,
-);
+const clientMeta = computedAsync<TorrentClientMetaData>(async () => {
+  const clientType = clientConfig.value?.type;
+  return clientType ? await getDownloaderMetaData(clientType) : ({} as TorrentClientMetaData);
+}, {} as TorrentClientMetaData);
 
 const showPassword = ref<boolean>(false);
 
 const formValid = ref<boolean>(false);
 
 async function checkConnect() {
-  if (formValid) {
-    const client = await getDownloader(clientConfig.value!);
+  if (formValid.value && clientConfig.value) {
+    const client = await getDownloader(clientConfig.value);
     return await client.ping();
   }
   return false;

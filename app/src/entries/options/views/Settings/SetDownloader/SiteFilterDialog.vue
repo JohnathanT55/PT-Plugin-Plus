@@ -44,7 +44,13 @@ function save() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" scrollable max-width="1000" @afterEnter="onEnter">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetDownloader.siteFilter.title', [clientConfig?.name ?? clientId])"
+    scrollable
+    max-width="1000"
+    @afterEnter="onEnter"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar

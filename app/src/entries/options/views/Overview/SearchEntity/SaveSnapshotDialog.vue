@@ -31,7 +31,12 @@ function saveSearchSnapshotData() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" width="500">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="t('SearchEntity.index.action.saveSnapshot')"
+    width="500"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="cyan-darken-2">

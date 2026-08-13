@@ -29,6 +29,7 @@ function dialogEnter() {
 <template>
   <v-dialog
     v-model="showDialog"
+    :aria-label="t('SearchResultSnapshot.EditNameDialog.title')"
     width="500"
     @after-enter="() => props.editId && dialogEnter()"
     @after-leave="() => (snapshotName = '')"

@@ -554,11 +554,14 @@ function saveControl() {
               @click:append-inner="() => (configStore.userName = configStore.getUserNames.perfName)"
             >
               <template #prepend>
-                <v-icon
+                <v-btn
                   :color="allowEdit.name ? 'success' : ''"
                   :icon="!allowEdit.name ? 'mdi-lock' : 'mdi-lock-open'"
+                  size="small"
+                  :title="allowEdit.name ? t('common.lockEditing') : t('common.unlockEditing')"
+                  variant="text"
                   @click="allowEdit.name = !allowEdit.name"
-                ></v-icon>
+                />
               </template>
             </v-combobox>
           </v-col>
@@ -579,11 +582,14 @@ function saveControl() {
               "
             >
               <template #prepend>
-                <v-icon
+                <v-btn
                   :color="allowEdit.title ? 'success' : ''"
                   :icon="!allowEdit.title ? 'mdi-lock' : 'mdi-lock-open'"
+                  size="small"
+                  :title="allowEdit.title ? t('common.lockEditing') : t('common.unlockEditing')"
+                  variant="text"
                   @click="allowEdit.title = !allowEdit.title"
-                ></v-icon>
+                />
               </template>
             </v-text-field>
           </v-col>
@@ -613,10 +619,13 @@ function saveControl() {
           :label="t('UserDataTimeline.controls.customBgColor')"
         >
           <template #append-inner>
-            <v-icon
+            <v-btn
               icon="mdi-backup-restore"
+              size="small"
+              :title="t('common.reset')"
+              variant="text"
               @click="control.backgroundColor = defaultTimelineBackgroundColor"
-            ></v-icon>
+            />
           </template>
         </v-color-input>
 

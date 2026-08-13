@@ -9,6 +9,18 @@ export const setBaseChildren: RouteRecordRaw[] = [
     component: () => import("../views/Settings/SetBase/GeneralWindow.vue"),
   },
   {
+    path: "toolbar",
+    name: "SetBaseToolbar",
+    meta: { icon: "mdi-dock-right", tabKey: "toolbar" },
+    component: () => import("../views/Settings/SetBase/ToolbarWindow.vue"),
+  },
+  {
+    path: "browser-integration",
+    name: "SetBaseBrowserIntegration",
+    meta: { icon: "mdi-puzzle-outline", tabKey: "browserIntegration" },
+    component: () => import("../views/Settings/SetBase/BrowserIntegrationWindow.vue"),
+  },
+  {
     path: "user-data",
     alias: "user-info",
     name: "SetBaseUserData",

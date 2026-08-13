@@ -109,7 +109,12 @@ function saveClientConfig() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" scrollable width="1000">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetDownloader.PathAndTag.title', [clientConfig?.name ?? clientId])"
+    scrollable
+    width="1000"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar

@@ -345,13 +345,16 @@ async function initContextMenus(tab: chrome.tabs.Tab) {
 
       const resolvedDefaultTarget = resolveSiteDownloadTarget(metadataStore, thisTabSiteId);
       if (!resolvedDefaultTarget.requiresSelection && resolvedDefaultTarget.downloader) {
+        const defaultTargetTitle = thisTabSiteId
+          ? chrome.i18n.getMessage("contextMenuSendToSiteDefault", [
+              resolvedDefaultTarget.downloader.name,
+              resolvedDefaultTarget.savePath,
+            ])
+          : chrome.i18n.getMessage("contextMenuSendToDefaultDownloader", [resolvedDefaultTarget.downloader.name]);
         addContextMenu({
           id: `${baseLinkDownloadPushMenuId}**Link-Push-Site-Default`,
           parentId: baseLinkDownloadPushMenuId,
-          title: chrome.i18n.getMessage("contextMenuSendToSiteDefault", [
-            resolvedDefaultTarget.downloader.name,
-            resolvedDefaultTarget.savePath,
-          ]),
+          title: defaultTargetTitle,
           contexts: ["link"],
           onclick: (info, tab) => {
             downloadLinkPush(
@@ -437,9 +440,40 @@ async function initContextMenus(tab: chrome.tabs.Tab) {
   }
 }
 if (chrome.contextMenus) {
+  let pendingTab: chrome.tabs.Tab | undefined;
+  let refreshRunning = false;
+
+  async function scheduleContextMenuRefresh(tab: chrome.tabs.Tab) {
+    pendingTab = tab;
+    if (refreshRunning) return;
+
+    refreshRunning = true;
+    try {
+      while (pendingTab) {
+        const nextTab = pendingTab;
+        pendingTab = undefined;
+        await initContextMenus(nextTab);
+      }
+    } catch (error) {
+      console.error("Failed to initialize context menus:", error);
+    } finally {
+      refreshRunning = false;
+      if (pendingTab) void scheduleContextMenuRefresh(pendingTab);
+    }
+  }
+
   chrome.tabs.onActivated.addListener((actionInfo: chrome.tabs.OnActivatedInfo) => {
     chrome.tabs.get(actionInfo.tabId, (tab) => {
-      initContextMenus(tab).catch((err) => console.error("Failed to initialize context menus:", err));
+      void scheduleContextMenuRefresh(tab);
     });
   });
+
+  chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (tab.active && changeInfo.url) void scheduleContextMenuRefresh(tab);
+  });
+
+  chrome.tabs
+    .query({ active: true, lastFocusedWindow: true })
+    .then(([tab]) => tab && scheduleContextMenuRefresh(tab))
+    .catch((error) => console.error("Failed to initialize context menus:", error));
 }

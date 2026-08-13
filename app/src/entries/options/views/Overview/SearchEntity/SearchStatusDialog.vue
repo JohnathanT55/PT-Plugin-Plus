@@ -54,7 +54,16 @@ const filteredSearchPlan = computed(() => {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="800" scrollable>
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="
+      t('SearchEntity.SearchStatusDialog.title', [
+        metadataStore.getSearchSolutionName(runtimeStore.search.searchPlanKey),
+      ])
+    "
+    max-width="800"
+    scrollable
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale as useVuetifyLocal } from "vuetify";
 import { useDevicePixelRatio } from "@vueuse/core";
@@ -34,6 +34,40 @@ function setIgnoreWrongPixelRatio() {
 }
 
 const showReleaseNoteDialog = ref<boolean>(false);
+let externalLinkObserver: MutationObserver | undefined;
+
+function secureBlankLinks(root: ParentNode = document) {
+  root.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]').forEach((anchor) => {
+    const relTokens = new Set(anchor.rel.split(/\s+/).filter(Boolean));
+    relTokens.add("noopener");
+    relTokens.add("noreferrer");
+    anchor.rel = [...relTokens].join(" ");
+  });
+}
+
+onMounted(() => {
+  secureBlankLinks();
+  externalLinkObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === "attributes" && mutation.target instanceof HTMLAnchorElement) {
+        secureBlankLinks(mutation.target.parentNode ?? document);
+      }
+      for (const node of mutation.addedNodes) {
+        if (node instanceof HTMLAnchorElement && node.target === "_blank")
+          secureBlankLinks(node.parentNode ?? document);
+        else if (node instanceof Element) secureBlankLinks(node);
+      }
+    }
+  });
+  externalLinkObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["target"],
+  });
+});
+
+onBeforeUnmount(() => externalLinkObserver?.disconnect());
 
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
 configStore.$onReady(() => {
@@ -52,7 +86,14 @@ configStore.$onReady(() => {
       color="purple-darken-2"
     >
       {{ t("layout.header.wrongPixelRatioNotice") }}&nbsp;&nbsp;
-      <v-icon class="ms-2" icon="mdi-close" @click="setIgnoreWrongPixelRatio" />
+      <v-btn
+        class="ms-2"
+        icon="mdi-close"
+        size="x-small"
+        :title="t('common.dialog.close')"
+        variant="text"
+        @click="setIgnoreWrongPixelRatio"
+      />
     </v-system-bar>
 
     <!-- 顶部工具条 -->

@@ -48,6 +48,7 @@
     "clearConfirm": "确定清空全部 {count} 条下载历史吗？此操作无法撤销。",
     "clearError": "清空下载历史失败",
     "clearSuccess": "下载历史已清空",
+    "details": "下载详情",
     "ReDownloadSelectDialog": {
       "oldMethod": "按原下载方式重试",
       "selectDownloader": "选择下载服务器",
@@ -80,6 +81,8 @@
     "deleteSuccess": "删除成功",
     "editSavePath": "修改保存路径",
     "emptyNotice": "暂无辅种任务，请在搜索结果页面选择种子后点击辅种检测按钮",
+    "expandDetails": "展开辅种详情",
+    "collapseDetails": "收起辅种详情",
     "leechers": "下载：",
     "qBittorrentLegacyFails": "qBittorrent 拒绝添加，但旧版 Web API 未返回具体原因；请检查是否已有相同种子、保存路径或分类是否有效，并查看 qBittorrent 日志",
     "savePath": "保存路径：",
@@ -506,6 +509,9 @@
       "digestAuthHint": "仅当 WebDAV 服务明确要求 HTTP Digest Authentication 时开启；它不是备份加密，普通 OpenList/AList 配置通常保持关闭。",
       "serverConfig": "服务器配置"
     },
+    "EditDialog": {
+      "title": "编辑备份服务器"
+    },
     "HistoryDialog": {
       "deleteFailure": "删除备份历史 [{name}] 失败",
       "deleteSuccess": "删除备份历史 [{name}] 成功",
@@ -663,7 +669,7 @@
       "mediaSearchLimitMessage": "请不要一次性加载过多的搜索结果，未作 virtual‑scroll 优化，可能会导致浏览器卡死，同时也会影响媒体服务器的性能",
       "mediaServerSearchConfig": "媒体服务器搜索配置",
       "movieSuggestionCount": "最多显示的影片候选数量",
-      "movieSuggestionDescription": "沿用老板 PTPP 的搜索前影片候选；候选资料与评分复用 PTD 的媒体信息缓存，外部服务失败时仍可按 Enter 直接搜索。",
+      "movieSuggestionDescription": "恢复归档版 PTPP 的搜索前影片候选；候选资料与评分使用兼容的媒体信息缓存，外部服务失败时仍可按 Enter 直接搜索。",
       "movieSuggestionEnabled": "输入关键词时显示影片候选",
       "movieSuggestionLabel": "影片搜索候选",
       "movieSuggestionSearchById": "优先按 IMDb 编号搜索，无 IMDb 时回退豆瓣（推荐）",
@@ -681,18 +687,35 @@
     "tab": {
       "advanced": "高级",
       "backup": "备份与恢复",
+      "browserIntegration": "浏览器集成",
       "download": "下载",
       "general": "界面与交互",
       "native-bridge": "原生通信桥",
       "search": "搜索",
       "search-entity": "@:common.search",
       "social-information": "媒体评分",
+      "toolbar": "站点工具栏",
       "ui": "界面UI",
       "userData": "用户数据",
       "user-info": "用户信息"
     },
     "section": {
       "appearance": "外观与界面行为"
+    },
+    "toolbar": {
+      "actions": "工具栏功能",
+      "availability": "启用范围",
+      "dockSide": "全局停靠位置",
+      "dockSideHint": "所有站点及首页、普通页、无种子页、种子列表和种子详情页都会使用同一侧；拖到另一侧后也会同步更新全局设置。保存后，已打开的站点页面会立即移动到所选侧。",
+      "dockSideOptions": {
+        "left": "左侧",
+        "right": "右侧（默认）"
+      },
+      "positionAndStyle": "位置与样式"
+    },
+    "integration": {
+      "contextMenuDescription": "管理插件在 Chrome 页面右键菜单中提供的搜索和下载入口。",
+      "contextMenuTitle": "页面右键菜单"
     },
     "ui": {
       "allowDragLink": "允许拖拽链接到侧边栏按钮",
@@ -1019,7 +1042,9 @@
   },
   "SpecialThank": {
     "contributor": "协作者",
+    "contributorLink": "项目贡献者",
     "issue": "反馈",
+    "issueLink": "问题反馈",
     "langContributor": "语言@:SpecialThank.contributor",
     "preWorkContributor": "前期工作@:SpecialThank.contributor",
     "sortByName": "列表按字母排序",
@@ -1031,6 +1056,7 @@
   },
   "TechnologyStack": {
     "dependency": "项目依赖",
+    "projectLink": "项目仓库",
     "ptppHistory": "@:common.project 的历史",
     "stackTableColumn": {
       "homepage": "项目主页"
@@ -1115,6 +1141,9 @@
     "total": "总"
   },
   "common": {
+    "accessibility": {
+      "settingForItem": "{name}：{setting}"
+    },
     "AdvanceFilterGenerateDialog": {
       "date": "日期",
       "dateUnit": {
@@ -1165,9 +1194,11 @@
     "enable": "启用",
     "export": "导出",
     "exportImage": "导出图片",
+    "filter": "筛选",
     "howToUse": "如何使用？",
     "import": "导入",
     "language": "语言",
+    "lockEditing": "锁定编辑",
     "name": "名称",
     "project": "PT 助手 Plus",
     "remove": "删除",
@@ -1189,6 +1220,7 @@
       "week": "周",
       "year": "年"
     },
+    "unlockEditing": "允许编辑",
     "type": "类型",
     "username": "用户名",
     "version": "版本",
@@ -1286,7 +1318,7 @@
       "faq": "常见问题",
       "startUsing": "开始使用",
       "title": "欢迎使用 {extName}",
-      "wiki": "Wiki 帮助"
+      "wiki": "版本发布"
     }
   },
   "levelRequirement": {
@@ -1323,6 +1355,7 @@
     "contextMenuSearchWithDouban": "使用 PT 助手 Plus 搜索当前豆瓣链接相关种子",
     "contextMenuSearchWithIMDb": "使用 PT 助手 Plus 搜索 IMDb 链接相关种子",
     "contextMenuSendToDownloader": "使用 PT 助手 Plus 下载链接",
+    "contextMenuSendToDefaultDownloader": "使用默认下载器 $1",
     "contextMenuSendToSiteDefault": "按站点默认配置发送到 $1（$2）",
     "contextMenuSendToDownloaderAdvanced": "高级推送",
     "contextMenuSendToDownloaderDefaultFolder": "默认路径",
@@ -1456,11 +1489,14 @@
       "every": "每隔",
       "getNextFlushTime": "获取下一次检查时间",
       "hoursLabel": "小时自动刷新一次当天",
+      "interval": "用户数据自动刷新间隔（小时）",
       "lastFlushTime": "最近一次刷新时间:",
       "minutes": "分钟。",
       "nextFlushTime": "下一次检查时间:",
       "ofSites": "的站点",
       "retryOnFail": "如果刷新失败，则重试",
+      "retryInterval": "刷新失败后的重试间隔（分钟）",
+      "retryTimes": "刷新失败后的重试次数",
       "times": "次，每次间隔",
       "unrefreshedSite": "未刷新过"
     },

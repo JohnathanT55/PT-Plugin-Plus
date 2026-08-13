@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch, type CSSProperties } from "vue";
 import { useI18n } from "vue-i18n";
 import type { ITorrent } from "@ptd/site";
+import type { ToolbarDockSide } from "@/shared/types.ts";
 
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -13,6 +14,7 @@ const props = withDefaults(
     torrentItems: ITorrent[];
     title: string;
     placement?: "bottom-end" | "top-end";
+    dockSide?: ToolbarDockSide;
   }>(),
   { placement: "bottom-end" },
 );
@@ -64,20 +66,37 @@ async function openTargetMenu() {
 
   const root = anchor.value?.getRootNode();
   teleportTarget.value = root instanceof ShadowRoot ? root : document.body;
-  updateMenuPosition();
   showMenu.value = true;
   await nextTick();
+  updateMenuPosition();
   menu.value?.querySelector<HTMLElement>(".ptpp-download-target-item")?.focus();
 }
 
 function updateMenuPosition() {
   const rect = anchor.value?.getBoundingClientRect();
   if (!rect) return;
-  const right = Math.max(8, window.innerWidth - rect.right);
-  menuStyle.value =
+  const verticalStyle =
     props.placement === "top-end"
-      ? { bottom: `${Math.max(8, window.innerHeight - rect.top + 5)}px`, right: `${right}px` }
-      : { right: `${right}px`, top: `${Math.max(8, rect.bottom + 5)}px` };
+      ? { bottom: `${Math.max(8, window.innerHeight - rect.top + 5)}px` }
+      : { top: `${Math.max(8, rect.bottom + 5)}px` };
+  const availableWidth =
+    props.dockSide === "left"
+      ? window.innerWidth - rect.right - 16
+      : props.dockSide === "right"
+        ? rect.left - 16
+        : window.innerWidth - 32;
+  const horizontalStyle =
+    props.dockSide === "left"
+      ? { left: `${Math.max(8, rect.right + 8)}px` }
+      : props.dockSide === "right"
+        ? { right: `${Math.max(8, window.innerWidth - rect.left + 8)}px` }
+        : { right: `${Math.max(8, window.innerWidth - rect.right)}px` };
+  const constrainedWidth = Math.max(0, Math.min(560, availableWidth));
+  menuStyle.value = {
+    ...verticalStyle,
+    ...horizontalStyle,
+    ...(props.dockSide ? { width: `${constrainedWidth}px`, minWidth: `${constrainedWidth}px` } : {}),
+  };
 }
 
 function closeMenu() {

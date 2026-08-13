@@ -8,6 +8,8 @@ import type { TDownloadSizeUnit, TLocalDownloadMethod } from "../common/download
 
 export const supportTheme = ["auto", "light", "dark"] as const;
 export type supportThemeType = (typeof supportTheme)[number];
+export const toolbarDockSides = ["left", "right"] as const;
+export type ToolbarDockSide = (typeof toolbarDockSides)[number];
 type UiTableBehaviorKey = "SetSite" | "SearchEntity" | "MyData" | "DownloadHistory" | "MyClient" | string;
 interface UiTableBehaviorItem<T = string> {
   itemsPerPage?: number;
@@ -45,7 +47,13 @@ export interface IConfigPiniaStorageSchema {
     enabledAtSocialSite: boolean; // 是否允许在社交站点  contentScript 中使用
     allowExceptionSites: boolean; // 是否允许在 contentScript 中排除站点（即站点不显示侧边栏）
 
-    position: { x: number; y: number }; // 图标位置（运行时配置，用户不可以直接编辑）
+    // v2 使用全局停靠侧、相对边缘距离及纵向比例，避免绝对坐标在不同站点和视窗宽度下漂移。
+    toolbarPositionVersion: number;
+    dockSide: ToolbarDockSide;
+    edgeOffset: number;
+    verticalRatio: number;
+    // 仅为旧备份迁移与降级兼容保留；v2 布局不再用绝对 x/y 恢复位置。
+    position: { x: number; y: number };
 
     applyTheme: boolean; // 是否响应主题样式
     defaultOpenSpeedDial: boolean; // 是否默认打开按钮

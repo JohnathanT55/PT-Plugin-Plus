@@ -407,6 +407,20 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
         </div>
       </template>
 
+      <template #item.data-table-expand="{ internalItem, isExpanded, toggleExpand }">
+        <v-btn
+          :icon="isExpanded(internalItem) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+          size="small"
+          :title="
+            isExpanded(internalItem)
+              ? t('KeepUploadTask.collapseDetails')
+              : t('KeepUploadTask.expandDetails')
+          "
+          variant="text"
+          @click="toggleExpand(internalItem)"
+        />
+      </template>
+
       <template #expanded-row="{ item }">
         <tr>
           <td :colspan="headers.length + 1" class="pa-0">
@@ -455,7 +469,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
     </v-data-table>
   </v-card>
 
-  <v-dialog v-model="editDialog" max-width="620">
+  <v-dialog v-model="editDialog" :aria-label="t('KeepUploadTask.editSavePath')" max-width="620">
     <v-card>
       <v-toolbar color="blue-grey-darken-2">
         <v-toolbar-title>{{ t("KeepUploadTask.editSavePath") }}</v-toolbar-title>

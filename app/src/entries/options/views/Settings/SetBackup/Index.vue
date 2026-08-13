@@ -213,6 +213,7 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
       <template #item.enabled="{ item }">
         <v-switch
           v-model="item.enabled"
+          :aria-label="t('common.accessibility.settingForItem', { setting: t('common.enable'), name: item.name })"
           class="table-switch-btn"
           color="success"
           hide-details

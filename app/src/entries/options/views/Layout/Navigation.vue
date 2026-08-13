@@ -5,7 +5,7 @@ import { useDisplay } from "vuetify";
 import { routes } from "@/options/plugins/router";
 import { useConfigStore } from "@/options/stores/config.ts";
 
-import { isDebug, REPO_URL } from "~/helper.ts";
+import { isDebug, PROJECT_REPO_URL } from "~/helper.ts";
 
 const git = __GIT_VERSION__;
 const ext_version = __EXT_VERSION__;
@@ -78,7 +78,13 @@ async function clickMenuItem() {
         <v-row justify="center">
           <span class="pa-2 text-grey-darken-1">
             &copy; {{ year }},
-            <a :href="`${REPO_URL}${git.long ? `/commit/${git.long}` : ''}`" target="_blank">{{ ext_version }}</a>
+            <a
+              :href="`${PROJECT_REPO_URL}${git.long ? `/commit/${git.long}` : ''}`"
+              rel="noopener noreferrer nofollow"
+              target="_blank"
+            >{{
+              ext_version
+            }}</a>
             <v-chip v-if="isDebug" class="pa-1 ml-1 mb-1" color="amber" label size="x-small">
               {{ t("common.test") }}
             </v-chip>

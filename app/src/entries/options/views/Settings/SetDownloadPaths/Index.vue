@@ -206,7 +206,12 @@ async function removeTarget(siteId: string) {
     </v-data-table>
   </v-card>
 
-  <v-dialog v-model="showEditor" max-width="760" scrollable>
+  <v-dialog
+    v-model="showEditor"
+    :aria-label="t('route.Settings.SetDownloadPaths')"
+    max-width="760"
+    scrollable
+  >
     <v-card>
       <v-card-title>{{ t("route.Settings.SetDownloadPaths") }}</v-card-title>
       <v-card-text>

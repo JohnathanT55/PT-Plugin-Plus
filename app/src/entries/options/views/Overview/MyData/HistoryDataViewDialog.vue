@@ -81,7 +81,13 @@ function afterEnter() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" width="1200" @after-enter="afterEnter" @after-leave="() => (siteHistoryData = [])">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('MyData.HistoryDataView.title')"
+    width="1200"
+    @after-enter="afterEnter"
+    @after-leave="() => (siteHistoryData = [])"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">
@@ -212,8 +218,18 @@ function afterEnter() {
       </v-card-text>
     </v-card>
 
-    <v-dialog v-model="showStoreDataDialog" width="800">
+    <v-dialog
+      v-model="showStoreDataDialog"
+      :aria-label="t('MyData.HistoryDataView.action.viewRaw')"
+      width="800"
+    >
       <v-card>
+        <v-toolbar color="blue-grey-darken-2" density="compact">
+          <v-toolbar-title>{{ t("MyData.HistoryDataView.action.viewRaw") }}</v-toolbar-title>
+          <template #append>
+            <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showStoreDataDialog = false" />
+          </template>
+        </v-toolbar>
         <v-card-text>
           <pre> {{ JSON.stringify(jsonData, null, 2) }}</pre>
         </v-card-text>

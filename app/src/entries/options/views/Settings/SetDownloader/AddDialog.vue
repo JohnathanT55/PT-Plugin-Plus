@@ -69,7 +69,14 @@ async function saveStoredDownloaderConfig() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="800" scrollable @after-leave="resetDialog">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="t('SetDownloader.add.title')"
+    max-width="800"
+    scrollable
+    @after-leave="resetDialog"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

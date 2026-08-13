@@ -28,11 +28,13 @@ const sortedPeople = [
     <template v-for="i in tm('SpecialThank.thankNote')" :key="i"> {{ rt(i) }} <br /> </template>
     {{ t("SpecialThank.contributor") }}:
     <a :href="`${REPO_URL}/graphs/contributors`" rel="noopener noreferrer nofollow" target="_blank">
-      {{ REPO_URL }}/graphs/contributors
+      {{ t("SpecialThank.contributorLink") }}
     </a>
     <br />
     {{ t("SpecialThank.issue") }}:
-    <a :href="`${REPO_URL}/issues`" rel="noopener noreferrer nofollow" target="_blank">{{ REPO_URL }}/issues</a>
+    <a :href="`${REPO_URL}/issues`" rel="noopener noreferrer nofollow" target="_blank">{{
+      t("SpecialThank.issueLink")
+    }}</a>
   </v-alert>
 
   <v-card class="mb-2">

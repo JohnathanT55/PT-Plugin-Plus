@@ -116,7 +116,13 @@ function dialogLeave() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" fullscreen @after-enter="dialogEnter" @after-leave="dialogLeave">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetSearchSolution.edit.title')"
+    fullscreen
+    @after-enter="dialogEnter"
+    @after-leave="dialogLeave"
+  >
     <v-card class="overflow-y-auto">
       <v-card-title class="pa-0">
         <v-toolbar :title="t('SetSearchSolution.edit.title')" color="blue-grey-darken-2">

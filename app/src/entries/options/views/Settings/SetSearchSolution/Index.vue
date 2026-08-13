@@ -249,11 +249,27 @@ async function copySearchSolution(solutionId: TSolutionKey) {
             </v-chip>
           </td>
           <td class="v-data-table__td v-data-table-column--align-center">
-            <v-switch class="table-switch-btn" disabled hide-details />
+            <v-switch
+              :aria-label="
+                t('common.accessibility.settingForItem', {
+                  setting: t('SetSearchSolution.table.enable'),
+                  name: t('layout.header.searchPlan.all'),
+                })
+              "
+              class="table-switch-btn"
+              disabled
+              hide-details
+            />
           </td>
           <td class="v-data-table__td v-data-table-column--align-center">
             <v-switch
               :model-value="isAllSolutionDefault"
+              :aria-label="
+                t('common.accessibility.settingForItem', {
+                  setting: t('SetSearchSolution.table.default'),
+                  name: t('layout.header.searchPlan.all'),
+                })
+              "
               class="table-switch-btn"
               color="success"
               hide-details
@@ -281,6 +297,9 @@ async function copySearchSolution(solutionId: TSolutionKey) {
       <template #item.enabled="{ item }">
         <v-switch
           v-model="item.enabled"
+          :aria-label="
+            t('common.accessibility.settingForItem', { setting: t('SetSearchSolution.table.enable'), name: item.name })
+          "
           class="table-switch-btn"
           color="success"
           hide-details
@@ -291,6 +310,9 @@ async function copySearchSolution(solutionId: TSolutionKey) {
       <template #item.isDefault="{ item }">
         <v-switch
           v-model="item.isDefault"
+          :aria-label="
+            t('common.accessibility.settingForItem', { setting: t('SetSearchSolution.table.default'), name: item.name })
+          "
           class="table-switch-btn"
           color="success"
           hide-details

@@ -87,7 +87,12 @@ function doSubmit() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="800" @after-enter="onEnter">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetSearchSolution.CustomSolutionDialog.title')"
+    max-width="800"
+    @after-enter="onEnter"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="primary">

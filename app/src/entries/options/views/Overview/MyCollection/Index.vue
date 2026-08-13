@@ -412,6 +412,7 @@ onMounted(loadCollection);
           icon="mdi-help-circle"
           :text="t('common.howToUse')"
           href="https://github.com/pt-plugins/PT-Plugin-Plus/wiki/my-collection"
+          rel="noopener noreferrer nofollow"
           target="_blank"
         />
       </div>
@@ -584,7 +585,12 @@ onMounted(loadCollection);
     </v-data-table>
   </v-card>
 
-  <v-dialog v-model="groupDialog" max-width="540">
+  <v-dialog
+    v-if="groupDialog"
+    v-model="groupDialog"
+    :aria-label="editingGroupId ? t('MyCollection.editGroup') : t('MyCollection.addGroup')"
+    max-width="540"
+  >
     <v-card>
       <v-toolbar
         color="primary"
@@ -610,7 +616,7 @@ onMounted(loadCollection);
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="itemDialog" max-width="680">
+  <v-dialog v-if="itemDialog" v-model="itemDialog" :aria-label="t('MyCollection.editItem')" max-width="680">
     <v-card>
       <v-toolbar color="primary" density="compact" :title="t('MyCollection.editItem')" />
       <v-card-text class="pt-5">

@@ -94,6 +94,7 @@ onMounted(async () => {
             • {{ t("SetBase.userInfo.afterTime") }}
             <v-text-field
               :model-value="configStore.userInfo.autoReflush.afterTime"
+              :aria-label="t('SetBase.userInfo.afterTime')"
               class="refresh-control"
               density="compact"
               hide-details
@@ -107,6 +108,7 @@ onMounted(async () => {
             后，{{ t("userInfo.autoRefresh.every") }}
             <v-select
               v-model="configStore.userInfo.autoReflush.interval"
+              :aria-label="t('userInfo.autoRefresh.interval')"
               :items="range(1, 24)"
               :max="23"
               :min="1"
@@ -123,6 +125,7 @@ onMounted(async () => {
             • {{ t("userInfo.autoRefresh.retryOnFail") }}
             <v-select
               v-model="configStore.userInfo.autoReflush.retry.max"
+              :aria-label="t('userInfo.autoRefresh.retryTimes')"
               :items="range(0, 6)"
               class="refresh-control"
               density="compact"
@@ -132,6 +135,7 @@ onMounted(async () => {
             {{ t("userInfo.autoRefresh.times") }}
             <v-select
               v-model="configStore.userInfo.autoReflush.retry.interval"
+              :aria-label="t('userInfo.autoRefresh.retryInterval')"
               :items="range(1, 11)"
               class="refresh-control"
               density="compact"
@@ -173,6 +177,7 @@ onMounted(async () => {
             <span>{{ t("userInfo.autoUpload.target") }}</span>
             <v-select
               v-model="configStore.backup.autoUploadUserData.serverId"
+              :aria-label="t('userInfo.autoUpload.target')"
               :items="backupServerItems"
               density="compact"
               hide-details

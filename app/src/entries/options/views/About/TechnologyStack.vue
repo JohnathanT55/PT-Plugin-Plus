@@ -6,13 +6,14 @@ import { useLocalStorage } from "@vueuse/core";
 import type { DataTableHeader } from "vuetify";
 
 import { dependencies, devDependencies } from "~/../package.json";
-import { REPO_URL } from "~/helper.ts";
+import { PROJECT_REPO_URL, PTD_REPO_URL, PTPP_UPSTREAM_URL } from "~/helper.ts";
 
 const { t } = useI18n();
 
 const ptppHistory = [
-  { name: "PT Depiler", time: "2020-10-25", link: REPO_URL, color: "info" },
-  { name: "PT Plugin Plus", time: "2018-12-16", link: "https://github.com/ronggang/PT-Plugin-Plus" },
+  { name: "PT-Plugin-Plus Manifest V3", time: "2026-08-13", link: PROJECT_REPO_URL, color: "success" },
+  { name: "PT-depiler", time: "2020-10-25", link: PTD_REPO_URL, color: "info" },
+  { name: "PT-Plugin-Plus", time: "2018-12-16", link: PTPP_UPSTREAM_URL },
   { name: "PT Plugin （Rhilip修改版）", time: "2018-04-18", link: "https://github.com/Rhilip/PT-Plugin" },
   { name: "PT Plugin", time: "2014-10-10", link: "https://github.com/ronggang/PT-Plugin" },
 ];
@@ -87,10 +88,12 @@ const tableDependencies = computed(() => Object.values(technologyData.value));
           <template v-if="$vuetify.display.smAndUp">
             <strong>{{ history.name }}</strong
             ><br />
-            <a :href="history.link" target="_blank">{{ history.link }}</a>
+            <a :href="history.link" rel="noopener noreferrer nofollow" target="_blank">
+              {{ t("TechnologyStack.projectLink") }}
+            </a>
           </template>
           <template v-else>
-            <a :href="history.link" target="_blank">{{ history.name }}</a>
+            <a :href="history.link" rel="noopener noreferrer nofollow" target="_blank">{{ history.name }}</a>
           </template>
         </v-timeline-item>
       </v-timeline>
