@@ -666,7 +666,7 @@
       "movieSuggestionDescription": "沿用老板 PTPP 的搜索前影片候选；候选资料与评分复用 PTD 的媒体信息缓存，外部服务失败时仍可按 Enter 直接搜索。",
       "movieSuggestionEnabled": "输入关键词时显示影片候选",
       "movieSuggestionLabel": "影片搜索候选",
-      "movieSuggestionSearchById": "按豆瓣／IMDb 编号搜索（推荐）",
+      "movieSuggestionSearchById": "优先按 IMDb 编号搜索，无 IMDb 时回退豆瓣（推荐）",
       "movieSuggestionSearchByTitle": "按影片标题搜索",
       "movieSuggestionSearchMode": "点击候选后的搜索方式",
       "quickSiteFilter": "直接显示站点筛选栏",

@@ -11,6 +11,7 @@ interface IGetSocialInformationOptions {
   force?: boolean;
   requireSummary?: boolean;
   requireMetadata?: boolean;
+  requireExternalIds?: boolean;
 }
 
 // 记录本次会话中已经因缺失字段联网重取过的 key，避免对源本身就不提供
@@ -37,8 +38,11 @@ export async function getSocialInformation(
     options.requireMetadata &&
     stored &&
     (!stored.releaseYear || !stored.region || !stored.genres?.length);
+  const isMissingRequiredExternalIds =
+    canRetryForMissingFields && options.requireExternalIds && stored && !stored.external_ids?.imdb;
 
-  const shouldMarkEnrichmentAttempted = isMissingRequiredSummary || isMissingRequiredMetadata;
+  const shouldMarkEnrichmentAttempted =
+    isMissingRequiredSummary || isMissingRequiredMetadata || isMissingRequiredExternalIds;
 
   if (options.force || !stored || isExpired || shouldMarkEnrichmentAttempted) {
     stored = await getSocialSiteInformation(site, sid, socialInformationConfig);

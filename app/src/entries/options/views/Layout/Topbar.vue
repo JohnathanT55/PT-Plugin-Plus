@@ -9,7 +9,7 @@ import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { sendMessage } from "@/messages.ts";
-import type { ISocialMovieSuggestion } from "@ptd/social";
+import { getMovieSuggestionSearchTerm, type ISocialMovieSuggestion } from "@ptd/social";
 
 import { REPO_URL } from "~/helper";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -66,10 +66,26 @@ function startSearchEntity() {
   });
 }
 
-function selectMovieSuggestion(rawItem: unknown) {
-  const item = rawItem as ISocialMovieSuggestion;
-  const selectedSearchTerm =
-    configStore.searchEntity.movieSuggestionSearchMode === "title" ? item.title : item.searchTerm;
+async function selectMovieSuggestion(rawItem: unknown) {
+  let item = rawItem as ISocialMovieSuggestion;
+  const searchMode = configStore.searchEntity.movieSuggestionSearchMode;
+
+  // The fast Douban suggest response has no IMDb identity. Resolve the
+  // candidate before searching so an immediate click still gets the wider
+  // IMDb tracker coverage; metadata failure safely retains the Douban term.
+  if (searchMode === "id" && item.site === "douban" && !item.imdbId) {
+    movieSuggestionLoading.value = true;
+    try {
+      const result = await sendMessage("getMovieSuggestionDetails", { item });
+      item = result.item;
+    } catch {
+      // Keep the original Douban identity when every metadata provider fails.
+    } finally {
+      movieSuggestionLoading.value = false;
+    }
+  }
+
+  const selectedSearchTerm = getMovieSuggestionSearchTerm(item, searchMode);
   suppressedMovieSuggestionQuery = selectedSearchTerm;
   movieSuggestions.value = [];
   searchKey.value = selectedSearchTerm;
