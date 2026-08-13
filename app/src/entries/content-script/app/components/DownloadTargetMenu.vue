@@ -5,6 +5,7 @@ import type { ITorrent } from "@ptd/site";
 
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import { useConfigStore } from "@/options/stores/config.ts";
 import { buildSiteDownloadMenuTargets, type DownloadMenuTarget } from "@/shared/downloadTarget.ts";
 import { sendTorrentToDownloader } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
@@ -19,6 +20,7 @@ const props = defineProps<{
 
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
+const configStore = useConfigStore();
 const ptdData = inject<IPtdData>("ptd_data", {});
 const { t } = useI18n();
 
@@ -29,6 +31,7 @@ const menuAnchor = ref<HTMLElement>();
 const torrents = ref<ITorrent[]>([]);
 const targets = computed(() => buildSiteDownloadMenuTargets(metadataStore, ptdData.siteId));
 const firstGeneralIndex = computed(() => targets.value.findIndex((target) => target.kind === "general"));
+const dockSide = computed(() => (configStore.contentScript.dockSide === "left" ? "left" : "right"));
 
 function targetTitle(target: DownloadMenuTarget): string {
   const parts = [target.downloader.name, target.downloader.address];
@@ -130,7 +133,13 @@ async function selectTarget(target: DownloadMenuTarget) {
       @click="openTargetMenu"
     />
 
-    <div v-if="showMenu" class="ptpp-download-target-menu" role="menu" :aria-label="title">
+    <div
+      v-if="showMenu"
+      class="ptpp-download-target-menu"
+      :class="`ptpp-download-target-menu--dock-${dockSide}`"
+      role="menu"
+      :aria-label="title"
+    >
       <template
         v-for="(target, index) in targets"
         :key="`${target.kind}-${target.downloaderId}-${target.savePath}-${target.label}`"
@@ -172,18 +181,26 @@ async function selectTarget(target: DownloadMenuTarget) {
   color: #194f77;
   display: flex;
   flex-direction: column;
-  left: auto;
   max-height: min(70vh, 560px);
   max-width: calc(100vw - 120px);
   min-width: 360px;
   overflow-y: auto;
   padding: 4px 0;
   position: absolute;
-  right: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
   width: 640px;
   z-index: 2;
+}
+
+.ptpp-download-target-menu--dock-right {
+  left: auto;
+  right: calc(100% + 8px);
+}
+
+.ptpp-download-target-menu--dock-left {
+  left: calc(100% + 8px);
+  right: auto;
 }
 
 .ptpp-download-target-divider {

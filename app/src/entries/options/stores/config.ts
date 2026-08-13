@@ -5,7 +5,14 @@ import { defineStore } from "pinia";
 import { has, unset } from "es-toolkit/compat";
 import { usePreferredDark } from "@vueuse/core";
 
-import type { IConfigPiniaStorageSchema, supportThemeType } from "@/shared/types.ts";
+import type { IConfigPiniaStorageSchema, supportThemeType, ToolbarDockSide } from "@/shared/types.ts";
+import {
+  DEFAULT_TOOLBAR_EDGE_OFFSET,
+  normalizeToolbarPlacement,
+  TOOLBAR_POSITION_VERSION,
+  type ToolbarCoordinates,
+  type ToolbarPlacement,
+} from "@/shared/toolbarPosition.ts";
 
 import { useMetadataStore } from "./metadata.ts";
 
@@ -140,6 +147,27 @@ export const useConfigStore = defineStore("config", {
         needsSave = true;
       }
 
+      state.contentScript ??= {};
+      const normalizedToolbarPlacement = normalizeToolbarPlacement({
+        dockSide: state.contentScript.dockSide,
+        edgeOffset: state.contentScript.edgeOffset,
+        verticalRatio: state.contentScript.verticalRatio,
+      });
+      for (const key of ["dockSide", "edgeOffset", "verticalRatio"] as const) {
+        if (state.contentScript[key] !== normalizedToolbarPlacement[key]) {
+          state.contentScript[key] = normalizedToolbarPlacement[key];
+          needsSave = true;
+        }
+      }
+      if (!Number.isInteger(state.contentScript.toolbarPositionVersion)) {
+        state.contentScript.toolbarPositionVersion = 0;
+        needsSave = true;
+      }
+      if (!state.contentScript.position || typeof state.contentScript.position !== "object") {
+        state.contentScript.position = { x: 0, y: 0 };
+        needsSave = true;
+      }
+
       if (needsSave) {
         context.store.$save();
       }
@@ -169,6 +197,10 @@ export const useConfigStore = defineStore("config", {
       enabledAtSocialSite: true,
       allowExceptionSites: false,
 
+      toolbarPositionVersion: 0,
+      dockSide: "right",
+      edgeOffset: DEFAULT_TOOLBAR_EDGE_OFFSET,
+      verticalRatio: 0.5,
       position: { x: 0, y: 0 },
 
       applyTheme: false,
@@ -488,9 +520,22 @@ export const useConfigStore = defineStore("config", {
       }
     },
 
-    updateContentScriptPosition(x: number, y: number) {
-      this.contentScript.position.x = x;
-      this.contentScript.position.y = y;
+    updateContentScriptToolbarPlacement(placement: ToolbarPlacement, coordinates?: ToolbarCoordinates) {
+      const normalized = normalizeToolbarPlacement(placement);
+      this.contentScript.toolbarPositionVersion = TOOLBAR_POSITION_VERSION;
+      this.contentScript.dockSide = normalized.dockSide;
+      this.contentScript.edgeOffset = normalized.edgeOffset;
+      this.contentScript.verticalRatio = normalized.verticalRatio;
+      if (coordinates) {
+        this.contentScript.position.x = coordinates.x;
+        this.contentScript.position.y = coordinates.y;
+      }
+      this.$save();
+    },
+
+    updateContentScriptDockSide(dockSide: ToolbarDockSide) {
+      this.contentScript.toolbarPositionVersion = TOOLBAR_POSITION_VERSION;
+      this.contentScript.dockSide = dockSide;
       this.$save();
     },
   },

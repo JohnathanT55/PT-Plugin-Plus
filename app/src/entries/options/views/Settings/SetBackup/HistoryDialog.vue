@@ -107,7 +107,18 @@ async function dialogLeave() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="1000" @after-enter="dialogEnter" @after-leave="dialogLeave">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="
+      t('SetBackup.HistoryDialog.title', {
+        name: metadataStore.backupServers[backupServerId]?.name ?? backupServerId,
+      })
+    "
+    max-width="1000"
+    @after-enter="dialogEnter"
+    @after-leave="dialogLeave"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

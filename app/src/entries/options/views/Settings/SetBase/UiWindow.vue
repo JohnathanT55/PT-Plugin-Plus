@@ -5,37 +5,10 @@ import { supportTheme } from "@/shared/types.ts";
 import { definedLangMetaData } from "@/options/plugins/i18n.ts";
 
 import { useConfigStore } from "@/options/stores/config.ts";
-import { useMetadataStore } from "@/options/stores/metadata.ts";
-import { isEmpty } from "es-toolkit/compat";
 import SettingsSection from "./SettingsSection.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
-const metadataStore = useMetadataStore();
-
-function initContentScriptExceptionSites() {
-  Object.keys(metadataStore.sites).forEach((site) => {
-    if (typeof metadataStore.sites[site].allowContentScript === "undefined") {
-      metadataStore.sites[site].allowContentScript = true;
-    }
-  });
-  metadataStore.$save();
-}
-
-function beforeSave() {
-  // 对从低版本升级上来的用户，在启用例外站点时，补全缺失选项
-  if (
-    configStore.contentScript.enabled &&
-    configStore.contentScript.allowExceptionSites &&
-    !isEmpty(metadataStore.sites)
-  ) {
-    initContentScriptExceptionSites();
-  }
-}
-
-defineExpose({
-  beforeSave,
-});
 </script>
 
 <template>
@@ -85,121 +58,11 @@ defineExpose({
         </template>
       </v-switch>
     </SettingsSection>
-
-    <SettingsSection :title="t('SetBase.ui.contentScript')" icon="mdi-web-box">
-      <div class="d-flex align-center">
-        <v-spacer />
-        <v-switch
-          v-model="configStore.contentScript.enabled"
-          color="success"
-          hide-details
-          :label="t('common.enable')"
-        />
-      </div>
-
-      <template v-if="configStore.contentScript.enabled">
-        <v-alert type="warning" variant="tonal"> {{ t("SetBase.ui.contentScriptWarning") }} </v-alert>
-
-        <div class="settings-subsection">
-          <div class="text-subtitle-2 text-medium-emphasis mb-1">{{ t("SetBase.ui.basicSettings") }}</div>
-          <v-switch
-            v-model="configStore.contentScript.allowExceptionSites"
-            color="success"
-            hide-details
-            :label="t('SetBase.ui.allowExceptionSites')"
-          />
-
-          <v-switch
-            v-model="configStore.contentScript.enabledAtSocialSite"
-            color="success"
-            hide-details
-            :label="t('SetBase.ui.enableOnSocialSite')"
-          />
-        </div>
-
-        <div class="settings-subsection">
-          <div class="text-subtitle-2 text-medium-emphasis mb-2">{{ t("SetBase.ui.sidebarStyle") }}</div>
-          <v-alert type="info" variant="tonal">{{ t("SetBase.ui.ptppToolbarStyleNote") }}</v-alert>
-        </div>
-
-        <div class="settings-subsection">
-          <div class="text-subtitle-2 text-medium-emphasis mb-1">{{ t("SetBase.ui.sidebarFunctions") }}</div>
-          <v-switch
-            v-model="configStore.contentScript.doubleConfirmAction"
-            color="success"
-            hide-details
-            :label="t('SetBase.ui.confirmTwoStep')"
-          />
-
-          <v-switch
-            v-model="configStore.contentScript.dragLinkOnSpeedDial"
-            color="success"
-            hide-details
-            :label="t('SetBase.ui.allowDragLink')"
-          >
-            <template #append>
-              <v-tooltip max-width="400" location="bottom">
-                <template v-slot:activator="{ props }">
-                  <v-icon color="info" icon="mdi-help-circle" v-bind="props" />
-                </template>
-                {{ t("SetBase.ui.dragNote") }}
-              </v-tooltip>
-            </template>
-          </v-switch>
-
-          <v-select
-            v-model="configStore.contentScript.socialSiteSearchBy"
-            :disabled="!configStore.contentScript.enabledAtSocialSite"
-            :items="['id', 'title', 'imdb', 'chosen']"
-            :item-title="(item) => t('SetBase.ui.socialSiteSearchBy.' + item)"
-            :item-value="(item) => item"
-            :label="t('SetBase.ui.socialSiteSearchLabel')"
-          />
-        </div>
-      </template>
-    </SettingsSection>
-
-    <SettingsSection :title="t('SetBase.ui.contextMenu')" icon="mdi-menu-open">
-      <div class="d-flex align-center">
-        <v-spacer />
-        <v-switch v-model="configStore.contextMenus.enabled" color="success" hide-details :label="t('common.enable')" />
-      </div>
-
-      <template v-if="configStore.contextMenus.enabled">
-        <v-switch
-          v-model="configStore.contextMenus.allowSelectionTextSearch"
-          color="success"
-          hide-details
-          :label="t('SetBase.ui.contextMenuTextSearch')"
-        />
-
-        <v-switch
-          v-model="configStore.contextMenus.allowSocialLinkSearch"
-          color="success"
-          hide-details
-          :label="t('SetBase.ui.contextMenuSocialSearch')"
-        />
-
-        <v-switch
-          v-model="configStore.contextMenus.allowLinkDownloadPush"
-          :disabled="metadataStore.getEnabledDownloaders.length === 0"
-          color="success"
-          hide-details
-          :label="t('SetBase.ui.contextMenuLinkPush')"
-        />
-      </template>
-    </SettingsSection>
   </div>
 </template>
 
 <style scoped lang="scss">
 .settings-stack {
   max-width: 1100px;
-}
-
-.settings-subsection {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(var(--v-border-color), 0.18);
 }
 </style>

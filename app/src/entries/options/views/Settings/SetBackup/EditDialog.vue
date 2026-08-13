@@ -43,11 +43,18 @@ function editClientConfig() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="800" scrollable @after-enter="dialogEnter">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="t('SetBackup.EditDialog.title')"
+    max-width="800"
+    scrollable
+    @after-enter="dialogEnter"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">
-          <v-toolbar-title>{{ t("SetDownloader.edit.title") }}</v-toolbar-title>
+          <v-toolbar-title>{{ t("SetBackup.EditDialog.title") }}</v-toolbar-title>
           <template #append>
             <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showDialog = false" />
           </template>

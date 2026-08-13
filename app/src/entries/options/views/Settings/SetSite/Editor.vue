@@ -163,6 +163,7 @@ const timeZone: Array<{ value: timezoneOffset; title: string }> = [
                   :href="url"
                   color="info"
                   icon="mdi-arrow-top-right-bold-box-outline"
+                  rel="noopener noreferrer nofollow"
                   target="_blank"
                   variant="text"
                 />

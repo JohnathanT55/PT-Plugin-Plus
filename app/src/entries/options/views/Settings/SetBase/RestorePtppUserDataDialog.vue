@@ -240,7 +240,14 @@ async function entryDialog() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" :persistent="isImporting" max-width="800" scrollable @after-enter="entryDialog">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('ptppSettings.RestorePtppUserDataDialog.title')"
+    :persistent="isImporting"
+    max-width="800"
+    scrollable
+    @after-enter="entryDialog"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

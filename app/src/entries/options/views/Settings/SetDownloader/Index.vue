@@ -247,6 +247,12 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
       <template #item.enabled="{ item }">
         <v-switch
           v-model="item.enabled"
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetDownloader.index.table.enabled'),
+              name: item.name,
+            })
+          "
           :readonly="item.id == metadataStore.defaultDownloader?.id /* 默认下载器不允许禁用 */"
           class="table-switch-btn"
           color="success"
@@ -258,6 +264,12 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
       <template #item.feature.DefaultAutoStart="{ item }">
         <v-switch
           v-model="item.feature!.DefaultAutoStart"
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetDownloader.index.table.autodl'),
+              name: item.name,
+            })
+          "
           :disabled="!item.enabled || downloaderMetadata?.[item.type]?.feature?.DefaultAutoStart.allowed === false"
           class="table-switch-btn"
           color="success"

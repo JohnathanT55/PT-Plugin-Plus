@@ -69,8 +69,14 @@ onMounted(() => {
     </template>
   </v-data-table>
 
-  <v-dialog v-model="showLogDataDialog" max-width="800px">
+  <v-dialog v-model="showLogDataDialog" :aria-label="t('Logger.action.details')" max-width="800px">
     <v-card>
+      <v-toolbar color="blue-grey-darken-2" density="compact">
+        <v-toolbar-title>{{ t("Logger.action.details") }}</v-toolbar-title>
+        <template #append>
+          <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showLogDataDialog = false" />
+        </template>
+      </v-toolbar>
       <v-card-text>
         <pre>{{ logData }}</pre>
       </v-card-text>

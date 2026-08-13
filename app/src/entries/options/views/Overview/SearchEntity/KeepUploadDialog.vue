@@ -360,7 +360,13 @@ async function createKeepUploadTask() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" persistent scrollable max-width="1024">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SearchEntity.KeepUploadDialog.title')"
+    persistent
+    scrollable
+    max-width="1024"
+  >
     <v-card class="ptpp-keep-upload-card">
       <v-toolbar dark color="blue-grey-darken-2">
         <v-toolbar-title>{{ t("SearchEntity.KeepUploadDialog.title") }}</v-toolbar-title>

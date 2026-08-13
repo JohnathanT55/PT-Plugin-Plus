@@ -81,6 +81,8 @@ const requiredSourceModules = [
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
   "app/src/entries/options/components/DownloadTargetMenu.vue",
+  "app/src/entries/options/views/Settings/SetBase/ToolbarWindow.vue",
+  "app/src/entries/options/views/Settings/SetBase/BrowserIntegrationWindow.vue",
   "app/src/entries/offscreen/offscreen.ts",
   "app/src/packages/downloader/entity/qBittorrent.ts",
   "app/src/packages/downloader/entity/Transmission.ts",
@@ -99,6 +101,14 @@ const optionsDownloadMenuSource = fs.readFileSync(
 );
 const contentAppSource = fs.readFileSync(path.join(root, "app/src/entries/content-script/app/App.vue"), "utf8");
 const optionsRouterSource = fs.readFileSync(path.join(root, "app/src/entries/options/plugins/router.ts"), "utf8");
+const toolbarSettingsSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Settings/SetBase/ToolbarWindow.vue"),
+  "utf8",
+);
+const browserIntegrationSettingsSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Settings/SetBase/BrowserIntegrationWindow.vue"),
+  "utf8",
+);
 const searchActionSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/views/Overview/SearchEntity/ActionTd.vue"),
   "utf8",
@@ -305,10 +315,31 @@ assert(
   "favorites participate in current local and WebDAV backup round trips",
 );
 assert(
-  ["general", "userData", "search", "download", "backup"].every((tabKey) =>
+  ["general", "toolbar", "browserIntegration", "userData", "search", "download", "backup"].every((tabKey) =>
     optionsRouterSource.includes(`tabKey: "${tabKey}"`),
   ),
-  "general settings expose the five organized PTPP tab groups",
+  "general settings expose seven single-responsibility PTPP tab groups",
+);
+assert(
+  toolbarSettingsSource.includes('v-model="configStore.contentScript.dockSide"') &&
+    toolbarSettingsSource.includes("toolbarDockSides") &&
+    !toolbarSettingsSource.includes("contextMenus"),
+  "site-toolbar settings expose global left/right docking without mixing browser context menus",
+);
+assert(
+  browserIntegrationSettingsSource.includes("configStore.contextMenus") &&
+    !browserIntegrationSettingsSource.includes("contentScript.dockSide"),
+  "browser-integration settings own context-menu controls without mixing toolbar placement",
+);
+assert(
+  contentAppSource.includes("migrateLegacyToolbarPosition") &&
+    contentAppSource.includes("measuredWidth > 0 && measuredWidth <= 200") &&
+    contentAppSource.includes("firstPositive(window.visualViewport?.width") &&
+    contentAppSource.includes("firstPositive(window.visualViewport?.height") &&
+    contentAppSource.includes('data-dock-side="toolbarPlacement.dockSide"') &&
+    downloadMenuSource.includes("ptpp-download-target-menu--dock-left") &&
+    downloadMenuSource.includes("ptpp-download-target-menu--dock-right"),
+  "content toolbar migrates old coordinates and expands download menus inward from either dock side",
 );
 assert(
   searchActionSource.includes("sendToDefaultDownloader") && searchActionSource.includes("sendTorrentAssignments"),

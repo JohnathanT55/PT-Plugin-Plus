@@ -181,7 +181,7 @@ function convertToJSON(items: IHistoryUserInfo[]): string {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" width="700">
+  <v-dialog v-model="showDialog" :aria-label="t('MyData.exportDialog.title')" width="700">
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="orange-darken-3">

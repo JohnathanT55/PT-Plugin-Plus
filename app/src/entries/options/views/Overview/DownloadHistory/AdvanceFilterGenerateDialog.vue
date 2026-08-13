@@ -34,7 +34,12 @@ function enterDialog() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" width="800" @after-enter="enterDialog">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('common.AdvanceFilterGenerateDialog.title')"
+    width="800"
+    @after-enter="enterDialog"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

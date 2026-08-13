@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, provide, ref, useTemplateRef, withModifiers } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, provide, ref, useTemplateRef, watch, withModifiers } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDraggable } from "@vueuse/core";
 import { type ITorrent } from "@ptd/site";
@@ -10,6 +10,15 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
+import {
+  coordinatesToPlacement,
+  DEFAULT_TOOLBAR_EDGE_OFFSET,
+  migrateLegacyToolbarPosition,
+  normalizeToolbarPlacement,
+  placementToCoordinates,
+  TOOLBAR_POSITION_VERSION,
+  type ToolbarPlacement,
+} from "@/shared/toolbarPosition.ts";
 
 import { currentView, type IPtdData, pageType, updatePageType } from "./utils.ts";
 
@@ -27,12 +36,8 @@ const el = useTemplateRef<HTMLElement>("el");
 const dragHandle = useTemplateRef<HTMLElement>("dragHandle");
 provide("app", el);
 
-// 记录一下与右边界和下边界的距离
-const rightX = ref<number>(0);
-const bottomY = ref<number>(0);
-const keepVerticallyCentered = ref(false);
-const TOOLBAR_MARGIN = 16;
 let toolbarResizeObserver: ResizeObserver | undefined;
+let viewportResizeObserver: ResizeObserver | undefined;
 
 const { x, y, style } = useDraggable(el, {
   handle: dragHandle,
@@ -40,35 +45,46 @@ const { x, y, style } = useDraggable(el, {
   initialValue: { x: -100, y: -100 }, // Default position off-screen
   onEnd: ({ x: dragX, y: dragY }) => {
     const position = clampToolbarPosition(dragX, dragY);
+    const placement = coordinatesToPlacement(position, getViewportSize(), getToolbarSize());
     x.value = position.x;
     y.value = position.y;
-    keepVerticallyCentered.value = false;
-    updateViewportAnchors();
-    configStore.updateContentScriptPosition(position.x, position.y);
+    configStore.updateContentScriptToolbarPlacement(placement, position);
   },
 });
 
+const toolbarPlacement = computed<ToolbarPlacement>(() => normalizeToolbarPlacement(configStore.contentScript));
+
 function getToolbarSize() {
   const bounds = el.value?.getBoundingClientRect();
+  // The toolbar stylesheet is loaded through a link inside the closed shadow
+  // root. On a newly-created background tab Vue can mount before that link is
+  // ready, briefly making the div span almost the full document width. Using
+  // that transient width turns a right-edge placement into an x coordinate
+  // near the left edge. The product toolbar has a fixed 80px width; reject an
+  // obviously unstyled measurement and let the ResizeObserver refine it once
+  // the real CSS geometry is available.
+  const measuredWidth = bounds?.width ?? 0;
   return {
-    width: bounds?.width || 80,
+    width: measuredWidth > 0 && measuredWidth <= 200 ? measuredWidth : 80,
     height: bounds?.height || 0,
   };
 }
 
-function getCenteredToolbarPosition() {
-  const { clientWidth, clientHeight } = document.documentElement;
-  const { width, height } = getToolbarSize();
-  const maxX = Math.max(0, clientWidth - width);
-  const maxY = Math.max(0, clientHeight - height);
+function getViewportSize() {
+  const firstPositive = (...values: Array<number | undefined>) => values.find((value) => Number(value) > 0) ?? 0;
   return {
-    x: Math.min(Math.max(TOOLBAR_MARGIN, clientWidth - width - TOOLBAR_MARGIN), maxX),
-    y: Math.min(Math.max(TOOLBAR_MARGIN, (clientHeight - height) / 2), maxY),
+    // An inactive tab can report a zero documentElement size while Chrome is
+    // still creating its renderer. Prefer the visual/layout viewport used by
+    // position:fixed, then fall back to documentElement. On legacy tracker
+    // pages in quirks mode, documentElement.clientHeight can be the full page
+    // height and must not override a valid innerHeight.
+    width: firstPositive(window.visualViewport?.width, window.innerWidth, document.documentElement.clientWidth),
+    height: firstPositive(window.visualViewport?.height, window.innerHeight, document.documentElement.clientHeight),
   };
 }
 
 function clampToolbarPosition(nextX: number, nextY: number) {
-  const { clientWidth, clientHeight } = document.documentElement;
+  const { width: clientWidth, height: clientHeight } = getViewportSize();
   const { width, height } = getToolbarSize();
   return {
     x: Math.min(Math.max(0, nextX), Math.max(0, clientWidth - width)),
@@ -76,61 +92,78 @@ function clampToolbarPosition(nextX: number, nextY: number) {
   };
 }
 
-function updateViewportAnchors() {
-  const { clientWidth, clientHeight } = document.documentElement;
-  rightX.value = clientWidth - x.value;
-  bottomY.value = clientHeight - y.value;
+function applyToolbarPlacement(placement: ToolbarPlacement = toolbarPlacement.value) {
+  const viewport = getViewportSize();
+  if (viewport.width <= 0 || viewport.height <= 0 || !el.value) return;
+
+  const nextPosition = placementToCoordinates(placement, viewport, getToolbarSize());
+  x.value = nextPosition.x;
+  y.value = nextPosition.y;
+  return nextPosition;
 }
 
 function positionToolbarAfterViewportChange() {
-  const { clientWidth, clientHeight } = document.documentElement;
-  const nextPosition = keepVerticallyCentered.value
-    ? getCenteredToolbarPosition()
-    : clampToolbarPosition(clientWidth - rightX.value, clientHeight - bottomY.value);
-  x.value = nextPosition.x;
-  y.value = nextPosition.y;
-  updateViewportAnchors();
+  const nextPosition = applyToolbarPlacement();
+  if (!nextPosition) return;
+  configStore.contentScript.position.x = nextPosition.x;
+  configStore.contentScript.position.y = nextPosition.y;
+}
+
+function positionToolbarWhenVisible() {
+  if (!document.hidden) positionToolbarAfterViewportChange();
 }
 
 window.addEventListener("resize", positionToolbarAfterViewportChange);
+window.addEventListener("pageshow", positionToolbarAfterViewportChange);
+window.visualViewport?.addEventListener("resize", positionToolbarAfterViewportChange);
+document.addEventListener("visibilitychange", positionToolbarWhenVisible);
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", positionToolbarAfterViewportChange);
+  window.removeEventListener("pageshow", positionToolbarAfterViewportChange);
+  window.visualViewport?.removeEventListener("resize", positionToolbarAfterViewportChange);
+  document.removeEventListener("visibilitychange", positionToolbarWhenVisible);
   toolbarResizeObserver?.disconnect();
+  viewportResizeObserver?.disconnect();
 });
 
-async function initializeToolbarPosition(storeX: number, storeY: number) {
+async function initializeToolbarPosition() {
   await nextTick();
-  const { clientWidth, clientHeight } = document.documentElement;
-  const { width, height } = getToolbarSize();
-  const hasStoredPosition =
-    Number.isFinite(storeX) && Number.isFinite(storeY) && !(storeX === 0 && storeY === 0);
-  const storedPositionFits =
-    hasStoredPosition &&
-    storeX >= 0 &&
-    storeY >= 0 &&
-    storeX + width <= clientWidth &&
-    storeY + height <= clientHeight;
 
-  if (storedPositionFits) {
-    const position = clampToolbarPosition(storeX, storeY);
-    x.value = position.x;
-    y.value = position.y;
-    keepVerticallyCentered.value = false;
-  } else {
-    const position = getCenteredToolbarPosition();
-    x.value = position.x;
-    y.value = position.y;
-    keepVerticallyCentered.value = true;
-    configStore.updateContentScriptPosition(position.x, position.y);
-  }
-  updateViewportAnchors();
+  // Observe the actual page viewport as well as the toolbar. Background tabs
+  // can be mounted at 0x0 without emitting a later window.resize; observing
+  // documentElement makes the first real layout snap to the configured side.
+  viewportResizeObserver?.disconnect();
+  viewportResizeObserver = new ResizeObserver(positionToolbarAfterViewportChange);
+  viewportResizeObserver.observe(document.documentElement);
 
   if (el.value) {
+    toolbarResizeObserver?.disconnect();
     toolbarResizeObserver = new ResizeObserver(positionToolbarAfterViewportChange);
     toolbarResizeObserver.observe(el.value);
   }
+
+  const viewport = getViewportSize();
+  if (viewport.width <= 0 || viewport.height <= 0 || !el.value) return;
+
+  const placement =
+    configStore.contentScript.toolbarPositionVersion >= TOOLBAR_POSITION_VERSION
+      ? toolbarPlacement.value
+      : migrateLegacyToolbarPosition(configStore.contentScript.position, viewport, getToolbarSize());
+  const position = applyToolbarPlacement(placement);
+  if (!position) return;
+  configStore.updateContentScriptToolbarPlacement(placement, position);
 }
+
+watch(
+  () =>
+    [
+      configStore.contentScript.dockSide,
+      configStore.contentScript.edgeOffset,
+      configStore.contentScript.verticalRatio,
+    ] as const,
+  () => void nextTick(positionToolbarAfterViewportChange),
+);
 
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
 configStore.$onReady(async () => {
@@ -140,17 +173,18 @@ configStore.$onReady(async () => {
     console.warn("[PTPP] Failed to detect the current page type:", error);
   }
 
-  const { x: storeX = -100, y: storeY = -100 } = configStore.contentScript?.position ?? {};
-  await initializeToolbarPosition(storeX, storeY);
+  await initializeToolbarPosition();
 });
 
 function resetToolbarPosition() {
-  const position = getCenteredToolbarPosition();
-  x.value = position.x;
-  y.value = position.y;
-  keepVerticallyCentered.value = true;
-  updateViewportAnchors();
-  configStore.updateContentScriptPosition(x.value, y.value);
+  const placement: ToolbarPlacement = {
+    dockSide: toolbarPlacement.value.dockSide,
+    edgeOffset: DEFAULT_TOOLBAR_EDGE_OFFSET,
+    verticalRatio: 0.5,
+  };
+  const position = applyToolbarPlacement(placement);
+  if (!position) return;
+  configStore.updateContentScriptToolbarPlacement(placement, position);
 }
 
 const manualDownloadTorrents = ref<ITorrent[]>([]);
@@ -328,6 +362,7 @@ function openOptions() {
       ref="el"
       :style="style"
       class="ptpp-toolbar"
+      :data-dock-side="toolbarPlacement.dockSide"
       @mouseleave.prevent="isDragging = false"
       @dragleave.prevent="isDragging = false"
       v-on="dropAction"
@@ -348,6 +383,7 @@ function openOptions() {
       <DownloadTargetMenu
         ref="downloadTargetMenu"
         placement="top-end"
+        :dock-side="toolbarPlacement.dockSide"
         :title="t('contentScript.pushTo')"
         :torrent-items="manualDownloadTorrents"
       />

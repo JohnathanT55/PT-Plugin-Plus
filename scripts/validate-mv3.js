@@ -36,10 +36,11 @@ const manifestText = fs.readFileSync(path.join(output, "manifest.json"), "utf8")
 const manifest = JSON.parse(manifestText);
 
 assert(manifest.manifest_version === 3, "manifest_version must be 3");
-assert(manifest.homepage_url === "https://github.com/pt-plugins/PT-Plugin-Plus", "Unexpected homepage_url");
+assert(manifest.homepage_url === "https://github.com/JohnathanT55/PT-Plugin-Plus", "Unexpected homepage_url");
 assert(manifest.background?.service_worker, "MV3 service worker entry is missing");
 assert(manifest.options_ui?.page && manifest.options_ui.open_in_tab === true, "Options page must open in a tab");
 assert(manifest.action?.default_icon, "Extension action is missing");
+assert(!manifest.permissions?.includes("activeTab"), "Unused activeTab permission must not ship");
 assert(manifest.permissions?.includes("offscreen"), "Chrome offscreen permission is missing");
 assert(manifest.permissions?.includes("storage"), "Storage permission is missing");
 assert(Array.isArray(manifest.content_scripts) && manifest.content_scripts.length > 0, "Content script is missing");

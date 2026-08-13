@@ -20,7 +20,12 @@ function dialogEnter() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="600" @after-enter="dialogEnter">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetBackup.LocalExportConfirmDialog.title')"
+    max-width="600"
+    @after-enter="dialogEnter"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

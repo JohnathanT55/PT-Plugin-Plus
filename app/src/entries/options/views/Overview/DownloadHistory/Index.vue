@@ -287,8 +287,18 @@ onUnmounted(() => {
     @all-delete="handleDownloadHistoryDeleted"
   />
 
-  <v-dialog v-model="showDownloadDetailDialog" width="800">
+  <v-dialog
+    v-model="showDownloadDetailDialog"
+    :aria-label="t('DownloadHistory.details')"
+    width="800"
+  >
     <v-card>
+      <v-toolbar color="blue-grey-darken-2" density="compact">
+        <v-toolbar-title>{{ t("DownloadHistory.details") }}</v-toolbar-title>
+        <template #append>
+          <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showDownloadDetailDialog = false" />
+        </template>
+      </v-toolbar>
       <v-card-text>
         <!-- Never render the raw request object here. Torrent URLs and request
              headers may contain passkeys, cookies, or authorization tokens. -->

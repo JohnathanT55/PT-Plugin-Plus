@@ -58,12 +58,18 @@ function enterDialog() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="600" scrollable @after-enter="enterDialog">
+  <v-dialog
+    v-model="showDialog"
+    :aria-label="t('SetDownloader.index.editDefaultDownloaderBtn')"
+    max-width="600"
+    scrollable
+    @after-enter="enterDialog"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar :title="t('SetDownloader.index.editDefaultDownloaderBtn')" color="blue-grey-darken-2">
           <template #append>
-            <v-btn icon="mdi-close" @click="showDialog = false" />
+            <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showDialog = false" />
           </template>
         </v-toolbar>
       </v-card-title>

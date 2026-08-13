@@ -265,7 +265,15 @@ function resetDialog() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" :persistent="isDoingRestore" max-width="800" scrollable @after-enter="resetDialog">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="t('SetBackup.RestoreDialog.title')"
+    :persistent="isDoingRestore"
+    max-width="800"
+    scrollable
+    @after-enter="resetDialog"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

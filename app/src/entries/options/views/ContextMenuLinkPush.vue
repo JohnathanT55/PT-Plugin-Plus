@@ -90,21 +90,21 @@ function onCancel() {
 
 <style scoped lang="scss">
 .ptpp-context-link-push {
-  background: #fff;
-  border-top: 5px solid #1976d2;
+  background: rgb(var(--v-theme-surface));
+  border-top: 5px solid rgb(var(--v-theme-primary));
   box-shadow: 0 2px 10px rgb(0 0 0 / 16%);
   margin: 40px auto;
   max-width: 680px;
   padding: 20px 24px 24px;
 
   h1 {
-    color: #174f78;
+    color: rgb(var(--v-theme-primary));
     font-size: 20px;
     margin: 0 0 10px;
   }
 
   p {
-    color: #546e7a;
+    color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
     margin: 0 0 20px;
   }
 }

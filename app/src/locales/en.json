@@ -48,6 +48,7 @@
     "clearConfirm": "Clear all {count} download history records? This cannot be undone.",
     "clearError": "Failed to clear download history",
     "clearSuccess": "Download history cleared",
+    "details": "Download details",
     "ReDownloadSelectDialog": {
       "oldMethod": "Retry with original method",
       "selectDownloader": "Select Downloader",
@@ -80,6 +81,8 @@
     "deleteSuccess": "Deleted successfully",
     "editSavePath": "Edit save path",
     "emptyNotice": "No reseed tasks yet. Select torrents from search results and click reseed check button.",
+    "expandDetails": "Expand reseed details",
+    "collapseDetails": "Collapse reseed details",
     "leechers": "Leechers: ",
     "qBittorrentLegacyFails": "qBittorrent rejected the torrent, but its legacy Web API returned no details; check for a duplicate torrent, validate the save path or category, and review the qBittorrent logs",
     "savePath": "Save Path: ",
@@ -506,6 +509,9 @@
       "digestAuthHint": "Enable only when the WebDAV server explicitly requires HTTP Digest Authentication. This is not backup encryption; normal OpenList/AList setups usually leave it off.",
       "serverConfig": "Server Configuration"
     },
+    "EditDialog": {
+      "title": "Edit Backup Server"
+    },
     "HistoryDialog": {
       "deleteFailure": "Failed to delete backup history [{name}]",
       "deleteSuccess": "Deleted backup history [{name}] successfully",
@@ -663,7 +669,7 @@
       "mediaSearchLimitMessage": "Please do not load too many search results at once. It's not optimized with virtual-scroll, which may cause the browser to freeze and affect the performance of the media server.",
       "mediaServerSearchConfig": "Media Server Search Configuration",
       "movieSuggestionCount": "Maximum movie suggestions",
-      "movieSuggestionDescription": "Restores the archived PTPP pre-search movie list. Details and ratings reuse PTD's media cache; Enter still performs a direct search when providers fail.",
+      "movieSuggestionDescription": "Restores the archived PTPP pre-search movie list. Details and ratings use the compatible media cache; Enter still performs a direct search when providers fail.",
       "movieSuggestionEnabled": "Show movie suggestions while typing",
       "movieSuggestionLabel": "Movie Search Suggestions",
       "movieSuggestionSearchById": "Prefer IMDb ID, fall back to Douban (recommended)",
@@ -681,18 +687,35 @@
     "tab": {
       "advanced": "Advanced",
       "backup": "Backup & Restore",
+      "browserIntegration": "Browser Integration",
       "download": "Download",
       "general": "Interface",
       "native-bridge": "Native Bridge",
       "search": "Search",
       "search-entity": "@:common.search",
       "social-information": "Social Rating",
+      "toolbar": "Site Toolbar",
       "ui": "Option UI",
       "userData": "User Data",
       "user-info": "UserInfo"
     },
     "section": {
       "appearance": "Appearance and interface behavior"
+    },
+    "toolbar": {
+      "actions": "Toolbar Actions",
+      "availability": "Availability",
+      "dockSide": "Global dock side",
+      "dockSideHint": "Every tracker home, ordinary page, page without torrents, torrent list and torrent detail page uses the same side. Dragging the toolbar to the other side also updates this global setting. Open tracker pages move to the selected side immediately after saving.",
+      "dockSideOptions": {
+        "left": "Left",
+        "right": "Right (default)"
+      },
+      "positionAndStyle": "Position and Style"
+    },
+    "integration": {
+      "contextMenuDescription": "Manage the search and download actions exposed in Chrome page context menus.",
+      "contextMenuTitle": "Page Context Menu"
     },
     "ui": {
       "allowDragLink": "Allow dragging links to the sidebar button",
@@ -1022,7 +1045,9 @@
   },
   "SpecialThank": {
     "contributor": "Contributors",
+    "contributorLink": "Project contributors",
     "issue": "Suggesters",
+    "issueLink": "Issue tracker",
     "langContributor": "@:SpecialThank.contributor For Language",
     "preWorkContributor": "@:SpecialThank.contributor For preliminary work",
     "sortByName": "The list is sorted by name",
@@ -1034,6 +1059,7 @@
   },
   "TechnologyStack": {
     "dependency": "Dependencies of this Project",
+    "projectLink": "Project repository",
     "ptppHistory": "History of @:common.project",
     "stackTableColumn": {
       "homepage": "Homepage"
@@ -1118,6 +1144,9 @@
     "total": "TOT "
   },
   "common": {
+    "accessibility": {
+      "settingForItem": "{name}: {setting}"
+    },
     "AdvanceFilterGenerateDialog": {
       "date": "Date",
       "dateUnit": {
@@ -1168,9 +1197,11 @@
     "enable": "Enable",
     "export": "Export",
     "exportImage": "Export Image",
+    "filter": "Filter",
     "howToUse": "How To Use",
     "import": "Import",
     "language": "Language",
+    "lockEditing": "Lock editing",
     "name": "Name",
     "project": "PT-Plugin-Plus",
     "remove": "Delete",
@@ -1192,6 +1223,7 @@
       "week": "Week",
       "year": "Year"
     },
+    "unlockEditing": "Enable editing",
     "type": "Type",
     "username": "Username",
     "version": "Version",
@@ -1289,7 +1321,7 @@
       "faq": "FAQ",
       "startUsing": "Get Started",
       "title": "Welcome to {extName}",
-      "wiki": "Wiki Help"
+      "wiki": "Releases"
     }
   },
   "levelRequirement": {
@@ -1326,6 +1358,7 @@
     "contextMenuSearchWithDouban": "Use PT-Plugin-Plus to search this Douban link",
     "contextMenuSearchWithIMDb": "Use PT-Plugin-Plus to search this IMDb link",
     "contextMenuSendToDownloader": "Use PT-Plugin-Plus to send this download link",
+    "contextMenuSendToDefaultDownloader": "Send with default downloader $1",
     "contextMenuSendToSiteDefault": "Send with site default to $1 ($2)",
     "contextMenuSendToDownloaderAdvanced": "Advanced push",
     "contextMenuSendToDownloaderDefaultFolder": "Default path",
@@ -1459,11 +1492,14 @@
       "every": "Every",
       "getNextFlushTime": "Get Next Refresh Check Time",
       "hoursLabel": "hours auto-refresh today's",
+      "interval": "User-data auto-refresh interval in hours",
       "lastFlushTime": "Last refresh time:",
       "minutes": "minutes.",
       "nextFlushTime": "Next refresh check time:",
       "ofSites": "sites.",
       "retryOnFail": "If refresh fails, retry",
+      "retryInterval": "Retry interval after a failed refresh in minutes",
+      "retryTimes": "Number of retries after a failed refresh",
       "times": "times, with an interval of",
       "unrefreshedSite": "unrefreshed"
     },

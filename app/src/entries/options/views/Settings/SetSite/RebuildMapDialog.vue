@@ -37,7 +37,14 @@ function dialogEnter() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="600" scrollable @after-enter="dialogEnter">
+  <v-dialog
+    v-if="showDialog"
+    v-model="showDialog"
+    :aria-label="t('SetSite.ReBuildMapDialog.title')"
+    max-width="600"
+    scrollable
+    @after-enter="dialogEnter"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">

@@ -11,7 +11,7 @@ import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { sendMessage } from "@/messages.ts";
 import { getMovieSuggestionSearchTerm, type ISocialMovieSuggestion } from "@ptd/social";
 
-import { REPO_URL } from "~/helper";
+import { PROJECT_REPO_URL, PTPP_UPSTREAM_URL } from "~/helper";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import RecommendationMenu from "./RecommendationMenu.vue";
@@ -26,8 +26,8 @@ const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
 
 const appendMenu = computed<Array<{ title: string; icon: string; [str: string]: any }>>(() => [
-  { title: t("layout.header.home"), icon: "mdi-home", href: REPO_URL },
-  { title: t("layout.header.wiki"), icon: "mdi-help-circle", href: `${REPO_URL}/wiki` },
+  { title: t("layout.header.home"), icon: "mdi-home", href: PROJECT_REPO_URL },
+  { title: t("layout.header.wiki"), icon: "mdi-help-circle", href: `${PTPP_UPSTREAM_URL}/wiki` },
 ]);
 
 const searchKey = ref<string>("");
@@ -246,6 +246,7 @@ onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer)
       :key="searchInputRevision"
       v-model="searchKey"
       v-model:menu="movieSuggestionMenuOpen"
+      :aria-label="t('layout.header.searchTip')"
       :items="movieSuggestions"
       :loading="movieSuggestionLoading"
       :placeholder="t('layout.header.searchTip')"

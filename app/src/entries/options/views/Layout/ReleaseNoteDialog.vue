@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useConfigStore } from "@/options/stores/config.ts";
-import { REPO_URL } from "~/helper.ts";
+import { PROJECT_REPO_URL, PTD_MIGRATION_FAQ_URL } from "~/helper.ts";
 
 const showDialog = defineModel<boolean>();
 const configStore = useConfigStore();
@@ -45,11 +45,19 @@ function dialogLeave() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" eager persistent width="600" @after-leave="dialogLeave">
+  <v-dialog
+    v-model="showDialog"
+    aria-labelledby="ptpp-release-note-title"
+    persistent
+    width="600"
+    @after-leave="dialogLeave"
+  >
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">
-          <v-toolbar-title>{{ t("layout.releaseNote.title", { extName: t("manifest.extName") }) }}</v-toolbar-title>
+          <v-toolbar-title id="ptpp-release-note-title">
+            {{ t("layout.releaseNote.title", { extName: t("manifest.extName") }) }}
+          </v-toolbar-title>
         </v-toolbar>
       </v-card-title>
 
@@ -60,20 +68,34 @@ function dialogLeave() {
               <v-img inline src="/icons/logo/128.png" width="128"></v-img>
               <br />
               <div class="d-inline-flex">
-                <span class="text-body-1 text--secondary">{{ currentVersion.fullVersion }}{{ t("layout.releaseNote.currentVersion") }}</span>&nbsp;
+                <span class="text-body-1 text--secondary"
+                  >{{ currentVersion.fullVersion }}{{ t("layout.releaseNote.currentVersion") }}</span
+                >&nbsp;
               </div>
             </v-col>
           </v-row>
           <v-row>
             <v-col>
               <div class="text-body-1">
-                <a :href="`${REPO_URL}/compare/${storeBuildHash}...${currentVersion.buildHash}`" target="_blank">
+                <a
+                  :href="`${PROJECT_REPO_URL}/compare/${storeBuildHash}...${currentVersion.buildHash}`"
+                  rel="noopener noreferrer nofollow"
+                  target="_blank"
+                >
                   {{ t("layout.releaseNote.changelog") }}
                 </a>
                 <v-divider vertical class="mx-2" />
-                <a :href="`${REPO_URL}/releases`" target="_blank">{{ t("layout.releaseNote.wiki") }}</a>
+                <a
+                  :href="`${PROJECT_REPO_URL}/releases`"
+                  rel="noopener noreferrer nofollow"
+                  target="_blank"
+                >
+                  {{ t("layout.releaseNote.wiki") }}
+                </a>
                 <v-divider vertical class="mx-2" />
-                <a :href="`${REPO_URL}/discussions/316`" target="_blank">{{ t("layout.releaseNote.faq") }}</a>
+                <a :href="PTD_MIGRATION_FAQ_URL" rel="noopener noreferrer nofollow" target="_blank">
+                  {{ t("layout.releaseNote.faq") }}
+                </a>
               </div>
             </v-col>
           </v-row>
@@ -81,7 +103,9 @@ function dialogLeave() {
       </v-card-text>
 
       <v-card-actions>
-        <v-btn block variant="elevated" color="green" @click="showDialog = false">{{ t("layout.releaseNote.startUsing") }}</v-btn>
+        <v-btn block variant="elevated" color="green" @click="showDialog = false">{{
+          t("layout.releaseNote.startUsing")
+        }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

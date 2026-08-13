@@ -183,7 +183,14 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
           <template #prepend-inner>
             <v-menu min-width="100">
               <template v-slot:activator="{ props }">
-                <v-icon icon="mdi-filter" v-bind="props" variant="plain" @click="buildFilterDictFn('')" />
+                <v-btn
+                  v-bind="props"
+                  icon="mdi-filter"
+                  size="small"
+                  :title="t('common.filter')"
+                  variant="plain"
+                  @click="buildFilterDictFn('')"
+                />
               </template>
               <v-list class="pa-0">
                 <v-list-item v-for="keyword in booleanUserConfigKeywords" :key="keyword">
@@ -302,6 +309,12 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.isOffline="{ item }">
         <v-switch
           v-model="item.userConfig.isOffline"
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetSite.common.isOffline'),
+              name: item.userConfig.merge?.name ?? item.metadata.name ?? item.id,
+            })
+          "
           :disabled="item.metadata.isDead"
           class="table-switch-btn"
           color="success"
@@ -312,11 +325,13 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.allowSearch="{ item }">
         <v-switch
           v-model="item.userConfig.allowSearch"
-          :disabled="
-            item.metadata.isDead ||
-            item.userConfig.isOffline ||
-            !item.metadata.search
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetSite.common.allowSearch'),
+              name: item.userConfig.merge?.name ?? item.metadata.name ?? item.id,
+            })
           "
+          :disabled="item.metadata.isDead || item.userConfig.isOffline || !item.metadata.search"
           class="table-switch-btn"
           color="success"
           hide-details
@@ -326,11 +341,13 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.allowQueryUserInfo="{ item }">
         <v-switch
           v-model="item.userConfig.allowQueryUserInfo"
-          :disabled="
-            item.metadata.isDead ||
-            item.userConfig.isOffline ||
-            !item.metadata.userInfo
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetSite.common.allowQueryUserInfo'),
+              name: item.userConfig.merge?.name ?? item.metadata.name ?? item.id,
+            })
           "
+          :disabled="item.metadata.isDead || item.userConfig.isOffline || !item.metadata.userInfo"
           class="table-switch-btn"
           color="success"
           hide-details
@@ -340,6 +357,12 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       <template #item.userConfig.allowContentScript="{ item }">
         <v-switch
           v-model="item.userConfig.allowContentScript"
+          :aria-label="
+            t('common.accessibility.settingForItem', {
+              setting: t('SetSite.common.allowContentScript'),
+              name: item.userConfig.merge?.name ?? item.metadata.name ?? item.id,
+            })
+          "
           :disabled="item.metadata.isDead || item.userConfig.isOffline"
           class="table-switch-btn"
           color="success"

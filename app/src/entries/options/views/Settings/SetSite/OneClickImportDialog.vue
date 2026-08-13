@@ -152,7 +152,9 @@ async function dialogEnter() {
 
 <template>
   <v-dialog
+    v-if="showDialog"
     v-model="showDialog"
+    :aria-label="t('SetSite.oneClickImportDialog.title')"
     max-width="1000"
     scrollable
     @after-enter="dialogEnter"

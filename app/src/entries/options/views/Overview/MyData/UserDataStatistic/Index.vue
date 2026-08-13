@@ -508,11 +508,14 @@ function saveControl() {
               @click:append-inner="() => (configStore.userName = configStore.getUserNames.perfName)"
             >
               <template #prepend>
-                <v-icon
+                <v-btn
                   :color="allowEditName ? 'success' : ''"
                   :icon="!allowEditName ? 'mdi-lock' : 'mdi-lock-open'"
+                  size="small"
+                  :title="allowEditName ? t('common.lockEditing') : t('common.unlockEditing')"
+                  variant="text"
                   @click="allowEditName = !allowEditName"
-                ></v-icon>
+                />
               </template>
             </v-combobox>
           </v-col>
