@@ -9,6 +9,29 @@ import type { IConfigPiniaStorageSchema } from "@/shared/types/storages/config.t
 
 import { mountApp } from "./app/init.ts";
 
+const PAGE_CAPTURE_MESSAGE = "PTPP_CAPTURE_NAVIGATION_DOCUMENT";
+
+async function captureNavigationDocument() {
+  // Some tracker result tables are appended immediately after the document's
+  // load event. Poll briefly for the server-rendered result container instead
+  // of returning an incomplete DOM snapshot at that boundary.
+  const deadline = Date.now() + 1_500;
+  while (Date.now() < deadline && !document.querySelector("a[href*='details.php?id=']")) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  return { html: document.documentElement.outerHTML, url: window.location.href };
+}
+
+// Azusa and similar sites may permit ordinary page navigation while rejecting
+// scripted XHR. The background opens one inactive page and asks this already
+// declared content script for its parsed navigation document.
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== PAGE_CAPTURE_MESSAGE) return;
+  void captureNavigationDocument().then(sendResponse);
+  return true;
+});
+
 sendMessage("getExtStorage", "config").then(async (data) => {
   const configStore = data as IConfigPiniaStorageSchema;
 

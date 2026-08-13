@@ -2,7 +2,7 @@ import { AbstractBittorrentClient, type DownloaderBaseConfig, type TorrentClient
 import { cloneDeep } from "es-toolkit";
 
 export * from "./types";
-export { getRemoteTorrentFile } from "./utils";
+export { getParsedTorrentInfoForVerification, getRemoteTorrentFile } from "./utils";
 
 interface downloaderEntity {
   default: AbstractBittorrentClient;

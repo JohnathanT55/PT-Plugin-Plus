@@ -295,8 +295,11 @@
         "aliveWeek": "Relative Weeks"
       },
       "multiOpen": "Open in batch",
+      "multiOpenHint": "Open selected sites; open all available sites when none are selected",
       "noSiteSelectedCancelRefresh": "No site selected, refresh cancelled",
       "noSiteSelectedRefreshAll": "No site selected, refreshing all sites by default",
+      "noOpenableSite": "No site is available to open",
+      "noRefreshableSite": "No site is available to refresh",
       "normalizeLevelName": "Use Site-defined Level Name",
       "onlyShowUserLevelRequirement": "Only show the upgrade queue in level requirements",
       "selectColumns": "Select Columns",
@@ -351,7 +354,7 @@
       "pushTo": "Push to…",
       "save": "Save",
       "sendToDefault": "Send to Default Downloader",
-      "sendToDownloader": "Send to Downloader"
+      "sendToDownloader": "Push to…"
     },
     "AdvanceFilterGenerateDialog": {
       "completed": "Completed",

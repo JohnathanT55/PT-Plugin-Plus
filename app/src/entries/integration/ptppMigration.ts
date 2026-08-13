@@ -42,7 +42,7 @@ export interface PtppRuntimePersistence {
   addDownloadHistory(items: ITorrentDownloadMetadata[]): Promise<void>;
 }
 
-export const PTPP_RUNTIME_BRIDGE_VERSION = 2;
+export const PTPP_RUNTIME_BRIDGE_VERSION = 4;
 
 export const SUPPORTED_PTD_SITE_IDS = [
   "audiences",
@@ -273,6 +273,18 @@ export function mergePtppStateIntoRuntimeMetadata(
   const sourceRevision = state.metadata.storageRevision;
 
   const existingMarker = metadata.ptppMigration;
+  // Development bridges v2/v3 briefly overwrote Azusa's feature switches.
+  // Restore both capabilities once while moving to v4; the local static
+  // definition now exposes search and userInfo again.
+  if (
+    existingMarker &&
+    existingMarker.bridgeVersion >= 2 &&
+    existingMarker.bridgeVersion <= 3 &&
+    metadata.sites.azusa
+  ) {
+    metadata.sites.azusa.allowSearch = true;
+    metadata.sites.azusa.allowQueryUserInfo = true;
+  }
   if (
     existingMarker &&
     existingMarker.bridgeVersion === PTPP_RUNTIME_BRIDGE_VERSION &&

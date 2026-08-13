@@ -4,6 +4,10 @@ import {
   executeSerialBatch,
   shouldConfirmBatchSize,
 } from "../../app/src/entries/shared/downloadBatchPolicy";
+import {
+  getParsedTorrentInfoForVerification,
+  type ParsedTorrent,
+} from "../../app/src/packages/downloader/utils";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Download policy test failed: ${message}`);
@@ -43,4 +47,24 @@ assert(
   "the configured interval runs only between completed items",
 );
 
-console.log("PTPP download policy, size confirmation and serial interval tests passed.");
+const parsedTorrent = {
+  info: {
+    infoHash: "0123456789abcdef0123456789abcdef01234567",
+    name: "verification-fixture",
+    length: 12345,
+    files: [{ path: "verification-fixture/file.mkv", length: 12345 }],
+  },
+} as unknown as ParsedTorrent;
+const verificationInfo = getParsedTorrentInfoForVerification(parsedTorrent);
+assert(
+  verificationInfo.infoHash === "0123456789abcdef0123456789abcdef01234567",
+  "torrent verification reads infoHash from the nested parse-torrent result",
+);
+assert(verificationInfo.name === "verification-fixture", "torrent verification preserves the parsed name");
+assert(verificationInfo.length === 12345, "torrent verification preserves the parsed total size");
+assert(
+  verificationInfo.files.length === 1 && verificationInfo.files[0].path === "verification-fixture/file.mkv",
+  "torrent verification returns serializable file metadata",
+);
+
+console.log("PTPP download policy, torrent verification and serial interval tests passed.");

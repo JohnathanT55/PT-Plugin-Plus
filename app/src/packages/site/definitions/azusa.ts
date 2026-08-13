@@ -2,8 +2,19 @@
  * @JackettDefinitions https://github.com/Jackett/Jackett/blob/master/src/Jackett.Common/Definitions/azusa.yml
  * @JackettIssue https://github.com/Jackett/Jackett/issues/14478
  */
-import { type ISiteMetadata } from "../types";
-import { CategoryInclbookmarked, CategoryIncldead, CategorySpstate, SchemaMetadata } from "../schemas/NexusPHP.ts";
+import type { AxiosRequestConfig, AxiosResponse } from "axios";
+import { mergeWith } from "es-toolkit";
+import Sizzle from "sizzle";
+
+import { NeedLoginError, type ISiteMetadata, type IUserInfo } from "../types";
+import NexusPHP, {
+  CategoryInclbookmarked,
+  CategoryIncldead,
+  CategorySpstate,
+  SchemaMetadata,
+} from "../schemas/NexusPHP.ts";
+import { axios, captureNavigationDocument } from "../utils/adapter.ts";
+import { createDocument, definedFilters, rot13 } from "../utils";
 
 export const siteMetadata: ISiteMetadata = {
   ...SchemaMetadata,
@@ -14,7 +25,6 @@ export const siteMetadata: ISiteMetadata = {
   aka: ["Azusa"],
   description: [
     "主打二次元（非视频类）相关内容，包括漫画、轻小说、GalGame、同人、CG以及二次元音乐",
-    "2025.7.12应站点公告要求取消用户信息获取",
   ],
   tags: ["漫画", "轻小说", "Galgame", "画集"],
   timezoneOffset: "+0800",
@@ -99,8 +109,19 @@ export const siteMetadata: ISiteMetadata = {
 
   search: {
     ...SchemaMetadata.search!,
+    // Azusa no longer accepts NexusPHP's legacy `notnewword=1` parameter: it
+    // returns a tiny empty page instead of the result table. Keep the standard
+    // endpoint but send only the current search/category parameters.
+    requestConfig: {
+      ...SchemaMetadata.search!.requestConfig!,
+      params: {},
+    },
     selectors: {
       ...SchemaMetadata.search!.selectors!,
+      // The final tbody row is pagination and the first row is the header.
+      // Select actual torrent rows directly so current Azusa markup does not
+      // depend on NexusPHP's legacy header/row inference.
+      rows: { selector: "table.torrents:last > tbody > tr:has(a[href*='details.php?id='])" },
       seeders: { selector: "a[href*='seeders']" },
       leechers: { selector: "a[href*='leechers']" },
       completed: { selector: "a[href*='viewsnatches']" },
@@ -124,12 +145,6 @@ export const siteMetadata: ISiteMetadata = {
     },
   },
 
-  /*
-    应站点要求，取消用户数据获取
-    @refs: https://t.me/c/1276598895/137893
-  */
-  userInfo: undefined,
-  /*
   userInfo: {
     ...SchemaMetadata.userInfo!,
     selectors: {
@@ -232,11 +247,50 @@ export const siteMetadata: ISiteMetadata = {
       privilege: ""
     },
   ],
-  */
 };
 
-/*
 export default class Azusa extends NexusPHP {
+  /**
+   * The torrent list currently rejects XHR/fetch with HTTP 403 while the same
+   * authenticated URL works as a normal page navigation. Use one serialized,
+   * inactive browser navigation for search and keep every other request on the
+   * regular low-concurrency request path.
+   */
+  public override async request<T>(
+    axiosConfig: AxiosRequestConfig,
+    checkLogin: boolean = true,
+  ): Promise<AxiosResponse<T>> {
+    // Match the base request implementation: downstream torrent-link parsing
+    // relies on this value to resolve relative detail/download URLs.
+    axiosConfig.baseURL ??= this.url;
+    axiosConfig.url ??= "/";
+    const requestUrl = axios.getUri(axiosConfig);
+    const parsedUrl = new URL(requestUrl, this.url);
+
+    if (parsedUrl.pathname.endsWith("/torrents.php") && axiosConfig.responseType === "document") {
+      const captured = await captureNavigationDocument(parsedUrl.href);
+      const document = createDocument(captured.html);
+      const response = {
+        data: document,
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: axiosConfig,
+        request: {
+          responseType: "document",
+          responseURL: captured.url,
+          responseXML: document,
+          responseText: captured.html,
+        },
+      } as AxiosResponse<T>;
+
+      if (checkLogin && !this.loggedCheck(response)) throw new NeedLoginError();
+      return response;
+    }
+
+    return await super.request<T>(axiosConfig, checkLogin);
+  }
+
   // 获取做种、发种页面
   protected override async requestUserSeedingPage(userId: number, type: string = "seeding"): Promise<string | null> {
     const { data } = await this.request<string>({
@@ -293,4 +347,3 @@ export default class Azusa extends NexusPHP {
     return flushUserInfo;
   }
 }
- */

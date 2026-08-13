@@ -56,29 +56,32 @@ export async function getSiteUserInfoResult(siteId: string) {
     }
 
     let userInfo = lastUserInfo;
-    if (site.allowQueryUserInfo) {
-      // 调用站点实例获取用户信息
-      userInfo = await site.getUserInfoResult(userInfo);
-    } else if (site.metadata.type === "private" && !site.isOnline && isEmpty(lastUserInfo)) {
-      // 如果 private 站点不允许查询用户信息（），则尝试从 userInfo 中获取最近一次的用户信息（回退），以避免 metadata.lastUserInfo 为 undefined 的情况
-      const userInfoStore = ((await sendMessage("getExtStorage", "userInfo")) ?? {}) as TUserInfoStorageSchema;
-      const userInfoSite = userInfoStore?.[siteId] ?? {};
+    if (!site.allowQueryUserInfo) {
+      if (site.metadata.type === "private" && isEmpty(lastUserInfo)) {
+        // A disabled refresh may still display the latest imported history, but
+        // must never stamp that historical value as a fresh result for today.
+        const userInfoStore = ((await sendMessage("getExtStorage", "userInfo")) ?? {}) as TUserInfoStorageSchema;
+        const userInfoSite = userInfoStore?.[siteId] ?? {};
 
-      let maxDate = null;
-      for (const date in userInfoSite) {
-        if (
-          userInfoSite[date].status === EResultParseStatus.success && // 如果是 PTPP 导入，可能存在 status 为 unknownError 的情况
-          (!maxDate || new Date(date) > new Date(maxDate))
-        ) {
-          maxDate = date;
+        let maxDate = null;
+        for (const date in userInfoSite) {
+          if (
+            userInfoSite[date].status === EResultParseStatus.success && // 如果是 PTPP 导入，可能存在 status 为 unknownError 的情况
+            (!maxDate || new Date(date) > new Date(maxDate))
+          ) {
+            maxDate = date;
+          }
+        }
+
+        if (maxDate) {
+          userInfo = userInfoSite[maxDate];
         }
       }
-
-      if (maxDate) {
-        userInfo = userInfoSite[maxDate];
-      }
+      return userInfo!;
     }
 
+    // 调用站点实例获取用户信息
+    userInfo = await site.getUserInfoResult(userInfo);
     await setSiteLastUserInfo(userInfo);
     return userInfo!;
   }))!;

@@ -15,6 +15,30 @@ export interface ParsedTorrent {
   info: TorrentInstance;
 }
 
+export interface TorrentInfoForVerification {
+  infoHash: string;
+  name: string;
+  length: number;
+  files: Array<{ path: string; length: number }>;
+}
+
+/**
+ * Return the stable, serializable fields needed to match a parsed torrent
+ * against a downloader task. `getRemoteTorrentFile` stores the parse-torrent
+ * result in `info`, so the hash must be read from that nested object.
+ */
+export function getParsedTorrentInfoForVerification(parsedTorrent: ParsedTorrent): TorrentInfoForVerification {
+  return {
+    infoHash: parsedTorrent.info.infoHash ?? "",
+    name: parsedTorrent.info.name ?? "unknown",
+    length: parsedTorrent.info.length ?? 0,
+    files: (parsedTorrent.info.files || []).map((file) => ({
+      path: file.path,
+      length: file.length,
+    })),
+  };
+}
+
 const utf8FilenameRegex = /filename\*=UTF-8''([\w%\-\.]+)(?:; ?|$)/i;
 const asciiFilenameRegex = /^filename=(["']?)(.*?[^\\])\1(?:; ?|$)/i;
 

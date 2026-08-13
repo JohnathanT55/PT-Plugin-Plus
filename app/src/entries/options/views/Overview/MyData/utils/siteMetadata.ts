@@ -47,7 +47,7 @@ export async function loadAllAddedSiteMetadata(sites?: string[]): Promise<TOptio
             combinedSiteName: Array.from(
               new Set([siteName, siteMetadata.name, ...(siteMetadata.aka ?? [])].filter(Boolean)),
             ).join("|$|"),
-            hasUserInfo: Object.hasOwn(siteMetadata, "userInfo"),
+            hasUserInfo: Boolean(siteMetadata.userInfo),
             isDead: siteMetadata.isDead ?? false,
             isOffline: metadataStore.sites[siteId]?.isOffline ?? false,
             faviconSrc: siteFaviconUrl,
