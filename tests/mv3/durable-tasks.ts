@@ -3,6 +3,7 @@ import {
   createEmptyDurableTaskStore,
   durableAlarmName,
   durableTaskIdFromAlarm,
+  DURABLE_TASK_RUNNING_LEASE_MS,
   type IDurableTask,
   type IDurableTaskStore,
 } from "../../src/tasks/durable";
@@ -167,6 +168,79 @@ assert(
   staleClaimStore.tasks["replaced-before-claim"]?.generation === 2,
   "a task replaced before its claim remains scheduled",
 );
+
+let overlappingStore: IDurableTaskStore<TestPayload> = {
+  version: 1,
+  tasks: {
+    "overlapping-workers": {
+      id: "overlapping-workers",
+      generation: 1,
+      runAt: now,
+      state: "scheduled",
+      payload: { type: "download", value: 5 },
+    },
+  },
+};
+let overlappingExecutions = 0;
+let releaseFirstExecution!: () => void;
+const firstExecutionStarted = new Promise<void>((resolve) => {
+  releaseFirstExecution = resolve;
+});
+let allowFirstExecutionToFinish!: () => void;
+const firstExecutionCanFinish = new Promise<void>((resolve) => {
+  allowFirstExecutionToFinish = resolve;
+});
+function createOverlappingCoordinator(blockExecution = false) {
+  return createDurableTaskCoordinator<TestPayload>({
+    async load() {
+      return structuredClone(overlappingStore);
+    },
+    async save(nextStore) {
+      overlappingStore = structuredClone(nextStore);
+    },
+    createAlarm() {},
+    clearAlarm() {},
+    async execute() {
+      overlappingExecutions += 1;
+      if (blockExecution) {
+        releaseFirstExecution();
+        await firstExecutionCanFinish;
+      }
+    },
+    now: () => now,
+  });
+}
+const overlappingWorkerOne = createOverlappingCoordinator(true);
+const overlappingWorkerTwo = createOverlappingCoordinator();
+const firstOverlappingAlarm = overlappingWorkerOne.handleAlarm(durableAlarmName("overlapping-workers"));
+await firstExecutionStarted;
+await overlappingWorkerTwo.handleAlarm(durableAlarmName("overlapping-workers"));
+assert(overlappingExecutions === 1, "a task already claimed by another worker does not execute twice");
+allowFirstExecutionToFinish();
+await firstOverlappingAlarm;
+
+const staleRunningTaskId = "stale-running-task";
+store.tasks[staleRunningTaskId] = {
+  id: staleRunningTaskId,
+  generation: 1,
+  runAt: now - DURABLE_TASK_RUNNING_LEASE_MS - 10_000,
+  state: "running",
+  startedAt: now - DURABLE_TASK_RUNNING_LEASE_MS - 5_000,
+  payload: { type: "userInfoRetry", value: 6 },
+};
+const staleRunningWorker = createCoordinator();
+alarms.clear();
+await staleRunningWorker.restore();
+assert(
+  alarms.get(durableAlarmName(staleRunningTaskId)) === now,
+  "an expired running-task lease is retried immediately after restart",
+);
+await staleRunningWorker.handleAlarm(durableAlarmName(staleRunningTaskId));
+assert(
+  executions.filter((task) => task.id === staleRunningTaskId).length === 1,
+  "an expired running task is recovered and executed once",
+);
+assert(!store.tasks[staleRunningTaskId], "a recovered running task is removed after success");
 
 let failedAlarmStore = createEmptyDurableTaskStore<TestPayload>();
 const failedAlarmCoordinator = createDurableTaskCoordinator<TestPayload>({

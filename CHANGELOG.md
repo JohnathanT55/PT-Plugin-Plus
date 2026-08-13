@@ -2,7 +2,7 @@
 
 本文件记录 PT-Plugin-Plus Manifest V3 延续版本的主要变化。
 
-## Unreleased — Chrome MV3 发布候选
+## 2.0.0 — 2026-08-13
 
 ### 新增与恢复
 
@@ -27,3 +27,6 @@
 - 禁止动态远端代码、`unsafe-eval`、`eval()` 和 `new Function()` 进入生产构建。
 - 增加版本化存储、幂等迁移、持久任务恢复、凭据脱敏和构建产物验证。
 - 使用隔离 Chrome for Testing 完成真实 MV3 扩展页、service worker、站点登录、下载器、WebDAV 和主要 UI 闭环。
+- 使用 Chrome Stable 151.0.7922.137 原生加载发布候选，并完成 24 个生产路由、14 类弹窗和真实站点工具栏矩阵。
+- 增加 Chrome Web Store 静态合规审计、可复现 ZIP/SHA-256 打包和真实 Windows 休眠生命周期探针。
+- 持久一次性任务增加跨执行上下文互斥、领取状态校验与超时租约恢复，避免休眠/唤醒边界重复执行。

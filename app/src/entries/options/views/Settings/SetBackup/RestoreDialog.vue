@@ -115,7 +115,7 @@ function loadRemoteBackupFile() {
 }
 
 function extractVersion(str: string = "") {
-  const regex = /v(\d+\.\d+\.\d+\.\d+)/;
+  const regex = /v(\d+\.\d+\.\d+(?:\.\d+)?)/;
   const match = str.match(regex);
   return match ? match[1] : null;
 }
