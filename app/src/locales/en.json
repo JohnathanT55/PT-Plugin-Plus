@@ -414,6 +414,7 @@
       "title": "Search Status of [{0}]"
     },
     "index": {
+      "horizontalScroll": "Scroll search results horizontally",
       "action": {
         "cancel": "Cancel current waiting search",
         "displayPreferences": "Search Results Display Preferences",

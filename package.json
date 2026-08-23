@@ -15,7 +15,7 @@
     "dev": "vite",
     "typecheck": "vue-tsc --noEmit",
     "typecheck:foundation": "tsc --project tsconfig.foundation.json",
-    "test": "tsx tests/mv3/run.ts && tsx tests/mv3/collection.ts && tsx tests/mv3/collection-state.ts && tsx tests/mv3/ptd-integration.ts && tsx tests/mv3/ptpp-backup.ts && tsx tests/mv3/durable-tasks.ts && tsx tests/mv3/backup-policy.ts && tsx tests/mv3/backup-restore.ts && tsx tests/mv3/download-policy.ts && tsx tests/mv3/download-error.ts && tsx tests/mv3/clear-all.ts && tsx tests/mv3/search-run.ts && tsx tests/mv3/movie-suggestions.ts && tsx tests/mv3/site-actions.ts && tsx tests/mv3/toolbar-position.ts",
+    "test": "tsx tests/mv3/run.ts && tsx tests/mv3/collection.ts && tsx tests/mv3/collection-state.ts && tsx tests/mv3/ptd-integration.ts && tsx tests/mv3/ptpp-backup.ts && tsx tests/mv3/durable-tasks.ts && tsx tests/mv3/backup-policy.ts && tsx tests/mv3/backup-restore.ts && tsx tests/mv3/download-policy.ts && tsx tests/mv3/download-error.ts && tsx tests/mv3/clear-all.ts && tsx tests/mv3/search-run.ts && tsx tests/mv3/search-layout.ts && tsx tests/mv3/movie-suggestions.ts && tsx tests/mv3/site-actions.ts && tsx tests/mv3/toolbar-position.ts",
     "build": "vite build",
     "build:firefox": "cross-env TARGET=firefox vite build",
     "validate": "node scripts/validate-mv3.js",

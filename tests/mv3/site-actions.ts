@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import {
   resolveOpenSiteIds,
   resolveRefreshSiteIds,
@@ -28,6 +30,12 @@ assert(
 assert(
   resolveRefreshSiteIds(["no-user-info" as any], items).length === 0,
   "a selected site without a user-info definition is not scheduled for refresh",
+);
+
+const configSource = readFileSync("app/src/entries/options/stores/config.ts", "utf8");
+assert(
+  configSource.includes("showNextLevelInTable: true") && configSource.includes("showIntervalAsDate: true"),
+  "next-level requirements and their date presentation are enabled by default",
 );
 
 console.log("My Data site actions tests passed.");

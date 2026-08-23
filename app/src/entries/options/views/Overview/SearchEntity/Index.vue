@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useDisplay, type DataTableHeader } from "vuetify";
@@ -52,7 +52,7 @@ const fullTableHeader = computed(
         title: t("SearchEntity.index.table.title"),
         key: "title",
         align: "start",
-        minWidth: "30rem",
+        minWidth: "clamp(18rem, 28vw, 26rem)",
         ...(configStore.searchEntifyControl.limitTorrentTitleTdWidth || display.smAndDown.value
           ? { maxWidth: "32vw" }
           : {}),
@@ -69,7 +69,12 @@ const fullTableHeader = computed(
         title: t("common.action"),
         key: "action",
         align: "center",
+        fixed: "end",
+        width: "11rem",
+        minWidth: "11rem",
         sortable: false,
+        headerProps: { class: "ptpp-search-action-column" },
+        cellProps: { class: "ptpp-search-action-column" },
         props: { disabled: true },
       },
     ] as (DataTableHeader & { props?: any })[],
@@ -170,6 +175,74 @@ const hiddenTagNamesText = computed({
       .map((s) => s.trim())
       .filter(Boolean);
   },
+});
+
+const searchTableHost = ref<HTMLElement | null>(null);
+const searchTableTopScrollbar = ref<HTMLElement | null>(null);
+const searchTableScrollWidth = ref(0);
+const searchTableHasHorizontalOverflow = ref(false);
+let searchTableScroller: HTMLElement | null = null;
+let searchTableResizeObserver: ResizeObserver | undefined;
+
+function updateSearchTableScrollMetrics() {
+  if (!searchTableScroller) return;
+
+  searchTableScrollWidth.value = Math.max(searchTableScroller.scrollWidth, searchTableScroller.clientWidth);
+  searchTableHasHorizontalOverflow.value = searchTableScroller.scrollWidth > searchTableScroller.clientWidth + 1;
+
+  if (searchTableTopScrollbar.value) {
+    searchTableTopScrollbar.value.scrollLeft = searchTableScroller.scrollLeft;
+  }
+}
+
+function syncSearchTableScroll(source: "top" | "table") {
+  if (!searchTableScroller || !searchTableTopScrollbar.value) return;
+
+  if (source === "top") {
+    searchTableScroller.scrollLeft = searchTableTopScrollbar.value.scrollLeft;
+  } else {
+    searchTableTopScrollbar.value.scrollLeft = searchTableScroller.scrollLeft;
+  }
+}
+
+function connectSearchTableScroller() {
+  void nextTick(() => {
+    const nextScroller = searchTableHost.value?.querySelector<HTMLElement>(".v-table__wrapper") ?? null;
+    if (!nextScroller) return;
+
+    if (searchTableScroller !== nextScroller) {
+      searchTableScroller?.removeEventListener("scroll", handleSearchTableScroll);
+      searchTableScroller = nextScroller;
+      searchTableScroller.addEventListener("scroll", handleSearchTableScroll, { passive: true });
+    }
+
+    searchTableResizeObserver?.disconnect();
+    searchTableResizeObserver = new ResizeObserver(updateSearchTableScrollMetrics);
+    searchTableResizeObserver.observe(searchTableScroller);
+    const table = searchTableScroller.querySelector("table");
+    if (table) searchTableResizeObserver.observe(table);
+    updateSearchTableScrollMetrics();
+  });
+}
+
+function handleSearchTableScroll() {
+  syncSearchTableScroll("table");
+}
+
+watch(
+  [
+    () => runtimeStore.search.searchResult.length,
+    () => tableHeader.value.map((header) => header.key).join(","),
+    () => display.width.value,
+  ],
+  connectSearchTableScroller,
+);
+
+onMounted(connectSearchTableScroller);
+
+onBeforeUnmount(() => {
+  searchTableScroller?.removeEventListener("scroll", handleSearchTableScroll);
+  searchTableResizeObserver?.disconnect();
 });
 </script>
 <template>
@@ -378,83 +451,97 @@ const hiddenTagNamesText = computed({
       </v-menu>
     </div>
 
-    <v-data-table
-      id="ptpp-search-entity-table"
-      v-model="tableSelectedRaw"
-      :custom-filter="tableFilterFn"
-      density="compact"
-      :filter-keys="['uniqueId']"
-      :headers="tableHeader"
-      :items="runtimeStore.search.searchResult"
-      :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
-      :items-per-page-options="[10, 25, 50]"
-      :multi-sort="configStore.enableTableMultiSort"
-      :search="tableFilterRef"
-      :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
-      class="ptpp-search-entity-table table-header-no-wrap"
-      hover
-      item-value="uniqueId"
-      return-object
-      :row-props="searchResultRowProps"
-      show-select
-      @update:itemsPerPage="(value) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
-      @update:sortBy="(value) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+    <div
+      v-show="searchTableHasHorizontalOverflow"
+      ref="searchTableTopScrollbar"
+      :aria-label="t('SearchEntity.index.horizontalScroll')"
+      class="ptpp-search-horizontal-scrollbar"
+      role="region"
+      tabindex="0"
+      @scroll="syncSearchTableScroll('top')"
     >
-      <template #item.site="{ item }">
-        <div class="d-flex flex-column align-center">
-          <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
-          <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
-        </div>
-      </template>
+      <div :style="{ width: `${searchTableScrollWidth}px` }" />
+    </div>
 
-      <template #item.title="{ item }">
-        <TorrentTitleTd :item="item" />
-      </template>
+    <div ref="searchTableHost" class="ptpp-search-table-host">
+      <v-data-table
+        id="ptpp-search-entity-table"
+        v-model="tableSelectedRaw"
+        :custom-filter="tableFilterFn"
+        density="compact"
+        :filter-keys="['uniqueId']"
+        :headers="tableHeader"
+        :items="runtimeStore.search.searchResult"
+        :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
+        :items-per-page-options="[10, 25, 50]"
+        :multi-sort="configStore.enableTableMultiSort"
+        :search="tableFilterRef"
+        :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
+        class="ptpp-search-entity-table table-header-no-wrap"
+        hover
+        item-value="uniqueId"
+        return-object
+        :row-props="searchResultRowProps"
+        show-select
+        @update:itemsPerPage="(value) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
+        @update:sortBy="(value) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+      >
+        <template #item.site="{ item }">
+          <div class="d-flex flex-column align-center">
+            <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
+            <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
+          </div>
+        </template>
 
-      <template #item.size="{ item }">
-        <v-container class="pa-0">
-          <v-row no-gutters>
-            <v-col class="pa-0">
-              <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
-            </v-col>
-          </v-row>
-          <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown" no-gutters>
-            <v-col class="pa-0">
-              <TorrentProcessTd :torrent="item" />
-            </v-col>
-          </v-row>
-        </v-container>
-      </template>
+        <template #item.title="{ item }">
+          <TorrentTitleTd :item="item" />
+        </template>
 
-      <template #item.seeders="{ item }">
-        <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
-      </template>
-      <template #item.leechers="{ item }">
-        <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
-      </template>
-      <template #item.completed="{ item }">
-        <span class="t_completed text-no-wrap">{{ item.completed }}</span>
-      </template>
-      <template #item.comments="{ item }">
-        <span class="t_comments text-no-wrap">{{ item.comments }}</span>
-      </template>
+        <template #item.size="{ item }">
+          <v-container class="pa-0">
+            <v-row no-gutters>
+              <v-col class="pa-0">
+                <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
+              </v-col>
+            </v-row>
+            <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown" no-gutters>
+              <v-col class="pa-0">
+                <TorrentProcessTd :torrent="item" />
+              </v-col>
+            </v-row>
+          </v-container>
+        </template>
 
-      <template #item.time="{ item }">
-        <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
-          {{
-            item.time
-              ? configStore.searchEntifyControl.uploadAtFormatAsAlive
-                ? formatTimeAgo(item.time)
-                : formatDate(item.time)
-              : "-"
-          }}
-        </span>
-      </template>
+        <template #item.seeders="{ item }">
+          <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
+        </template>
+        <template #item.leechers="{ item }">
+          <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
+        </template>
+        <template #item.completed="{ item }">
+          <span class="t_completed text-no-wrap">{{ item.completed }}</span>
+        </template>
+        <template #item.comments="{ item }">
+          <span class="t_comments text-no-wrap">{{ item.comments }}</span>
+        </template>
 
-      <template #item.action="{ item }">
-        <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
-      </template>
-    </v-data-table>
+        <template #item.time="{ item }">
+          <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
+            {{
+              item.time
+                ? configStore.searchEntifyControl.uploadAtFormatAsAlive
+                  ? formatTimeAgo(item.time)
+                  : formatDate(item.time)
+                : "-"
+            }}
+          </span>
+        </template>
+
+        <template #item.action="{ item }">
+          <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
+        </template>
+      </v-data-table>
+    </div>
   </v-card>
 
   <AdvanceFilterGenerateDialog v-model="showAdvanceFilterGenerateDialog" />
@@ -496,7 +583,7 @@ const hiddenTagNamesText = computed({
 }
 
 .ptpp-search-card {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ptpp-search-header {
@@ -561,6 +648,27 @@ const hiddenTagNamesText = computed({
   width: 100%;
 }
 
+.ptpp-search-table-host {
+  min-width: 0;
+  width: 100%;
+}
+
+.ptpp-search-horizontal-scrollbar {
+  background: var(--ptpp-card-background);
+  border-bottom: 1px solid var(--ptpp-divider);
+  height: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: sticky;
+  scrollbar-color: rgba(var(--v-theme-on-surface), 0.45) transparent;
+  top: 116px;
+  z-index: 4;
+
+  > div {
+    height: 1px;
+  }
+}
+
 #ptpp-search-entity-table:deep(.v-data-table__th),
 #ptpp-search-entity-table:deep(.v-data-table__td) {
   font-size: 12px;
@@ -573,6 +681,11 @@ const hiddenTagNamesText = computed({
 
 #ptpp-search-entity-table:deep(tbody .v-data-table__tr.ptpp-selected-row .v-data-table__td) {
   background: var(--ptpp-table-active) !important;
+}
+
+#ptpp-search-entity-table:deep(.ptpp-search-action-column) {
+  box-shadow: -1px 0 var(--ptpp-divider);
+  white-space: nowrap;
 }
 
 #ptpp-search-entity-table:deep(.v-data-table-footer__items-per-page .v-select),

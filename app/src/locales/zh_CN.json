@@ -414,6 +414,7 @@
       "title": "方案 [{0}] 搜索状态"
     },
     "index": {
+      "horizontalScroll": "横向滚动搜索结果",
       "action": {
         "cancel": "取消当前等待的搜索",
         "displayPreferences": "搜索结果展示偏好",
