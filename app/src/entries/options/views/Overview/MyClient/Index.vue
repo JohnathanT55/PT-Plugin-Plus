@@ -14,6 +14,7 @@ import DeleteDialog from "./DeleteDialog.vue";
 import PushToDownloaderDialog from "./PushToDownloaderDialog.vue";
 import TorrentStateTd from "./TorrentStateTd.vue";
 import ClientStatusDialog from "./ClientStatusDialog.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 import { torrents, autoRefreshRunning, globalRefreshInterval, useClientRefresh } from "./utils.ts";
 
@@ -81,7 +82,13 @@ const fullTableHeader = computed(
   () =>
     [
       { title: t("MyClient.table.client"), key: "clientId", align: "center", width: "120", props: { disabled: true } },
-      { title: t("MyClient.table.name"), key: "name", align: "start", minWidth: "20rem", props: { disabled: true } },
+      {
+        title: t("MyClient.table.name"),
+        key: "name",
+        align: "start",
+        minWidth: "clamp(16rem, 26vw, 20rem)",
+        props: { disabled: true },
+      },
       { title: t("MyClient.table.size"), key: "totalSize", align: "end", width: "110" },
       { title: t("MyClient.table.progress"), key: "progress", align: "end", width: "90" },
       { title: t("MyClient.table.status"), key: "state", align: "center", width: "110" },
@@ -338,7 +345,7 @@ function torrentKey(torrent: CTorrent) {
     </v-card-title>
 
     <v-card-text>
-      <v-data-table
+      <ResponsiveDataTable
         v-model="tableSelected"
         :headers="tableHeader"
         :items="filteredTorrents"
@@ -350,8 +357,8 @@ function torrentKey(torrent: CTorrent) {
         hover
         return-object
         show-select
-        @update:itemsPerPage="(v) => configStore.updateTableBehavior('MyClient', 'itemsPerPage', v)"
-        @update:sortBy="(v) => configStore.updateTableBehavior('MyClient', 'sortBy', v)"
+        @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('MyClient', 'itemsPerPage', v)"
+        @update:sortBy="(v: any[]) => configStore.updateTableBehavior('MyClient', 'sortBy', v)"
       >
         <!-- client column -->
         <template #item.clientId="{ item }">
@@ -473,7 +480,7 @@ function torrentKey(torrent: CTorrent) {
             />
           </v-btn-group>
         </template>
-      </v-data-table>
+      </ResponsiveDataTable>
     </v-card-text>
   </v-card>
 

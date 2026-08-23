@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale as useVuetifyLocal } from "vuetify";
-import { useDevicePixelRatio } from "@vueuse/core";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -13,7 +12,7 @@ import Topbar from "./views/Layout/Topbar.vue";
 import ReleaseNoteDialog from "./views/Layout/ReleaseNoteDialog.vue";
 
 const { current: currentVuetifyLocal } = useVuetifyLocal();
-const { locale: currentVueI18nLocal, t } = useI18n({ useScope: "global" });
+const { locale: currentVueI18nLocal } = useI18n({ useScope: "global" });
 
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
@@ -27,11 +26,32 @@ watch(
   { immediate: true },
 );
 
-const { pixelRatio } = useDevicePixelRatio();
-function setIgnoreWrongPixelRatio() {
-  configStore.ignoreWrongPixelRatio = true;
-  configStore.$save();
-}
+const uiScaleFactor = computed(() => configStore.uiScale / 100);
+const uiScaleStyle = computed(() =>
+  uiScaleFactor.value === 1
+    ? undefined
+    : {
+        zoom: uiScaleFactor.value,
+        minHeight: `${100 / uiScaleFactor.value}vh`,
+      },
+);
+watchEffect(() => {
+  document.documentElement.style.setProperty("--ptpp-ui-scale", String(uiScaleFactor.value));
+  document.documentElement.classList.toggle("ptpp-ui-scaled", uiScaleFactor.value !== 1);
+});
+let uiScaleResizeFrame: number | undefined;
+watch(
+  uiScaleFactor,
+  async () => {
+    await nextTick();
+    if (uiScaleResizeFrame !== undefined) cancelAnimationFrame(uiScaleResizeFrame);
+    uiScaleResizeFrame = requestAnimationFrame(() => {
+      uiScaleResizeFrame = undefined;
+      window.dispatchEvent(new Event("resize"));
+    });
+  },
+  { flush: "post" },
+);
 
 const showReleaseNoteDialog = ref<boolean>(false);
 let externalLinkObserver: MutationObserver | undefined;
@@ -67,7 +87,12 @@ onMounted(() => {
   });
 });
 
-onBeforeUnmount(() => externalLinkObserver?.disconnect());
+onBeforeUnmount(() => {
+  externalLinkObserver?.disconnect();
+  document.documentElement.style.removeProperty("--ptpp-ui-scale");
+  document.documentElement.classList.remove("ptpp-ui-scaled");
+  if (uiScaleResizeFrame !== undefined) cancelAnimationFrame(uiScaleResizeFrame);
+});
 
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
 configStore.$onReady(() => {
@@ -78,24 +103,11 @@ configStore.$onReady(() => {
 </script>
 
 <template>
-  <v-app id="ptpp" :theme="configStore.uiTheme">
-    <!-- 页面比例提示 -->
-    <v-system-bar
-      v-if="(pixelRatio > 1.1 || pixelRatio < 0.8) && !configStore.ignoreWrongPixelRatio"
-      class="justify-center"
-      color="purple-darken-2"
-    >
-      {{ t("layout.header.wrongPixelRatioNotice") }}&nbsp;&nbsp;
-      <v-btn
-        class="ms-2"
-        icon="mdi-close"
-        size="x-small"
-        :title="t('common.dialog.close')"
-        variant="text"
-        @click="setIgnoreWrongPixelRatio"
-      />
-    </v-system-bar>
-
+  <v-app
+    id="ptpp"
+    :style="uiScaleStyle"
+    :theme="configStore.uiTheme"
+  >
     <!-- 顶部工具条 -->
     <Topbar />
 

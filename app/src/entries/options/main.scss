@@ -43,6 +43,33 @@ a:not(:hover) {
   }
 }
 
+.ptpp-responsive-data-table {
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.ptpp-responsive-table-scrollbar {
+  background: var(--ptpp-card-background, #fff);
+  border-bottom: 1px solid var(--ptpp-divider, rgba(0, 0, 0, 0.12));
+  height: 14px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+
+  &:focus-visible {
+    outline: 2px solid #2196f3;
+    outline-offset: -2px;
+  }
+}
+
+.ptpp-responsive-table-scrollbar__spacer {
+  height: 1px;
+}
+
 .list-item-none-spacer > .v-list-item__prepend > .v-icon ~ .v-list-item__spacer {
   display: none;
 }
@@ -64,6 +91,29 @@ body,
   height: 100%;
   margin: 0;
   min-height: 100%;
+}
+
+/*
+ * Vuetify positions teleported overlays in unscaled viewport coordinates.
+ * Keep the positioning container untouched, and scale only its rendered child
+ * so menus/dialogs follow the PTPP internal scale without anchor drift.
+ */
+.ptpp-ui-scaled
+  .v-overlay-container
+  .v-overlay:not(.v-dialog):not(.v-snackbar)
+  .v-overlay__content
+  > :first-child {
+  zoom: var(--ptpp-ui-scale, 1);
+}
+
+.ptpp-ui-scaled .v-overlay-container .v-dialog .v-overlay__content {
+  scale: var(--ptpp-ui-scale, 1);
+  transform-origin: center;
+}
+
+.ptpp-ui-scaled .v-overlay-container .v-snackbar__wrapper {
+  scale: var(--ptpp-ui-scale, 1);
+  transform-origin: center bottom;
 }
 
 #ptpp {
@@ -428,10 +478,28 @@ body,
       border-top: 1px solid var(--ptpp-divider);
       color: var(--ptpp-secondary-text);
     }
+
+    .ptpp-responsive-action-column {
+      background: var(--ptpp-card-background) !important;
+      box-shadow: -1px 0 var(--ptpp-divider);
+      white-space: nowrap;
+    }
+
+    tbody tr:hover .ptpp-responsive-action-column {
+      background: color-mix(in srgb, var(--ptpp-card-background), var(--ptpp-hover) 100%) !important;
+    }
   }
 
   .table-stripe tr.v-data-table__tr:nth-child(even) {
     background-color: var(--ptpp-card-background);
+
+    .ptpp-responsive-action-column {
+      background: var(--ptpp-table-stripe) !important;
+    }
+  }
+
+  .v-data-table tbody tr.ptpp-selected-row .ptpp-responsive-action-column {
+    background: var(--ptpp-table-active) !important;
   }
 
   .v-field,

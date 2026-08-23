@@ -13,12 +13,12 @@ assert(
 assert(searchPageSource.includes('minWidth: "clamp('), "the title column must use a bounded responsive minimum width");
 assert(searchPageSource.includes('fixed: "end"'), "the per-row action column must remain fixed at the right edge");
 assert(
-  searchPageSource.includes('class="ptpp-search-horizontal-scrollbar"'),
-  "long search tables need a discoverable horizontal scrollbar above the rows",
+  searchPageSource.includes("<ResponsiveDataTable"),
+  "search results must use the shared responsive table contract",
 );
 assert(
-  searchPageSource.includes("syncSearchTableScroll"),
-  "the top scrollbar and Vuetify table wrapper must synchronize in both directions",
+  searchPageSource.includes(":top-scrollbar-label="),
+  "the shared top horizontal scrollbar must have an accessible label",
 );
 assert(
   !/\.ptpp-search-card\s*\{[^}]*overflow:\s*hidden;/s.test(searchPageSource),

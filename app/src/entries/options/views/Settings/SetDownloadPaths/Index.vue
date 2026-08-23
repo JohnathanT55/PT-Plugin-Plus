@@ -10,6 +10,7 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import { allAddedSiteInfo } from "@/options/views/Settings/SetSite/utils.ts";
 import { getDownloaderIcon } from "@ptd/downloader";
 
@@ -151,7 +152,7 @@ async function removeTarget(siteId: string) {
       />
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       :headers="headers"
       :items="rows"
       item-value="id"
@@ -203,7 +204,7 @@ async function removeTarget(siteId: string) {
           />
         </div>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <v-dialog

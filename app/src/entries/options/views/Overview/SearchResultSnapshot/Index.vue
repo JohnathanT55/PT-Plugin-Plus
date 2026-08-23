@@ -13,6 +13,7 @@ import { type TSearchSnapshotKey } from "@/shared/types.ts";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import EditNameDialog from "./EditNameDialog.vue";
 
 const { t } = useI18n();
@@ -133,7 +134,7 @@ async function clearAllSearchSnapshots() {
       </v-row>
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :headers="tableHeader"
       :items="metadataStore.getSearchSnapshotList"
@@ -145,8 +146,8 @@ async function clearAllSearchSnapshots() {
       item-value="id"
       :multi-sort="configStore.enableTableMultiSort"
       show-select
-      @update:itemsPerPage="(v) => configStore.updateTableBehavior('SearchResultSnapshot', 'itemsPerPage', v)"
-      @update:sortBy="(v) => configStore.updateTableBehavior('SearchResultSnapshot', 'sortBy', v)"
+      @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('SearchResultSnapshot', 'itemsPerPage', v)"
+      @update:sortBy="(v: any[]) => configStore.updateTableBehavior('SearchResultSnapshot', 'sortBy', v)"
     >
       <template #item.createdAt="{ item }">
         <span class="text-no-wrap"> {{ formatDate(item.createdAt) }}</span>
@@ -177,7 +178,7 @@ async function clearAllSearchSnapshots() {
           </v-btn>
         </v-btn-group>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <EditNameDialog v-model="showEditNameDialog" :edit-id="toEditId!" />

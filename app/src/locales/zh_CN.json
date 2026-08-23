@@ -745,6 +745,8 @@
       "respondDisplayMode": "响应插件设置中的 ",
       "saveTableBehavior": "记忆部分表格的 表头列展示、排序、分页 等信息",
       "showReleaseNote": "插件更新时显示更新日志窗口",
+      "uiScale": "界面缩放",
+      "uiScaleHint": "只调整 PTPP 界面，不改变 Chrome 页面缩放；设置会随参数备份保存。",
       "sidebarFunctions": "侧边栏功能",
       "sidebarStyle": "侧边栏样式",
       "socialSiteSearchBy": {
@@ -1309,8 +1311,20 @@
         "singleSite": "@:manifest.searchPlanSingleSite"
       },
       "searchTip": "输入种子关键字、IMDb编号进行搜索",
-      "wiki": "帮助",
-      "wrongPixelRatioNotice": "检测到您的页面展示可能受到缩放影响，建议您将当前页面缩放调整为100%，以保障您的浏览体验～"
+      "uiScale": {
+        "browserZoom": "Chrome 页面缩放：{value}%",
+        "current": "PTPP 界面缩放：{value}%",
+        "decrease": "缩小界面",
+        "devicePixelRatio": "设备像素比例（组合值）：{value}",
+        "devicePixelRatioHelp": "Chrome 缩放来自浏览器接口；系统比例由设备像素比例与 Chrome 缩放估算。PTPP 不会修改浏览器缩放。",
+        "increase": "放大界面",
+        "internal": "PTPP 内部比例",
+        "open": "调整界面缩放",
+        "reset": "恢复 100%",
+        "systemScale": "系统显示比例（估算）：{value}%",
+        "title": "界面缩放"
+      },
+      "wiki": "帮助"
     },
     "init": "请耐心等待页面加载.....",
     "releaseNote": {

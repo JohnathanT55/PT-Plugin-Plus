@@ -20,6 +20,7 @@ import DefaultDownloaderEditDialog from "./DefaultDownloaderEditDialog.vue";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
@@ -199,7 +200,7 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
       </v-row>
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['id']"
@@ -213,8 +214,8 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
       item-value="id"
       :multi-sort="configStore.enableTableMultiSort"
       show-select
-      @update:itemsPerPage="(v) => configStore.updateTableBehavior('SetDownloader', 'itemsPerPage', v)"
-      @update:sortBy="(v) => configStore.updateTableBehavior('SetDownloader', 'sortBy', v)"
+      @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('SetDownloader', 'itemsPerPage', v)"
+      @update:sortBy="(v: any[]) => configStore.updateTableBehavior('SetDownloader', 'sortBy', v)"
     >
       <template #item.type="{ item }">
         <v-avatar :image="getDownloaderIcon(item.type)" :alt="item.type" />
@@ -327,7 +328,7 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
           />
         </v-btn-group>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <AddDialog v-model="showAddDialog" />

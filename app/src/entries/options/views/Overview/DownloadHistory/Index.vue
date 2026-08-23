@@ -15,6 +15,7 @@ import TorrentTitleTd from "@/options/components/TorrentTitleTd.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import DownloaderLabel from "@/options/components/DownloaderLabel.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import ReDownloadSelectDialog from "./ReDownloadSelectDialog.vue";
 import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
 
@@ -42,7 +43,7 @@ const tableHeader = computed(
         title: t("DownloadHistory.table.title"),
         key: "title",
         align: "start",
-        minWidth: "30rem",
+        minWidth: "clamp(18rem, 30vw, 26rem)",
         ...(display.smAndDown.value ? { maxWidth: "32vw" } : {}),
       },
       { title: t("DownloadHistory.table.downloader"), key: "downloaderId", width: "11%", align: "start" },
@@ -203,7 +204,7 @@ onUnmounted(() => {
       </v-row>
     </v-card-title>
     <v-card-text>
-      <v-data-table
+      <ResponsiveDataTable
         v-model="tableSelected"
         :custom-filter="tableFilterFn"
         :filter-keys="['id'] /* 对每个item值只检索一次 */"
@@ -217,8 +218,8 @@ onUnmounted(() => {
         hover
         item-value="id"
         show-select
-        @update:itemsPerPage="(v) => configStore.updateTableBehavior('DownloadHistory', 'itemsPerPage', v)"
-        @update:sortBy="(v) => configStore.updateTableBehavior('DownloadHistory', 'sortBy', v)"
+        @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('DownloadHistory', 'itemsPerPage', v)"
+        @update:sortBy="(v: any[]) => configStore.updateTableBehavior('DownloadHistory', 'sortBy', v)"
       >
         <template #item.siteId="{ item }">
           <div class="d-flex flex-column align-center">
@@ -241,11 +242,11 @@ onUnmounted(() => {
 
         <template #item.downloadStatus="{ item }">
           <v-chip
-            :prepend-icon="downloadStatusMap[item.downloadStatus].icon"
-            :color="downloadStatusMap[item.downloadStatus].color"
+            :prepend-icon="downloadStatusMap[item.downloadStatus as keyof typeof downloadStatusMap].icon"
+            :color="downloadStatusMap[item.downloadStatus as keyof typeof downloadStatusMap].color"
             @click="() => viewDownloadDetail(item)"
           >
-            {{ downloadStatusMap[item.downloadStatus].title }}
+            {{ downloadStatusMap[item.downloadStatus as keyof typeof downloadStatusMap].title }}
           </v-chip>
         </template>
 
@@ -268,7 +269,7 @@ onUnmounted(() => {
             />
           </v-btn-group>
         </template>
-      </v-data-table>
+      </ResponsiveDataTable>
     </v-card-text>
   </v-card>
 

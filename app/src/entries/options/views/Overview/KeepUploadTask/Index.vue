@@ -12,6 +12,7 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import { dispatchDownloadOptions } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
 const { t } = useI18n();
@@ -34,7 +35,12 @@ const editLabelItems = computed(() => editDownloader.value?.suggestTags ?? []);
 
 const headers = [
   { title: t("KeepUploadTask.table.site"), key: "site", align: "center" as const, sortable: false },
-  { title: t("KeepUploadTask.table.title"), key: "title", align: "start" as const },
+  {
+    title: t("KeepUploadTask.table.title"),
+    key: "title",
+    align: "start" as const,
+    minWidth: "clamp(16rem, 28vw, 24rem)",
+  },
   { title: t("KeepUploadTask.table.size"), key: "size", align: "end" as const },
   { title: t("KeepUploadTask.table.count"), key: "count", align: "center" as const },
   { title: t("KeepUploadTask.table.time"), key: "time", align: "center" as const },
@@ -306,7 +312,8 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
       />
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
+      action-width="14rem"
       :key="tableKey"
       v-model="selectedTasks"
       v-model:expanded="expanded"
@@ -450,7 +457,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
                     color="primary"
                     size="small"
                     :title="t('KeepUploadTask.setAsBaseTorrent')"
-                    @click="setAsBaseTorrent(item, index)"
+                    @click="setAsBaseTorrent(item, Number(index))"
                   >
                     <v-icon>mdi-arrow-up-bold</v-icon>
                   </v-btn>
@@ -466,7 +473,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
           {{ t("KeepUploadTask.emptyNotice") }}
         </v-alert>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <v-dialog v-model="editDialog" :aria-label="t('KeepUploadTask.editSavePath')" max-width="620">

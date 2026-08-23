@@ -745,6 +745,8 @@
       "respondDisplayMode": "Respond to plugin setting ",
       "saveTableBehavior": "Remember table header columns, sorting, pagination, etc.",
       "showReleaseNote": "Show changelog window when plugin updates",
+      "uiScale": "Interface scale",
+      "uiScaleHint": "Scales only PTPP, never the Chrome page. This setting is included in configuration backups.",
       "sidebarFunctions": "Sidebar Functions",
       "sidebarStyle": "Sidebar Style",
       "socialSiteSearchBy": {
@@ -1312,8 +1314,20 @@
         "singleSite": "@:manifest.searchPlanSingleSite"
       },
       "searchTip": "Input keyword, IMDb numbers to search",
-      "wiki": "Wiki",
-      "wrongPixelRatioNotice": "Your page display may be affected by zooming. It is recommended to zoom at 100% to ensure your browsing experience~"
+      "uiScale": {
+        "browserZoom": "Chrome page zoom: {value}%",
+        "current": "PTPP interface scale: {value}%",
+        "decrease": "Scale interface down",
+        "devicePixelRatio": "Device pixel ratio (combined): {value}",
+        "devicePixelRatioHelp": "Chrome zoom comes from the browser API. System scale is estimated from device pixel ratio and Chrome zoom. PTPP never changes browser zoom.",
+        "increase": "Scale interface up",
+        "internal": "PTPP internal scale",
+        "open": "Adjust interface scale",
+        "reset": "Reset to 100%",
+        "systemScale": "System display scale (estimated): {value}%",
+        "title": "Interface scale"
+      },
+      "wiki": "Wiki"
     },
     "init": "Please wait patiently for the page to load.....",
     "releaseNote": {

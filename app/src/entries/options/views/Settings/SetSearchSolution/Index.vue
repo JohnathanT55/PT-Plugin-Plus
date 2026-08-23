@@ -16,6 +16,7 @@ import EditDialog from "./EditDialog.vue";
 import SolutionLabel from "./SolutionLabel.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
@@ -30,7 +31,13 @@ const tableSelected = ref<TSolutionKey[]>([]);
 const tableHeader = [
   { title: "№", key: "sort", align: "center", width: 150 },
   { title: t("common.name"), key: "name", align: "start", width: 150 },
-  { title: t("SetSearchSolution.solution"), key: "solution", align: "start", minWidth: 400, sortable: false },
+  {
+    title: t("SetSearchSolution.solution"),
+    key: "solution",
+    align: "start",
+    minWidth: "clamp(16rem, 28vw, 25rem)",
+    sortable: false,
+  },
   { title: t("SetSearchSolution.table.enable"), key: "enabled", align: "center", width: 120 },
   { title: t("SetSearchSolution.table.default"), key: "isDefault", align: "center", width: 120, sortable: false },
   { title: t("common.action"), key: "action", sortable: false, width: 200 },
@@ -219,7 +226,7 @@ async function copySearchSolution(solutionId: TSolutionKey) {
       </v-row>
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :filter-keys="['name']"
       :headers="tableHeader"
@@ -236,7 +243,7 @@ async function copySearchSolution(solutionId: TSolutionKey) {
       item-value="id"
       :multi-sort="configStore.enableTableMultiSort"
       show-select
-      @update:itemsPerPage="(v) => configStore.updateTableBehavior('SetSearchSolution', 'itemsPerPage', v)"
+      @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('SetSearchSolution', 'itemsPerPage', v)"
     >
       <!-- 这里预设一个固定的默认搜索方案 -->
       <template #body.prepend>
@@ -353,7 +360,7 @@ async function copySearchSolution(solutionId: TSolutionKey) {
           </v-btn>
         </v-btn-group>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <EditDialog v-model="showEditDialog" :solution-id="solutionId" />

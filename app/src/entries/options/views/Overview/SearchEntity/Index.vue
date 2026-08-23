@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useDisplay, type DataTableHeader } from "vuetify";
@@ -14,6 +14,7 @@ import type { ISearchResultTorrent } from "@/shared/types.ts";
 import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import TorrentTitleTd from "@/options/components/TorrentTitleTd.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 import ActionTd from "./ActionTd.vue";
 import TorrentProcessTd from "./TorrentProcessTd.vue";
@@ -177,73 +178,6 @@ const hiddenTagNamesText = computed({
   },
 });
 
-const searchTableHost = ref<HTMLElement | null>(null);
-const searchTableTopScrollbar = ref<HTMLElement | null>(null);
-const searchTableScrollWidth = ref(0);
-const searchTableHasHorizontalOverflow = ref(false);
-let searchTableScroller: HTMLElement | null = null;
-let searchTableResizeObserver: ResizeObserver | undefined;
-
-function updateSearchTableScrollMetrics() {
-  if (!searchTableScroller) return;
-
-  searchTableScrollWidth.value = Math.max(searchTableScroller.scrollWidth, searchTableScroller.clientWidth);
-  searchTableHasHorizontalOverflow.value = searchTableScroller.scrollWidth > searchTableScroller.clientWidth + 1;
-
-  if (searchTableTopScrollbar.value) {
-    searchTableTopScrollbar.value.scrollLeft = searchTableScroller.scrollLeft;
-  }
-}
-
-function syncSearchTableScroll(source: "top" | "table") {
-  if (!searchTableScroller || !searchTableTopScrollbar.value) return;
-
-  if (source === "top") {
-    searchTableScroller.scrollLeft = searchTableTopScrollbar.value.scrollLeft;
-  } else {
-    searchTableTopScrollbar.value.scrollLeft = searchTableScroller.scrollLeft;
-  }
-}
-
-function connectSearchTableScroller() {
-  void nextTick(() => {
-    const nextScroller = searchTableHost.value?.querySelector<HTMLElement>(".v-table__wrapper") ?? null;
-    if (!nextScroller) return;
-
-    if (searchTableScroller !== nextScroller) {
-      searchTableScroller?.removeEventListener("scroll", handleSearchTableScroll);
-      searchTableScroller = nextScroller;
-      searchTableScroller.addEventListener("scroll", handleSearchTableScroll, { passive: true });
-    }
-
-    searchTableResizeObserver?.disconnect();
-    searchTableResizeObserver = new ResizeObserver(updateSearchTableScrollMetrics);
-    searchTableResizeObserver.observe(searchTableScroller);
-    const table = searchTableScroller.querySelector("table");
-    if (table) searchTableResizeObserver.observe(table);
-    updateSearchTableScrollMetrics();
-  });
-}
-
-function handleSearchTableScroll() {
-  syncSearchTableScroll("table");
-}
-
-watch(
-  [
-    () => runtimeStore.search.searchResult.length,
-    () => tableHeader.value.map((header) => header.key).join(","),
-    () => display.width.value,
-  ],
-  connectSearchTableScroller,
-);
-
-onMounted(connectSearchTableScroller);
-
-onBeforeUnmount(() => {
-  searchTableScroller?.removeEventListener("scroll", handleSearchTableScroll);
-  searchTableResizeObserver?.disconnect();
-});
 </script>
 <template>
   <v-alert class="ptpp-search-status" type="info">
@@ -451,20 +385,7 @@ onBeforeUnmount(() => {
       </v-menu>
     </div>
 
-    <div
-      v-show="searchTableHasHorizontalOverflow"
-      ref="searchTableTopScrollbar"
-      :aria-label="t('SearchEntity.index.horizontalScroll')"
-      class="ptpp-search-horizontal-scrollbar"
-      role="region"
-      tabindex="0"
-      @scroll="syncSearchTableScroll('top')"
-    >
-      <div :style="{ width: `${searchTableScrollWidth}px` }" />
-    </div>
-
-    <div ref="searchTableHost" class="ptpp-search-table-host">
-      <v-data-table
+    <ResponsiveDataTable
         id="ptpp-search-entity-table"
         v-model="tableSelectedRaw"
         :custom-filter="tableFilterFn"
@@ -483,8 +404,9 @@ onBeforeUnmount(() => {
         return-object
         :row-props="searchResultRowProps"
         show-select
-        @update:itemsPerPage="(value) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
-        @update:sortBy="(value) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+        :top-scrollbar-label="t('SearchEntity.index.horizontalScroll')"
+        @update:itemsPerPage="(value: number) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
+        @update:sortBy="(value: any[]) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
       >
         <template #item.site="{ item }">
           <div class="d-flex flex-column align-center">
@@ -540,8 +462,7 @@ onBeforeUnmount(() => {
         <template #item.action="{ item }">
           <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
         </template>
-      </v-data-table>
-    </div>
+    </ResponsiveDataTable>
   </v-card>
 
   <AdvanceFilterGenerateDialog v-model="showAdvanceFilterGenerateDialog" />
@@ -648,48 +569,27 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.ptpp-search-table-host {
-  min-width: 0;
-  width: 100%;
-}
-
-.ptpp-search-horizontal-scrollbar {
-  background: var(--ptpp-card-background);
-  border-bottom: 1px solid var(--ptpp-divider);
-  height: 14px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  position: sticky;
-  scrollbar-color: rgba(var(--v-theme-on-surface), 0.45) transparent;
-  top: 116px;
-  z-index: 4;
-
-  > div {
-    height: 1px;
-  }
-}
-
-#ptpp-search-entity-table:deep(.v-data-table__th),
-#ptpp-search-entity-table:deep(.v-data-table__td) {
+.ptpp-search-card :deep(#ptpp-search-entity-table .v-data-table__th),
+.ptpp-search-card :deep(#ptpp-search-entity-table .v-data-table__td) {
   font-size: 12px;
   padding: 9px 8px !important;
 }
 
-#ptpp-search-entity-table:deep(tbody .v-data-table__tr:nth-child(even) .v-data-table__td) {
+.ptpp-search-card :deep(#ptpp-search-entity-table tbody .v-data-table__tr:nth-child(even) .v-data-table__td) {
   background: var(--ptpp-table-stripe);
 }
 
-#ptpp-search-entity-table:deep(tbody .v-data-table__tr.ptpp-selected-row .v-data-table__td) {
+.ptpp-search-card :deep(#ptpp-search-entity-table tbody .v-data-table__tr.ptpp-selected-row .v-data-table__td) {
   background: var(--ptpp-table-active) !important;
 }
 
-#ptpp-search-entity-table:deep(.ptpp-search-action-column) {
+.ptpp-search-card :deep(#ptpp-search-entity-table .ptpp-responsive-action-column) {
   box-shadow: -1px 0 var(--ptpp-divider);
   white-space: nowrap;
 }
 
-#ptpp-search-entity-table:deep(.v-data-table-footer__items-per-page .v-select),
-#ptpp-search-entity-table:deep(.v-data-table-footer__items-per-page .v-input) {
+.ptpp-search-card :deep(#ptpp-search-entity-table .v-data-table-footer__items-per-page .v-select),
+.ptpp-search-card :deep(#ptpp-search-entity-table .v-data-table-footer__items-per-page .v-input) {
   min-width: 104px;
 }
 

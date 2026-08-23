@@ -19,6 +19,7 @@ import RebuildMapDialog from "./RebuildMapDialog.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 // 数据来源
 import { allAddedSiteInfo, type ISiteTableItem } from "./utils.ts";
@@ -233,7 +234,7 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       </v-row>
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :headers="tableHeader"
       :items="allAddedSiteInfo"
@@ -247,8 +248,8 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       :multi-sort="configStore.enableTableMultiSort"
       hover
       show-select
-      @update:itemsPerPage="(v) => configStore.updateTableBehavior('SetSite', 'itemsPerPage', v)"
-      @update:sortBy="(v) => configStore.updateTableBehavior('SetSite', 'sortBy', v)"
+      @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('SetSite', 'itemsPerPage', v)"
+      @update:sortBy="(v: any[]) => configStore.updateTableBehavior('SetSite', 'sortBy', v)"
     >
       <template #item.userConfig.sortIndex="{ item }">
         <div class="d-flex">
@@ -415,7 +416,7 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
           </v-btn>
         </v-btn-group>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <AddDialog v-model="showAddDialog" />

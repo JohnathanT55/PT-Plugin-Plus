@@ -18,6 +18,7 @@ import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import ResultParseStatus from "@/options/components/ResultParseStatus.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
 
@@ -292,7 +293,7 @@ function viewStatistic() {
         />
       </v-row>
     </v-card-title>
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['site'] /* 对每个item值只检索一次 */"
@@ -307,8 +308,8 @@ function viewStatistic() {
       item-selectable="selectable"
       item-value="site"
       show-select
-      @update:itemsPerPage="(v) => configStore.updateTableBehavior('MyData', 'itemsPerPage', v)"
-      @update:sortBy="(v) => configStore.updateTableBehavior('MyData', 'sortBy', v)"
+      @update:itemsPerPage="(v: number) => configStore.updateTableBehavior('MyData', 'itemsPerPage', v)"
+      @update:sortBy="(v: any[]) => configStore.updateTableBehavior('MyData', 'sortBy', v)"
     >
       <!-- 站点信息 -->
       <template #item.siteUserConfig.sortIndex="{ item }">
@@ -539,7 +540,7 @@ function viewStatistic() {
         />
         <ResultParseStatus v-else-if="item.status !== EResultParseStatus.success" :status="item.status" />
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 </template>
 

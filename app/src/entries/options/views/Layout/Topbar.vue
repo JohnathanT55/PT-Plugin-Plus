@@ -15,6 +15,7 @@ import { PROJECT_REPO_URL, PTPP_UPSTREAM_URL } from "~/helper";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import RecommendationMenu from "./RecommendationMenu.vue";
+import UiScaleControl from "@/options/components/UiScaleControl.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -427,6 +428,8 @@ onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer)
     <v-spacer v-if="display.smAndUp.value" />
 
     <template #append>
+      <UiScaleControl compact />
+
       <template v-if="!display.mdAndDown.value">
         <!-- 处于大屏幕，完整显示所有btn -->
         <v-btn

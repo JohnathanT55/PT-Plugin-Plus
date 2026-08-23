@@ -12,6 +12,7 @@ import { loadSiteHistoryData } from "./utils/lastUserData.ts";
 
 import SiteName from "@/options/components/SiteName.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const showDialog = defineModel<boolean>();
 const { siteId } = defineProps<{
@@ -101,7 +102,7 @@ function afterEnter() {
       </v-card-title>
       <v-divider />
       <v-card-text>
-        <v-data-table
+        <ResponsiveDataTable
           v-model="tableSelected"
           :headers="tableHeader"
           :items="siteHistoryData"
@@ -214,7 +215,7 @@ function afterEnter() {
             <NavButton color="info" icon="mdi-export" :text="t('common.export')" @click="exportSiteHistoryData" />
             <v-spacer />
           </template>
-        </v-data-table>
+        </ResponsiveDataTable>
       </v-card-text>
     </v-card>
 

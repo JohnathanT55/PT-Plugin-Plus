@@ -12,6 +12,7 @@ import type { TBackupTrigger } from "@/shared/types.ts";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import RestoreDialog from "./RestoreDialog.vue";
 
 const showDialog = defineModel<boolean>();
@@ -207,7 +208,7 @@ async function dialogLeave() {
               {{ t("SetBackup.HistoryDialog.loadFailure", { error: loadError }) }}
             </v-alert>
 
-            <v-data-table
+            <ResponsiveDataTable
               v-model="tableSelected"
               :headers="tableHeaders"
               :items="backupHistory"
@@ -242,11 +243,11 @@ async function dialogLeave() {
                   />
                 </v-btn-group>
               </template>
-            </v-data-table>
+            </ResponsiveDataTable>
           </v-window-item>
 
           <v-window-item value="runs">
-            <v-data-table
+            <ResponsiveDataTable
               :headers="runTableHeaders"
               :items="server?.backupHistory ?? []"
               class="table-header-no-wrap table-stripe mt-3"
@@ -286,7 +287,7 @@ async function dialogLeave() {
                 </div>
                 <span v-else class="text-medium-emphasis">—</span>
               </template>
-            </v-data-table>
+            </ResponsiveDataTable>
           </v-window-item>
         </v-window>
       </v-card-text>

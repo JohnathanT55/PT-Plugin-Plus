@@ -11,6 +11,7 @@ import { BackupFields, type TBackupServerKey, type TBackupTrigger } from "@/shar
 import { sendMessage } from "@/messages.ts";
 
 import NavButton from "@/options/components/NavButton.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import AddDialog from "./AddDialog.vue";
 import EditDialog from "./EditDialog.vue";
@@ -145,7 +146,7 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
       </v-row>
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="tableSelected"
       :headers="fullTableHeader"
       :filter-keys="['id', 'name', 'type']"
@@ -254,7 +255,7 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
           />
         </v-btn-group>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <AddDialog v-model="showAddDialog" />

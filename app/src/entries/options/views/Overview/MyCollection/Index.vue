@@ -25,6 +25,7 @@ import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import ActionTd from "@/options/views/Overview/SearchEntity/ActionTd.vue";
+import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import GroupCard from "./GroupCard.vue";
 
 const ALL_GROUP = COLLECTION_ALL_GROUP_ID;
@@ -66,7 +67,7 @@ const headers = computed(
   () =>
     [
       { title: "№", key: "index", align: "center", width: 52, sortable: false },
-      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "22rem" },
+      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "clamp(16rem, 28vw, 22rem)" },
       { title: t("MyCollection.headers.source"), key: "siteId", align: "center", width: 90 },
       { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 100 },
       { title: t("MyCollection.headers.time"), key: "time", align: "center", width: 145 },
@@ -430,7 +431,7 @@ onMounted(loadCollection);
       />
     </v-card-title>
 
-    <v-data-table
+    <ResponsiveDataTable
       v-model="selectedLinks"
       :headers="headers"
       :items="visibleItems"
@@ -443,8 +444,8 @@ onMounted(loadCollection);
       item-value="link"
       :row-props="collectionRowProps"
       show-select
-      @update:items-per-page="(value) => configStore.updateTableBehavior('MyCollection', 'itemsPerPage', value)"
-      @update:sort-by="(value) => configStore.updateTableBehavior('MyCollection', 'sortBy', value)"
+      @update:items-per-page="(value: number) => configStore.updateTableBehavior('MyCollection', 'itemsPerPage', value)"
+      @update:sort-by="(value: any[]) => configStore.updateTableBehavior('MyCollection', 'sortBy', value)"
     >
       <template #item.index="{ index }">
         {{ index + 1 }}
@@ -582,7 +583,7 @@ onMounted(loadCollection);
       <template #no-data>
         <div class="pa-6 text-medium-emphasis">{{ t("MyCollection.empty") }}</div>
       </template>
-    </v-data-table>
+    </ResponsiveDataTable>
   </v-card>
 
   <v-dialog
