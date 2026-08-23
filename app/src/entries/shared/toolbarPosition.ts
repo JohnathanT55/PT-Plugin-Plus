@@ -2,6 +2,10 @@ import type { ToolbarDockSide } from "./types/storages/config.ts";
 
 export const TOOLBAR_POSITION_VERSION = 2;
 export const DEFAULT_TOOLBAR_EDGE_OFFSET = 16;
+export const TOOLBAR_DEFAULT_WIDTH = 96;
+export const TOOLBAR_COMPACT_WIDTH = 84;
+export const TOOLBAR_DEFAULT_BUTTON_HEIGHT = 60;
+export const TOOLBAR_COMPACT_BUTTON_HEIGHT = 48;
 
 export interface ToolbarPlacement {
   dockSide: ToolbarDockSide;

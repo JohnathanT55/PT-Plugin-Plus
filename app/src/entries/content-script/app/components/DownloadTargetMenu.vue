@@ -28,6 +28,8 @@ const showMenu = ref(false);
 const loading = ref(false);
 const status = ref<"idle" | "success" | "error">("idle");
 const menuAnchor = ref<HTMLElement>();
+const menuElement = ref<HTMLElement>();
+const menuShiftY = ref(0);
 const torrents = ref<ITorrent[]>([]);
 const targets = computed(() => buildSiteDownloadMenuTargets(metadataStore, ptdData.siteId));
 const firstGeneralIndex = computed(() => targets.value.findIndex((target) => target.kind === "general"));
@@ -59,6 +61,7 @@ async function openTargetMenu() {
     }
     showMenu.value = true;
     await nextTick();
+    adjustMenuToViewport();
     menuAnchor.value?.querySelector<HTMLElement>(".ptpp-download-target-item")?.focus();
   } catch (error) {
     status.value = "error";
@@ -67,6 +70,18 @@ async function openTargetMenu() {
   } finally {
     loading.value = false;
   }
+}
+
+function adjustMenuToViewport() {
+  menuShiftY.value = 0;
+  void nextTick(() => {
+    const bounds = menuElement.value?.getBoundingClientRect();
+    if (!bounds) return;
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const margin = 8;
+    if (bounds.top < margin) menuShiftY.value = margin - bounds.top;
+    else if (bounds.bottom > viewportHeight - margin) menuShiftY.value = viewportHeight - margin - bounds.bottom;
+  });
 }
 
 defineExpose({ openTargetMenu });
@@ -90,11 +105,13 @@ onMounted(() => {
   // on the tracker page and Escape both close the anchored menu.
   document.addEventListener("pointerdown", closeOnOutsidePointer, true);
   window.addEventListener("keydown", closeOnEscape, true);
+  window.addEventListener("resize", adjustMenuToViewport, true);
 });
 
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", closeOnOutsidePointer, true);
   window.removeEventListener("keydown", closeOnEscape, true);
+  window.removeEventListener("resize", adjustMenuToViewport, true);
 });
 
 async function selectTarget(target: DownloadMenuTarget) {
@@ -135,8 +152,10 @@ async function selectTarget(target: DownloadMenuTarget) {
 
     <div
       v-if="showMenu"
+      ref="menuElement"
       class="ptpp-download-target-menu"
       :class="`ptpp-download-target-menu--dock-${dockSide}`"
+      :style="{ '--ptpp-menu-shift-y': `${menuShiftY}px` }"
       role="menu"
       :aria-label="title"
     >
@@ -182,14 +201,15 @@ async function selectTarget(target: DownloadMenuTarget) {
   display: flex;
   flex-direction: column;
   max-height: min(70vh, 560px);
-  max-width: calc(100vw - 120px);
-  min-width: 360px;
+  box-sizing: border-box;
+  max-width: calc(100vw - var(--ptpp-toolbar-width, 96px) - 24px);
+  min-width: min(360px, calc(100vw - var(--ptpp-toolbar-width, 96px) - 24px));
   overflow-y: auto;
   padding: 4px 0;
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-  width: 640px;
+  transform: translateY(calc(-50% + var(--ptpp-menu-shift-y, 0px)));
+  width: min(640px, calc(100vw - var(--ptpp-toolbar-width, 96px) - 24px));
   z-index: 2;
 }
 

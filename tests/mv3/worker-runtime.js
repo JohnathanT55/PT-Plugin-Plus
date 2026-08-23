@@ -80,6 +80,9 @@ const requiredSourceModules = [
   "src/collection/searchContext.ts",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
+  "app/src/entries/content-script/app/components/SpeedDialBtn.vue",
+  "app/src/entries/content-script/app/App.vue",
+  "app/src/entries/shared/toolbarPosition.ts",
   "app/src/entries/shared/clientDashboard.ts",
   "app/src/entries/options/components/DownloadTargetMenu.vue",
   "app/src/entries/options/views/Settings/SetBase/ToolbarWindow.vue",
@@ -94,6 +97,18 @@ for (const sourceModule of requiredSourceModules) {
 
 const downloadMenuSource = fs.readFileSync(
   path.join(root, "app/src/entries/content-script/app/components/DownloadTargetMenu.vue"),
+  "utf8",
+);
+const contentToolbarSource = fs.readFileSync(
+  path.join(root, "app/src/entries/content-script/app/App.vue"),
+  "utf8",
+);
+const speedDialSource = fs.readFileSync(
+  path.join(root, "app/src/entries/content-script/app/components/SpeedDialBtn.vue"),
+  "utf8",
+);
+const toolbarPositionSource = fs.readFileSync(
+  path.join(root, "app/src/entries/shared/toolbarPosition.ts"),
   "utf8",
 );
 const clientDashboardSource = fs.readFileSync(
@@ -238,6 +253,22 @@ assert(
   downloadMenuSource.includes('window.addEventListener("keydown"') &&
     downloadMenuSource.includes('document.addEventListener("pointerdown"'),
   "download-to menu closes across the shadow-root boundary",
+);
+assert(
+  toolbarPositionSource.includes("TOOLBAR_DEFAULT_WIDTH = 96") &&
+    contentToolbarSource.includes("TOOLBAR_DEFAULT_WIDTH") &&
+    contentToolbarSource.includes("--ptpp-toolbar-width"),
+  "content toolbar uses the shared 96 px geometry for styling and initial placement",
+);
+assert(
+  speedDialSource.includes("--ptpp-toolbar-button-height") &&
+    speedDialSource.includes("min-height: 44px") &&
+    speedDialSource.includes("max-height: 700px"),
+  "toolbar buttons provide relaxed desktop spacing and an accessible compact fallback",
+);
+assert(
+  downloadMenuSource.includes("adjustMenuToViewport") && downloadMenuSource.includes("--ptpp-menu-shift-y"),
+  "the widened toolbar keeps its anchored target menu inside the viewport",
 );
 assert(
   clientDashboardSource.includes('SUPPORTED_CLIENT_DOWNLOADER_TYPES = ["qBittorrent", "Transmission"]') &&

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, provide, ref, useTemplateRef, watch, withModifiers } from "vue";
 import { useI18n } from "vue-i18n";
+import { useLocale as useVuetifyLocale } from "vuetify";
 import { useDraggable } from "@vueuse/core";
 import { type ITorrent } from "@ptd/site";
 
@@ -8,6 +9,7 @@ import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { vuetifyLangMap } from "@/options/plugins/vuetify.ts";
 import { sendTorrentAssignments } from "@/options/components/SentToDownloaderDialog/utils.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import {
@@ -16,6 +18,10 @@ import {
   migrateLegacyToolbarPosition,
   normalizeToolbarPlacement,
   placementToCoordinates,
+  TOOLBAR_COMPACT_BUTTON_HEIGHT,
+  TOOLBAR_COMPACT_WIDTH,
+  TOOLBAR_DEFAULT_BUTTON_HEIGHT,
+  TOOLBAR_DEFAULT_WIDTH,
   TOOLBAR_POSITION_VERSION,
   type ToolbarPlacement,
 } from "@/shared/toolbarPosition.ts";
@@ -27,7 +33,17 @@ import DownloadTargetMenu from "@/options/components/DownloadTargetMenu.vue";
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
-const { t } = useI18n();
+const { t, locale } = useI18n({ useScope: "global" });
+const { current: vuetifyLocale } = useVuetifyLocale();
+
+watch(
+  () => configStore.lang,
+  (language) => {
+    locale.value = language;
+    vuetifyLocale.value = vuetifyLangMap[language];
+  },
+  { immediate: true },
+);
 
 const ptppIcon = chrome.runtime.getURL("icons/logo/64.png");
 const ptdData = inject<IPtdData>("ptd_data", {});
@@ -38,6 +54,8 @@ provide("app", el);
 
 let toolbarResizeObserver: ResizeObserver | undefined;
 let viewportResizeObserver: ResizeObserver | undefined;
+let viewportGeometryPoll: number | undefined;
+let lastViewportGeometrySignature = "";
 
 const { x, y, style } = useDraggable(el, {
   handle: dragHandle,
@@ -53,6 +71,12 @@ const { x, y, style } = useDraggable(el, {
 });
 
 const toolbarPlacement = computed<ToolbarPlacement>(() => normalizeToolbarPlacement(configStore.contentScript));
+const toolbarCssVariables = {
+  "--ptpp-toolbar-width": `${TOOLBAR_DEFAULT_WIDTH}px`,
+  "--ptpp-toolbar-compact-width": `${TOOLBAR_COMPACT_WIDTH}px`,
+  "--ptpp-toolbar-button-height": `${TOOLBAR_DEFAULT_BUTTON_HEIGHT}px`,
+  "--ptpp-toolbar-compact-button-height": `${TOOLBAR_COMPACT_BUTTON_HEIGHT}px`,
+};
 
 function getToolbarSize() {
   const bounds = el.value?.getBoundingClientRect();
@@ -60,12 +84,13 @@ function getToolbarSize() {
   // root. On a newly-created background tab Vue can mount before that link is
   // ready, briefly making the div span almost the full document width. Using
   // that transient width turns a right-edge placement into an x coordinate
-  // near the left edge. The product toolbar has a fixed 80px width; reject an
-  // obviously unstyled measurement and let the ResizeObserver refine it once
-  // the real CSS geometry is available.
+  // near the left edge. Reject an obviously unstyled measurement and let the
+  // ResizeObserver refine it once the real CSS geometry is available. Keep
+  // this fallback synchronized with the shared PTPP toolbar width so initial
+  // right docking stays stable when that width changes.
   const measuredWidth = bounds?.width ?? 0;
   return {
-    width: measuredWidth > 0 && measuredWidth <= 200 ? measuredWidth : 80,
+    width: measuredWidth > 0 && measuredWidth <= 200 ? measuredWidth : TOOLBAR_DEFAULT_WIDTH,
     height: bounds?.height || 0,
   };
 }
@@ -113,6 +138,31 @@ function positionToolbarWhenVisible() {
   if (!document.hidden) positionToolbarAfterViewportChange();
 }
 
+function viewportGeometrySignature() {
+  const viewport = getViewportSize();
+  const toolbar = getToolbarSize();
+  const visualViewport = window.visualViewport;
+  return [
+    viewport.width,
+    viewport.height,
+    visualViewport?.scale ?? 1,
+    visualViewport?.offsetLeft ?? 0,
+    visualViewport?.offsetTop ?? 0,
+    toolbar.width,
+    toolbar.height,
+  ]
+    .map((value) => Number(value).toFixed(2))
+    .join(":");
+}
+
+function reconcileToolbarGeometry() {
+  if (!el.value) return;
+  const signature = viewportGeometrySignature();
+  if (signature === lastViewportGeometrySignature) return;
+  lastViewportGeometrySignature = signature;
+  positionToolbarAfterViewportChange();
+}
+
 window.addEventListener("resize", positionToolbarAfterViewportChange);
 window.addEventListener("pageshow", positionToolbarAfterViewportChange);
 window.visualViewport?.addEventListener("resize", positionToolbarAfterViewportChange);
@@ -125,6 +175,7 @@ onBeforeUnmount(() => {
   document.removeEventListener("visibilitychange", positionToolbarWhenVisible);
   toolbarResizeObserver?.disconnect();
   viewportResizeObserver?.disconnect();
+  if (viewportGeometryPoll !== undefined) window.clearInterval(viewportGeometryPoll);
 });
 
 async function initializeToolbarPosition() {
@@ -142,6 +193,18 @@ async function initializeToolbarPosition() {
     toolbarResizeObserver = new ResizeObserver(positionToolbarAfterViewportChange);
     toolbarResizeObserver.observe(el.value);
   }
+
+  // Chrome page zoom normally emits resize/ResizeObserver events, but an
+  // extension isolated world can occasionally miss them after a background
+  // tab or emulated viewport transition. Keep a low-frequency, foreground-
+  // geometry signature as a safety net; it performs no placement work while
+  // the dimensions remain unchanged, remains useful for background-created
+  // tabs (where Chrome applies its own timer throttling), and never relies on
+  // the MV3 worker.
+  if (viewportGeometryPoll === undefined) {
+    viewportGeometryPoll = window.setInterval(reconcileToolbarGeometry, 1000);
+  }
+  reconcileToolbarGeometry();
 
   const viewport = getViewportSize();
   if (viewport.width <= 0 || viewport.height <= 0 || !el.value) return;
@@ -360,7 +423,7 @@ function openOptions() {
   <v-theme-provider theme="">
     <div
       ref="el"
-      :style="style"
+      :style="[style, toolbarCssVariables]"
       class="ptpp-toolbar"
       :data-dock-side="toolbarPlacement.dockSide"
       @mouseleave.prevent="isDragging = false"
@@ -403,10 +466,10 @@ function openOptions() {
   font-family: Arial, "Microsoft YaHei", sans-serif;
   opacity: 0.32;
   overflow: visible;
-  padding-bottom: 5px;
+  padding-bottom: 7px;
   position: fixed;
   transition: opacity 120ms ease;
-  width: 80px;
+  width: var(--ptpp-toolbar-width, 96px);
   z-index: 9999999;
 
   &:hover,
@@ -419,7 +482,7 @@ function openOptions() {
   background: #ffc107;
   border-radius: 8px 8px 0 0;
   cursor: move;
-  height: 8px;
+  height: 9px;
   width: 100%;
 }
 
@@ -429,14 +492,14 @@ function openOptions() {
   border: 0;
   cursor: pointer;
   display: block;
-  margin: 5px auto;
+  margin: 7px auto;
   padding: 0;
 
   img {
     display: block;
-    height: 34px;
+    height: 38px;
     opacity: 0.75;
-    width: 34px;
+    width: 38px;
   }
 }
 
@@ -447,6 +510,22 @@ function openOptions() {
 @keyframes ptpp-logo-loading {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-height: 700px), (max-width: 520px) {
+  .ptpp-toolbar {
+    padding-bottom: 4px;
+    width: var(--ptpp-toolbar-compact-width, 84px);
+  }
+
+  .ptpp-toolbar-logo {
+    margin: 4px auto;
+
+    img {
+      height: 30px;
+      width: 30px;
+    }
   }
 }
 </style>

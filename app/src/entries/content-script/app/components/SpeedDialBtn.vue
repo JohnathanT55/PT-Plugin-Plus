@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useAttrs } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
 
@@ -14,6 +15,7 @@ const props = defineProps<{
 }>();
 
 const attrs = useAttrs();
+const { locale } = useI18n({ useScope: "global" });
 const iconName = computed(() =>
   props.loading
     ? "mdi-loading"
@@ -32,13 +34,14 @@ const iconName = computed(() =>
     :class="{
       'ptpp-toolbar-button-success': status === 'success',
       'ptpp-toolbar-button-error': status === 'error',
+      'ptpp-toolbar-button-en': locale === 'en',
     }"
     type="button"
     :disabled="disabled || loading"
     :title="title"
     :aria-label="title"
   >
-    <v-icon :class="{ 'ptpp-toolbar-icon-loading': loading }" :icon="iconName" size="34" />
+    <v-icon :class="{ 'ptpp-toolbar-icon-loading': loading }" :icon="iconName" />
     <span>{{ label ?? title }}</span>
   </button>
 </template>
@@ -54,12 +57,13 @@ const iconName = computed(() =>
   display: flex;
   flex-direction: column;
   font:
-    12px/1.25 Arial,
+    12px/1.3 Arial,
     "Microsoft YaHei",
     sans-serif;
   justify-content: center;
-  height: 50px;
-  padding: 3px 4px;
+  height: var(--ptpp-toolbar-button-height, 60px);
+  min-height: 44px;
+  padding: 6px 8px;
   position: relative;
   text-align: center;
   width: 100%;
@@ -67,9 +71,9 @@ const iconName = computed(() =>
   &::before {
     border-top: 1px dotted #c8d3dc;
     content: "";
-    left: 7px;
+    left: 10px;
     position: absolute;
-    right: 7px;
+    right: 10px;
     top: 0;
   }
 
@@ -93,8 +97,30 @@ const iconName = computed(() =>
   }
 
   > span {
-    margin-top: 2px;
-    overflow-wrap: anywhere;
+    display: block;
+    margin-top: 3px;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: keep-all;
+  }
+
+  :deep(.v-icon) {
+    flex: 0 0 auto;
+    font-size: 32px;
+  }
+
+  &.ptpp-toolbar-button-en {
+    font-size: 11px;
+    line-height: 1.18;
+    padding: 4px 6px;
+
+    > span {
+      margin-top: 2px;
+    }
+
+    :deep(.v-icon) {
+      font-size: 30px;
+    }
   }
 }
 
@@ -105,6 +131,36 @@ const iconName = computed(() =>
 @keyframes ptpp-toolbar-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-height: 700px), (max-width: 520px) {
+  .ptpp-toolbar-button {
+    font-size: 11px;
+    height: var(--ptpp-toolbar-compact-button-height, 48px);
+    padding: 3px 5px;
+
+    &::before {
+      left: 8px;
+      right: 8px;
+    }
+
+    > span {
+      margin-top: 1px;
+    }
+
+    :deep(.v-icon) {
+      font-size: 27px;
+    }
+
+    &.ptpp-toolbar-button-en {
+      font-size: 10px;
+      padding: 2px 4px;
+
+      :deep(.v-icon) {
+        font-size: 25px;
+      }
+    }
   }
 }
 </style>
