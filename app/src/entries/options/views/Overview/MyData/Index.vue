@@ -18,7 +18,6 @@ import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import ResultParseStatus from "@/options/components/ResultParseStatus.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
 
@@ -293,8 +292,7 @@ function viewStatistic() {
         />
       </v-row>
     </v-card-title>
-    <ResponsiveDataTable
-      :primary-keys="['site', 'username']"
+    <v-data-table
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['site'] /* 对每个item值只检索一次 */"
@@ -541,7 +539,7 @@ function viewStatistic() {
         />
         <ResultParseStatus v-else-if="item.status !== EResultParseStatus.success" :status="item.status" />
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 </template>
 

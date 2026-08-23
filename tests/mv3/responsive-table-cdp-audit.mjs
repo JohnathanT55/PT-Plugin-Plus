@@ -139,13 +139,22 @@ async function setBrowserZoom(zoom) {
   await sleep(120);
 }
 
-async function navigate(route) {
+async function navigate(route, expectResponsiveTable = true) {
   session.label = `route:${route}`;
   await evaluate(`location.hash = ${JSON.stringify(`#${route}`)}; true`);
   await waitFor(
     `location.hash.startsWith(${JSON.stringify(`#${route}`)}) && document.querySelector('#ptpp-main')`,
     route,
   );
+  await waitFor(`document.querySelector('.v-data-table')`, `${route} data table`);
+  if (!expectResponsiveTable) {
+    await waitFor(
+      `!document.querySelector('.ptpp-responsive-data-table')`,
+      `${route} native table without responsive wrapper`,
+    );
+    await sleep(40);
+    return;
+  }
   await waitFor(`document.querySelector('.ptpp-responsive-data-table')`, `${route} responsive table`);
   await waitFor(
     `[...document.querySelectorAll('.ptpp-responsive-data-table')].every((host) => {
@@ -168,6 +177,7 @@ async function pageAndTables() {
       scrollWidth: document.documentElement.scrollWidth,
     },
     systemBars: document.querySelectorAll('.v-system-bar').length,
+    nativeTableCount: document.querySelectorAll('.v-data-table').length,
     tables: [...document.querySelectorAll('.ptpp-responsive-data-table')].map((host) => {
       const scroller = host.querySelector('.v-table__wrapper');
       const top = host.querySelector('.ptpp-responsive-table-scrollbar');
@@ -190,7 +200,27 @@ async function pageAndTables() {
 const originalState = await evaluate(`Promise.all([
   chrome.storage.local.get("config").then(({ config }) => config),
   Promise.resolve(sessionStorage.getItem("__ptd_runtime_store")),
-]).then(([config, runtime]) => ({ config, runtime }))`);
+  chrome.storage.local.get("keepUploadTask").then((result) => ({
+    exists: Object.prototype.hasOwnProperty.call(result, "keepUploadTask"),
+    value: result.keepUploadTask,
+  })),
+  new Promise((resolve, reject) => {
+    const request = indexedDB.open("ptd");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction("download_history", "readonly");
+      const rows = transaction.objectStore("download_history").getAll();
+      rows.onerror = () => reject(rows.error);
+      rows.onsuccess = () => resolve(rows.result);
+    };
+  }),
+]).then(([config, runtime, keepUploadTask, downloadHistory]) => ({
+  config,
+  runtime,
+  keepUploadTask,
+  downloadHistory,
+}))`);
 
 const sites = ["u2", "audiences", "mteam", "skyeysnow", "hdsky"];
 const now = Date.now();
@@ -217,6 +247,64 @@ const syntheticRows = Array.from({ length: syntheticCount }, (_, index) => {
     tags: [{ name: index % 2 ? "Free" : "50%", color: index % 2 ? "blue" : "amber-darken-2" }],
   };
 });
+const syntheticKeepUploadTask = {
+  id: "responsive-audit-delete-task",
+  time: now,
+  title:
+    "Responsive keep-upload deletion regression with a deliberately long title that must yield space to all actions",
+  size: 201_729_490_944,
+  downloadOptions: {
+    downloaderId: "responsive-audit-downloader",
+    clientName: "Transmission",
+    savePath: "/downloads/responsive-audit/with/a/deliberately/long/path",
+  },
+  items: [
+    {
+      site: "u2",
+      title: "Responsive keep-upload base torrent",
+      link: "https://example.invalid/details/keep-upload-base",
+      url: "https://example.invalid/download/keep-upload-base",
+      size: 201_729_490_944,
+      seeders: 10,
+      leechers: 1,
+    },
+    {
+      site: "mteam",
+      title: "Responsive keep-upload secondary torrent",
+      link: "https://example.invalid/details/keep-upload-secondary",
+      url: "https://example.invalid/download/keep-upload-secondary",
+      size: 201_729_490_944,
+      seeders: 8,
+      leechers: 0,
+    },
+  ],
+};
+const syntheticDownloadHistory = {
+  id: 987_654_321,
+  siteId: "u2",
+  torrentId: "responsive-audit-download-history",
+  downloaderId: "local",
+  downloadAt: now,
+  downloadStatus: "completed",
+  title:
+    "Responsive download history regression with a deliberately long release title that must yield space to status and actions",
+  subTitle: "Synthetic isolated-profile row used only by the Chrome CDP audit",
+  url: "https://example.invalid/download/download-history",
+  link: "https://example.invalid/details/download-history",
+  torrent: {
+    id: "responsive-audit-download-history",
+    site: "u2",
+    title:
+      "Responsive download history regression with a deliberately long release title that must yield space to status and actions",
+    subTitle: "Synthetic isolated-profile row used only by the Chrome CDP audit",
+    url: "https://example.invalid/download/download-history",
+    link: "https://example.invalid/details/download-history",
+    size: 201_729_490_944,
+    seeders: 10,
+    leechers: 1,
+  },
+  addTorrentOptions: {},
+};
 
 try {
   session.label = "baseline-configuration";
@@ -387,7 +475,7 @@ try {
     scrollContract,
   );
   assert(
-    scrollContract.afterNative.tableLeft === scrollContract.afterNative.topLeft,
+    Math.abs(scrollContract.afterNative.tableLeft - scrollContract.afterNative.topLeft) <= 1,
     "native scroll did not synchronize upward",
     scrollContract,
   );
@@ -420,20 +508,183 @@ try {
     );
   }
 
+  session.label = "keep-upload-selected-delete";
+  await evaluate(`chrome.storage.local.set({
+    keepUploadTask: {
+      [${JSON.stringify(syntheticKeepUploadTask.id)}]: ${JSON.stringify(syntheticKeepUploadTask)},
+    },
+  }).then(() => true)`);
+  await navigate("/keep-upload-task", false);
+  await waitFor(
+    `document.querySelectorAll('.v-data-table tbody tr.v-data-table__tr').length === 1`,
+    "synthetic keep-upload task row",
+  );
+  const keepUploadLayout = await evaluate(`(() => {
+    const table = document.querySelector('.v-data-table');
+    const scroller = table?.querySelector('.v-table__wrapper');
+    const row = table?.querySelector('tbody tr.v-data-table__tr');
+    const title = row?.querySelector('.keep-upload-title-link');
+    const actions = row?.querySelector('.keep-upload-actions');
+    const expandButton = row?.querySelector('td:last-child button');
+    const rect = (element) => element?.getBoundingClientRect().toJSON();
+    return {
+      scroller: rect(scroller),
+      scrollWidth: scroller?.scrollWidth ?? 0,
+      clientWidth: scroller?.clientWidth ?? 0,
+      title: rect(title),
+      titleScrollWidth: title?.scrollWidth ?? 0,
+      titleClientWidth: title?.clientWidth ?? 0,
+      actions: rect(actions),
+      actionButtons: [...(actions?.querySelectorAll('button') ?? [])].map(rect),
+      expandButton: rect(expandButton),
+    };
+  })()`);
+  assert(keepUploadLayout.actionButtons.length === 5, "keep-upload row did not expose all five actions", keepUploadLayout);
+  for (const button of [...keepUploadLayout.actionButtons, keepUploadLayout.expandButton]) {
+    assert(
+      button && button.left >= keepUploadLayout.scroller.left - 1 && button.right <= keepUploadLayout.scroller.right + 1,
+      "keep-upload action or expand button is outside the initial table viewport",
+      keepUploadLayout,
+    );
+  }
+  assert(
+    keepUploadLayout.titleClientWidth < keepUploadLayout.titleScrollWidth,
+    "long keep-upload title did not yield space through truncation",
+    keepUploadLayout,
+  );
+  const keepUploadCountHeader = await evaluate(`(() => {
+    const header = [...document.querySelectorAll('.keep-upload-table thead th')].find((cell) =>
+      cell.textContent.replace(/\\s/g, '') === '种子数'
+    );
+    const label = header?.querySelector('.v-data-table-header__content span');
+    return header && label ? {
+      rect: header.getBoundingClientRect().toJSON(),
+      whiteSpace: getComputedStyle(label).whiteSpace,
+    } : null;
+  })()`);
+  assert(
+    keepUploadCountHeader?.rect.width >= 72 && keepUploadCountHeader.whiteSpace === "nowrap",
+    "keep-upload torrent-count header wrapped vertically",
+    keepUploadCountHeader,
+  );
+  await evaluate(`document.querySelector('.keep-upload-table tbody tr.v-data-table__tr td:last-child button')?.click(); true`);
+  await waitFor(`document.querySelector('.keep-upload-expanded-site')`, "expanded keep-upload task details");
+  const expandedItemSpacing = await evaluate(`(() => {
+    const item = document.querySelector('.keep-upload-expanded-item');
+    const site = item?.querySelector('.keep-upload-expanded-site');
+    const content = item?.querySelector('.v-list-item__content');
+    const siteRect = site?.getBoundingClientRect();
+    const contentRect = content?.getBoundingClientRect();
+    return {
+      gap: siteRect && contentRect ? contentRect.left - siteRect.right : -1,
+      site: siteRect?.toJSON(),
+      content: contentRect?.toJSON(),
+    };
+  })()`);
+  assert(expandedItemSpacing.gap >= 10, "expanded keep-upload site icon is too close to its content", expandedItemSpacing);
+  await evaluate(`(() => {
+    window.__ptppAuditConfirm = window.confirm;
+    window.confirm = () => true;
+    document.querySelector('.v-data-table tbody tr.v-data-table__tr input[type="checkbox"]')?.click();
+    return true;
+  })()`);
+  await waitFor(
+    `[...document.querySelectorAll('.ptpp-page-toolbar button')].some((button) =>
+      button.textContent.includes('删除') && !button.disabled
+    )`,
+    "enabled selected-task delete button",
+  );
+  await evaluate(`(() => {
+    const button = [...document.querySelectorAll('.ptpp-page-toolbar button')].find((candidate) =>
+      candidate.textContent.includes('删除') && !candidate.disabled
+    );
+    button?.click();
+    return !!button;
+  })()`);
+  await waitFor(
+    `chrome.storage.local.get("keepUploadTask").then(({ keepUploadTask }) =>
+      !keepUploadTask?.[${JSON.stringify(syntheticKeepUploadTask.id)}]
+    )`,
+    "selected keep-upload task deletion from storage",
+  );
+  await waitFor(
+    `document.querySelectorAll('.v-data-table tbody tr.v-data-table__tr').length === 0`,
+    "selected keep-upload task deletion from the table",
+  );
+  await evaluate(`(() => {
+    window.confirm = window.__ptppAuditConfirm;
+    delete window.__ptppAuditConfirm;
+    return true;
+  })()`);
+
+  session.label = "download-history-responsive-title";
+  await evaluate(`new Promise((resolve, reject) => {
+    const request = indexedDB.open("ptd");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction("download_history", "readwrite");
+      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = () => resolve(true);
+      transaction.objectStore("download_history").put(${JSON.stringify(syntheticDownloadHistory)});
+    };
+  })`);
+  await navigate("/download-history", false);
+  await waitFor(
+    `document.querySelector('.download-history-title-cell .ptpp-torrent-title-main')?.textContent.includes('Responsive download history')`,
+    "synthetic download history row",
+  );
+  const downloadHistoryLayout = await evaluate(`(() => {
+    const table = document.querySelector('.download-history-table');
+    const scroller = table?.querySelector('.v-table__wrapper');
+    const title = table?.querySelector('.download-history-title-cell .ptpp-torrent-title-main');
+    const actions = table?.querySelector('.table-action');
+    const rect = (element) => element?.getBoundingClientRect().toJSON();
+    return {
+      scroller: rect(scroller),
+      scrollWidth: scroller?.scrollWidth ?? 0,
+      clientWidth: scroller?.clientWidth ?? 0,
+      title: rect(title),
+      titleScrollWidth: title?.scrollWidth ?? 0,
+      titleClientWidth: title?.clientWidth ?? 0,
+      actionButtons: [...(actions?.querySelectorAll('button') ?? [])].map(rect),
+    };
+  })()`);
+  assert(
+    downloadHistoryLayout.scrollWidth <= downloadHistoryLayout.clientWidth + 1,
+    "download history table still overflows before its title yields space",
+    downloadHistoryLayout,
+  );
+  assert(downloadHistoryLayout.actionButtons.length === 2, "download history actions are incomplete", downloadHistoryLayout);
+  for (const button of downloadHistoryLayout.actionButtons) {
+    assert(
+      button.left >= downloadHistoryLayout.scroller.left - 1 &&
+        button.right <= downloadHistoryLayout.scroller.right + 1,
+      "download history action is outside the initial table viewport",
+      downloadHistoryLayout,
+    );
+    assert(button.width >= 32, "download history action hit target is too narrow", downloadHistoryLayout);
+  }
+  assert(
+    downloadHistoryLayout.titleClientWidth < downloadHistoryLayout.titleScrollWidth,
+    "long download history title did not yield space through truncation",
+    downloadHistoryLayout,
+  );
+
   session.label = "full-route-matrix";
   const tableRoutes = [
-    "/search-entity",
-    "/download-history",
-    "/my-collection",
-    "/keep-upload-task",
-    "/my-data",
-    "/search-result-snapshot",
-    "/set-downloader",
-    "/set-site",
-    "/set-download-paths",
-    "/set-search-solution",
-    "/set-backup",
-    "/logger",
+    { route: "/search-entity", responsive: true },
+    { route: "/download-history", responsive: false },
+    { route: "/my-collection", responsive: false },
+    { route: "/keep-upload-task", responsive: false },
+    { route: "/my-data", responsive: false },
+    { route: "/search-result-snapshot", responsive: false },
+    { route: "/set-downloader", responsive: false },
+    { route: "/set-site", responsive: false },
+    { route: "/set-download-paths", responsive: false },
+    { route: "/set-search-solution", responsive: false },
+    { route: "/set-backup", responsive: false },
+    { route: "/logger", responsive: false },
   ];
   const matrix = [];
   for (const viewport of [
@@ -452,8 +703,8 @@ try {
           await setViewport(viewport.width, viewport.height);
           await setBrowserZoom(zoom);
           await reload();
-          for (const route of tableRoutes) {
-            await navigate(route);
+          for (const { route, responsive } of tableRoutes) {
+            await navigate(route, responsive);
             const result = await pageAndTables();
             assert(result.systemBars === 0, "browser zoom rendered an application warning bar", {
               viewport,
@@ -466,12 +717,19 @@ try {
               "route caused document-level horizontal overflow",
               { viewport, zoom, route, result },
             );
-            assert(result.tables.length > 0, "route did not render the shared table", {
+            assert(result.nativeTableCount > 0, "route did not render a data table", {
               viewport,
               zoom,
               route,
               result,
             });
+            assert(
+              responsive ? result.tables.length > 0 : result.tables.length === 0,
+              responsive
+                ? "search route did not render the responsive table"
+                : "non-search route rendered the responsive table",
+              { viewport, zoom, route, result },
+            );
             for (const table of result.tables) {
               const overflows = table.scrollWidth > table.clientWidth + 1;
               assert(
@@ -559,6 +817,22 @@ try {
   session.label = "restore-isolated-profile";
   await evaluate(`Promise.all([
     chrome.storage.local.set({ config: ${JSON.stringify(originalState.config)} }),
+    ${originalState.keepUploadTask.exists
+      ? `chrome.storage.local.set({ keepUploadTask: ${JSON.stringify(originalState.keepUploadTask.value)} })`
+      : `chrome.storage.local.remove("keepUploadTask")`},
+    new Promise((resolve, reject) => {
+      const request = indexedDB.open("ptd");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("download_history", "readwrite");
+        transaction.onerror = () => reject(transaction.error);
+        transaction.oncomplete = () => resolve(true);
+        const store = transaction.objectStore("download_history");
+        store.clear();
+        for (const row of ${JSON.stringify(originalState.downloadHistory)}) store.put(row);
+      };
+    }),
     Promise.resolve().then(() => {
       const runtime = ${JSON.stringify(originalState.runtime)};
       const runtimeStore = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('runtime');

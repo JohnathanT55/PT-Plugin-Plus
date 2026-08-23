@@ -3,7 +3,7 @@ import { computed, ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import type { CAddTorrentOptions } from "@ptd/downloader";
 
-import type { IDownloadTorrentOption, IKeepUploadTask } from "@/shared/types.ts";
+import type { IDownloadTorrentOption, IKeepUploadTask, TKeepUploadTaskKey } from "@/shared/types.ts";
 import { sendMessage } from "@/messages.ts";
 import { formatSize, formatDate } from "@/options/utils.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -12,7 +12,6 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { resolveSiteDownloadTarget } from "@/shared/downloadTarget.ts";
 import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import { dispatchDownloadOptions } from "@/options/components/SentToDownloaderDialog/utils.ts";
 
 const { t } = useI18n();
@@ -20,7 +19,7 @@ const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
 
 const tasks = ref<IKeepUploadTask[]>([]);
-const selectedTasks = ref<IKeepUploadTask[]>([]);
+const selectedTasks = ref<TKeepUploadTaskKey[]>([]);
 const expanded = ref<string[]>([]);
 const loading = ref(false);
 const tableKey = ref(0); // 用于强制刷新表格
@@ -34,17 +33,22 @@ const editSavePathItems = computed(() => editDownloader.value?.suggestFolders ??
 const editLabelItems = computed(() => editDownloader.value?.suggestTags ?? []);
 
 const headers = [
-  { title: t("KeepUploadTask.table.site"), key: "site", align: "center" as const, sortable: false },
+  {
+    title: t("KeepUploadTask.table.site"),
+    key: "site",
+    align: "center" as const,
+    sortable: false,
+    width: 52,
+  },
   {
     title: t("KeepUploadTask.table.title"),
     key: "title",
     align: "start" as const,
-    minWidth: "clamp(16rem, 28vw, 24rem)",
   },
-  { title: t("KeepUploadTask.table.size"), key: "size", align: "end" as const },
-  { title: t("KeepUploadTask.table.count"), key: "count", align: "center" as const },
-  { title: t("KeepUploadTask.table.time"), key: "time", align: "center" as const },
-  { title: t("common.action"), key: "action", align: "center" as const, sortable: false, width: 220 },
+  { title: t("KeepUploadTask.table.size"), key: "size", align: "end" as const, width: 88 },
+  { title: t("KeepUploadTask.table.count"), key: "count", align: "center" as const, width: 80 },
+  { title: t("KeepUploadTask.table.time"), key: "time", align: "center" as const, width: 116 },
+  { title: t("common.action"), key: "action", align: "center" as const, sortable: false, width: 196 },
 ];
 
 async function loadTasks() {
@@ -69,6 +73,7 @@ async function deleteTask(task: IKeepUploadTask) {
   try {
     await sendMessage("deleteKeepUploadTask", task.id);
     tasks.value = tasks.value.filter((t) => t.id !== task.id);
+    selectedTasks.value = selectedTasks.value.filter((id) => id !== task.id);
     runtimeStore.showSnakebar(t("KeepUploadTask.deleteSuccess"), { color: "success" });
   } catch (e) {
     runtimeStore.showSnakebar(t("KeepUploadTask.deleteError"), { color: "error" });
@@ -80,10 +85,11 @@ async function deleteSelectedTasks() {
   if (!confirm(t("KeepUploadTask.deleteSelectedConfirm", { count: selectedTasks.value.length }))) return;
 
   try {
-    for (const task of selectedTasks.value) {
-      await sendMessage("deleteKeepUploadTask", task.id);
+    const selectedIds = new Set(selectedTasks.value);
+    for (const taskId of selectedIds) {
+      await sendMessage("deleteKeepUploadTask", taskId);
     }
-    tasks.value = tasks.value.filter((t) => !selectedTasks.value.includes(t));
+    tasks.value = tasks.value.filter((task) => !selectedIds.has(task.id));
     selectedTasks.value = [];
     runtimeStore.showSnakebar(t("KeepUploadTask.deleteSuccess"), { color: "success" });
   } catch (e) {
@@ -97,6 +103,7 @@ async function clearAllTasks() {
   try {
     await sendMessage("clearKeepUploadTasks", undefined);
     tasks.value = [];
+    selectedTasks.value = [];
     runtimeStore.showSnakebar(t("KeepUploadTask.clearSuccess"), { color: "success" });
   } catch (e) {
     runtimeStore.showSnakebar(t("KeepUploadTask.clearError"), { color: "error" });
@@ -312,10 +319,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
       />
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      action-width="14rem"
-      :primary-keys="['site', 'title']"
+    <v-data-table
       :key="tableKey"
       v-model="selectedTasks"
       v-model:expanded="expanded"
@@ -325,7 +329,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
       item-value="id"
       show-select
       show-expand
-      class="elevation-1"
+      class="keep-upload-table table-header-no-wrap elevation-1"
     >
       <template #item.site="{ item }">
         <div class="d-flex flex-column align-center">
@@ -334,17 +338,17 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
       </template>
 
       <template #item.title="{ item }">
-        <div>
+        <div class="keep-upload-title-cell">
           <a
             :href="item.items[0]?.link"
             target="_blank"
-            class="text-decoration-none text-high-emphasis text-subtitle-1 text-truncate"
+            class="keep-upload-title-link text-decoration-none text-high-emphasis text-subtitle-1 text-truncate"
             rel="noopener noreferrer nofollow"
           >
             {{ item.title }}
           </a>
           <div class="keep-upload-save-path text-caption text-grey">
-            <span>
+            <span class="keep-upload-save-path-text text-truncate">
               {{ t("KeepUploadTask.savePath") }}{{ item.downloadOptions?.clientName }} ->
               {{ item.downloadOptions?.savePath || t("KeepUploadTask.defaultPath") }}
             </span>
@@ -356,7 +360,9 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
               @click.stop="openSavePathEditor(item)"
             />
           </div>
-          <div class="text-caption">{{ t("KeepUploadTask.torrentCount") }}{{ item.items.length }}</div>
+          <div class="keep-upload-torrent-count text-caption">
+            {{ t("KeepUploadTask.torrentCount") }}{{ item.items.length }}
+          </div>
         </div>
       </template>
 
@@ -430,9 +436,11 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
         <tr>
           <td :colspan="headers.length + 1" class="pa-0">
             <v-list density="compact" class="ml-10">
-              <v-list-item v-for="(subItem, index) in item.items" :key="index">
+              <v-list-item v-for="(subItem, index) in item.items" :key="index" class="keep-upload-expanded-item">
                 <template #prepend>
-                  <SiteFavicon :site-id="subItem.site" :size="16" />
+                  <div class="keep-upload-expanded-site">
+                    <SiteFavicon :site-id="subItem.site" :size="16" />
+                  </div>
                 </template>
                 <v-list-item-title>
                   <a :href="subItem.link" target="_blank" rel="noopener noreferrer nofollow">
@@ -471,7 +479,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
           {{ t("KeepUploadTask.emptyNotice") }}
         </v-alert>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <v-dialog v-model="editDialog" :aria-label="t('KeepUploadTask.editSavePath')" max-width="620">
@@ -518,7 +526,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
   display: inline-flex;
   flex-wrap: nowrap;
   justify-content: center;
-  min-width: 200px;
+  min-width: 180px;
   white-space: nowrap;
 
   :deep(.v-btn) {
@@ -532,5 +540,41 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
   align-items: center;
   display: flex;
   gap: 2px;
+  min-width: 0;
+}
+
+.keep-upload-save-path-text,
+.keep-upload-title-cell,
+.keep-upload-title-link {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.keep-upload-title-cell,
+.keep-upload-title-link {
+  display: block;
+  max-width: 100%;
+}
+
+.keep-upload-table :deep(.v-table__wrapper > table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.keep-upload-table :deep(td) {
+  overflow: hidden;
+}
+
+.keep-upload-expanded-site {
+  align-items: center;
+  display: flex;
+  margin-inline-end: 12px;
+}
+
+@media (max-width: 1350px) {
+  .keep-upload-save-path,
+  .keep-upload-torrent-count {
+    display: none;
+  }
 }
 </style>

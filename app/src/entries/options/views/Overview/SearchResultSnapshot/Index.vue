@@ -13,7 +13,6 @@ import { type TSearchSnapshotKey } from "@/shared/types.ts";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import EditNameDialog from "./EditNameDialog.vue";
 
 const { t } = useI18n();
@@ -134,9 +133,7 @@ async function clearAllSearchSnapshots() {
       </v-row>
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['name']"
+    <v-data-table
       v-model="tableSelected"
       :headers="tableHeader"
       :items="metadataStore.getSearchSnapshotList"
@@ -180,7 +177,7 @@ async function clearAllSearchSnapshots() {
           </v-btn>
         </v-btn-group>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <EditNameDialog v-model="showEditNameDialog" :edit-id="toEditId!" />

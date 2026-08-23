@@ -25,7 +25,6 @@ import NavButton from "@/options/components/NavButton.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import ActionTd from "@/options/views/Overview/SearchEntity/ActionTd.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import GroupCard from "./GroupCard.vue";
 
 const ALL_GROUP = COLLECTION_ALL_GROUP_ID;
@@ -67,7 +66,7 @@ const headers = computed(
   () =>
     [
       { title: "№", key: "index", align: "center", width: 52, sortable: false },
-      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "clamp(16rem, 28vw, 22rem)" },
+      { title: t("MyCollection.headers.title"), key: "title", align: "start", minWidth: "22rem" },
       { title: t("MyCollection.headers.source"), key: "siteId", align: "center", width: 90 },
       { title: t("MyCollection.headers.size"), key: "size", align: "end", width: 100 },
       { title: t("MyCollection.headers.time"), key: "time", align: "center", width: 145 },
@@ -431,9 +430,7 @@ onMounted(loadCollection);
       />
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['title', 'siteId']"
+    <v-data-table
       v-model="selectedLinks"
       :headers="headers"
       :items="visibleItems"
@@ -585,7 +582,7 @@ onMounted(loadCollection);
       <template #no-data>
         <div class="pa-6 text-medium-emphasis">{{ t("MyCollection.empty") }}</div>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <v-dialog

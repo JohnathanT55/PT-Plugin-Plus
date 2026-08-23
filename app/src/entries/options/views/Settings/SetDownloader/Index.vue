@@ -20,7 +20,6 @@ import DefaultDownloaderEditDialog from "./DefaultDownloaderEditDialog.vue";
 
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
@@ -200,9 +199,7 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
       </v-row>
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['type', 'name']"
+    <v-data-table
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['id']"
@@ -330,7 +327,7 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
           />
         </v-btn-group>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <AddDialog v-model="showAddDialog" />

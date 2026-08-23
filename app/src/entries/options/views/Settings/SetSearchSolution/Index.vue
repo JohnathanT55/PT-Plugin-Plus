@@ -16,7 +16,6 @@ import EditDialog from "./EditDialog.vue";
 import SolutionLabel from "./SolutionLabel.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
@@ -35,7 +34,7 @@ const tableHeader = [
     title: t("SetSearchSolution.solution"),
     key: "solution",
     align: "start",
-    minWidth: "clamp(16rem, 28vw, 25rem)",
+    minWidth: 400,
     sortable: false,
   },
   { title: t("SetSearchSolution.table.enable"), key: "enabled", align: "center", width: 120 },
@@ -226,9 +225,7 @@ async function copySearchSolution(solutionId: TSolutionKey) {
       </v-row>
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['name']"
+    <v-data-table
       v-model="tableSelected"
       :filter-keys="['name']"
       :headers="tableHeader"
@@ -362,7 +359,7 @@ async function copySearchSolution(solutionId: TSolutionKey) {
           </v-btn>
         </v-btn-group>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <EditDialog v-model="showEditDialog" :solution-id="solutionId" />

@@ -19,7 +19,6 @@ import RebuildMapDialog from "./RebuildMapDialog.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 // 数据来源
 import { allAddedSiteInfo, type ISiteTableItem } from "./utils.ts";
@@ -234,9 +233,7 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
       </v-row>
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['name']"
+    <v-data-table
       v-model="tableSelected"
       :headers="tableHeader"
       :items="allAddedSiteInfo"
@@ -418,7 +415,7 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
           </v-btn>
         </v-btn-group>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <AddDialog v-model="showAddDialog" />

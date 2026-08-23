@@ -6,7 +6,6 @@ import type { DataTableHeader } from "vuetify";
 import { sendMessage } from "@/messages.ts";
 import { ILoggerItem } from "@/shared/types.ts";
 import { formatDate } from "@/options/utils.ts";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 const { t } = useI18n();
 const logger = shallowRef<ILoggerItem[]>([]);
@@ -40,9 +39,7 @@ onMounted(() => {
 <template>
   <v-alert :title="t('route.About.Logger')" type="info" />
 
-  <ResponsiveDataTable
-    action-key="action"
-    :primary-keys="['time', 'msg']"
+  <v-data-table
     :headers="tableHeader"
     :items="logger"
     :sort-by="[{ key: 'time', order: 'desc' }]"
@@ -70,7 +67,7 @@ onMounted(() => {
         />
       </v-btn-group>
     </template>
-  </ResponsiveDataTable>
+  </v-data-table>
 
   <v-dialog v-model="showLogDataDialog" :aria-label="t('Logger.action.details')" max-width="800px">
     <v-card>

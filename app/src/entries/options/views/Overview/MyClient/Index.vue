@@ -14,7 +14,6 @@ import DeleteDialog from "./DeleteDialog.vue";
 import PushToDownloaderDialog from "./PushToDownloaderDialog.vue";
 import TorrentStateTd from "./TorrentStateTd.vue";
 import ClientStatusDialog from "./ClientStatusDialog.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 
 import { torrents, autoRefreshRunning, globalRefreshInterval, useClientRefresh } from "./utils.ts";
 
@@ -86,7 +85,7 @@ const fullTableHeader = computed(
         title: t("MyClient.table.name"),
         key: "name",
         align: "start",
-        minWidth: "clamp(16rem, 26vw, 20rem)",
+        minWidth: "20rem",
         props: { disabled: true },
       },
       { title: t("MyClient.table.size"), key: "totalSize", align: "end", width: "110" },
@@ -345,9 +344,7 @@ function torrentKey(torrent: CTorrent) {
     </v-card-title>
 
     <v-card-text>
-      <ResponsiveDataTable
-        action-key="action"
-        :primary-keys="['clientId', 'name']"
+      <v-data-table
         v-model="tableSelected"
         :headers="tableHeader"
         :items="filteredTorrents"
@@ -482,7 +479,7 @@ function torrentKey(torrent: CTorrent) {
             />
           </v-btn-group>
         </template>
-      </ResponsiveDataTable>
+      </v-data-table>
     </v-card-text>
   </v-card>
 

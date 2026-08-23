@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { onMounted, onUnmounted, ref, shallowRef, computed } from "vue";
-import { useDisplay, type DataTableHeader } from "vuetify";
+import type { DataTableHeader } from "vuetify";
 
 import { sendMessage } from "@/messages.ts";
 import { formatDate } from "@/options/utils.ts";
@@ -15,7 +15,6 @@ import TorrentTitleTd from "@/options/components/TorrentTitleTd.vue";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import DownloaderLabel from "@/options/components/DownloaderLabel.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import ReDownloadSelectDialog from "./ReDownloadSelectDialog.vue";
 import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
 
@@ -31,25 +30,22 @@ import {
 const { t } = useI18n();
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
-const display = useDisplay();
 
 const { tableFilterRef, tableWaitFilterRef, tableFilterFn } = tableCustomFilter;
 
 const tableHeader = computed(
   () =>
     [
-      { title: t("common.site"), key: "siteId", align: "center" },
+      { title: t("common.site"), key: "siteId", align: "center", width: 76 },
       {
         title: t("DownloadHistory.table.title"),
         key: "title",
         align: "start",
-        minWidth: "clamp(18rem, 30vw, 26rem)",
-        ...(display.smAndDown.value ? { maxWidth: "32vw" } : {}),
       },
-      { title: t("DownloadHistory.table.downloader"), key: "downloaderId", width: "11%", align: "start" },
-      { title: t("DownloadHistory.table.downloadAt"), key: "downloadAt", align: "center" },
-      { title: t("DownloadHistory.table.status"), key: "downloadStatus" },
-      { title: t("common.action"), key: "action", align: "center", sortable: false },
+      { title: t("DownloadHistory.table.downloader"), key: "downloaderId", width: 136, align: "start" },
+      { title: t("DownloadHistory.table.downloadAt"), key: "downloadAt", align: "center", width: 140 },
+      { title: t("DownloadHistory.table.status"), key: "downloadStatus", width: 112 },
+      { title: t("common.action"), key: "action", align: "center", sortable: false, width: 112 },
     ] as DataTableHeader[],
 );
 const tableSelected = ref<TTorrentDownloadKey[]>([]);
@@ -204,9 +200,7 @@ onUnmounted(() => {
       </v-row>
     </v-card-title>
     <v-card-text>
-      <ResponsiveDataTable
-        action-key="action"
-        :primary-keys="['siteId', 'title']"
+      <v-data-table
         v-model="tableSelected"
         :custom-filter="tableFilterFn"
         :filter-keys="['id'] /* 对每个item值只检索一次 */"
@@ -216,7 +210,7 @@ onUnmounted(() => {
         :multi-sort="configStore.enableTableMultiSort"
         :search="tableFilterRef"
         :sort-by="configStore.tableBehavior.DownloadHistory.sortBy"
-        class="table-stripe table-header-no-wrap"
+        class="download-history-table table-stripe table-header-no-wrap"
         hover
         item-value="id"
         show-select
@@ -231,7 +225,9 @@ onUnmounted(() => {
         </template>
 
         <template #item.title="{ item }">
-          <TorrentTitleTd v-if="item.torrent" :item="item.torrent" />
+          <div class="download-history-title-cell">
+            <TorrentTitleTd v-if="item.torrent" :item="item.torrent" />
+          </div>
         </template>
 
         <template #item.downloaderId="{ item }">
@@ -271,7 +267,7 @@ onUnmounted(() => {
             />
           </v-btn-group>
         </template>
-      </ResponsiveDataTable>
+      </v-data-table>
     </v-card-text>
   </v-card>
 
@@ -307,4 +303,30 @@ onUnmounted(() => {
   </v-dialog>
 </template>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.download-history-table :deep(.v-table__wrapper > table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.download-history-table :deep(td) {
+  overflow: hidden;
+}
+
+.download-history-title-cell {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.download-history-title-cell :deep(.t_main) {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.table-action :deep(.v-btn) {
+  min-width: 36px;
+  width: 36px;
+}
+</style>

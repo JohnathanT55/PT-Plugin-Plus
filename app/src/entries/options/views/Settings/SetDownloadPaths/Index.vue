@@ -10,7 +10,6 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
 import SiteName from "@/options/components/SiteName.vue";
 import NavButton from "@/options/components/NavButton.vue";
-import ResponsiveDataTable from "@/options/components/ResponsiveDataTable.vue";
 import { allAddedSiteInfo } from "@/options/views/Settings/SetSite/utils.ts";
 import { getDownloaderIcon } from "@ptd/downloader";
 
@@ -154,9 +153,7 @@ async function removeTarget(siteId: string) {
       />
     </v-card-title>
 
-    <ResponsiveDataTable
-      action-key="action"
-      :primary-keys="['site']"
+    <v-data-table
       :headers="headers"
       :items="rows"
       item-value="id"
@@ -208,7 +205,7 @@ async function removeTarget(siteId: string) {
           />
         </div>
       </template>
-    </ResponsiveDataTable>
+    </v-data-table>
   </v-card>
 
   <v-dialog v-model="showEditor" :aria-label="t('route.Settings.SetDownloadPaths')" max-width="760" scrollable>
