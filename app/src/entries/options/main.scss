@@ -93,29 +93,6 @@ body,
   min-height: 100%;
 }
 
-/*
- * Vuetify positions teleported overlays in unscaled viewport coordinates.
- * Keep the positioning container untouched, and scale only its rendered child
- * so menus/dialogs follow the PTPP internal scale without anchor drift.
- */
-.ptpp-ui-scaled
-  .v-overlay-container
-  .v-overlay:not(.v-dialog):not(.v-snackbar)
-  .v-overlay__content
-  > :first-child {
-  zoom: var(--ptpp-ui-scale, 1);
-}
-
-.ptpp-ui-scaled .v-overlay-container .v-dialog .v-overlay__content {
-  scale: var(--ptpp-ui-scale, 1);
-  transform-origin: center;
-}
-
-.ptpp-ui-scaled .v-overlay-container .v-snackbar__wrapper {
-  scale: var(--ptpp-ui-scale, 1);
-  transform-origin: center bottom;
-}
-
 #ptpp {
   --ptpp-app-background: #fafafa;
   --ptpp-card-background: #fff;
@@ -128,6 +105,8 @@ body,
   --ptpp-secondary-text: rgba(0, 0, 0, 0.6);
   --ptpp-table-active: #b3e5fc;
   --ptpp-table-stripe: #f1f1f1;
+  --ptpp-table-hover-solid: #f5f5f5;
+  --ptpp-table-selected-hover-solid: #a8ddf5;
 
   background: var(--ptpp-app-background);
   color: var(--ptpp-primary-text);
@@ -146,6 +125,8 @@ body,
     --ptpp-secondary-text: rgba(255, 255, 255, 0.7);
     --ptpp-table-active: #4c1a03;
     --ptpp-table-stripe: #1f1f1f;
+    --ptpp-table-hover-solid: #515151;
+    --ptpp-table-selected-hover-solid: #5a2105;
   }
 
   #ptpp-topbar {
@@ -466,12 +447,13 @@ body,
     }
 
     tbody td {
+      background: var(--ptpp-card-background) !important;
       border-bottom-color: var(--ptpp-divider) !important;
       color: var(--ptpp-primary-text);
     }
 
-    tbody tr:hover td {
-      background: var(--ptpp-hover) !important;
+    tbody tr:hover > td {
+      background: var(--ptpp-table-hover-solid) !important;
     }
 
     .v-data-table-footer {
@@ -482,24 +464,35 @@ body,
     .ptpp-responsive-action-column {
       background: var(--ptpp-card-background) !important;
       box-shadow: -1px 0 var(--ptpp-divider);
+      isolation: isolate;
       white-space: nowrap;
     }
 
-    tbody tr:hover .ptpp-responsive-action-column {
-      background: color-mix(in srgb, var(--ptpp-card-background), var(--ptpp-hover) 100%) !important;
+    thead .ptpp-responsive-action-column {
+      z-index: 4 !important;
+    }
+
+    tbody .ptpp-responsive-action-column {
+      z-index: 3 !important;
     }
   }
 
   .table-stripe tr.v-data-table__tr:nth-child(even) {
-    background-color: var(--ptpp-card-background);
-
-    .ptpp-responsive-action-column {
-      background: var(--ptpp-table-stripe) !important;
+    > td {
+      background-color: var(--ptpp-table-stripe) !important;
     }
   }
 
-  .v-data-table tbody tr.ptpp-selected-row .ptpp-responsive-action-column {
+  .table-stripe tr.v-data-table__tr:nth-child(even):hover > td {
+    background-color: var(--ptpp-table-hover-solid) !important;
+  }
+
+  .v-data-table tbody tr.ptpp-selected-row > td {
     background: var(--ptpp-table-active) !important;
+  }
+
+  .v-data-table tbody tr.ptpp-selected-row:hover > td {
+    background: var(--ptpp-table-selected-hover-solid) !important;
   }
 
   .v-field,

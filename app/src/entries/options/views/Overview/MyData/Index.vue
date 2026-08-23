@@ -294,6 +294,7 @@ function viewStatistic() {
       </v-row>
     </v-card-title>
     <ResponsiveDataTable
+      :primary-keys="['site', 'username']"
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['site'] /* 对每个item值只检索一次 */"

@@ -15,7 +15,6 @@ import {
 } from "@/shared/toolbarPosition.ts";
 
 import { useMetadataStore } from "./metadata.ts";
-import { getUiScaleStep, normalizeUiScale, resetUiScale } from "@/shared/uiScale.ts";
 
 const deprecatedConfigKeys = [
   "myDataTableControl.tableFontSize", // v0.0.4.961 废弃
@@ -30,12 +29,6 @@ export const useConfigStore = defineStore("config", {
       // 清理已废弃的配置项
       const state = context.store.$state as any;
       let needsSave = false;
-
-      const normalizedUiScale = normalizeUiScale(state.uiScale);
-      if (state.uiScale !== normalizedUiScale) {
-        state.uiScale = normalizedUiScale;
-        needsSave = true;
-      }
 
       // 清理已废弃的配置项
       for (const key of deprecatedConfigKeys) {
@@ -185,7 +178,6 @@ export const useConfigStore = defineStore("config", {
     lang: "zh_CN",
     theme: "light",
     isNavBarOpen: true,
-    uiScale: 100,
 
     ignoreWrongPixelRatio: false,
     showReleaseNoteOnVersionChange: true,
@@ -520,19 +512,6 @@ export const useConfigStore = defineStore("config", {
     },
   },
   actions: {
-    setUiScale(value: unknown) {
-      this.uiScale = normalizeUiScale(value);
-      return this.$save();
-    },
-
-    stepUiScale(direction: -1 | 1) {
-      return this.setUiScale(getUiScaleStep(this.uiScale, direction));
-    },
-
-    resetUiScale() {
-      return this.setUiScale(resetUiScale());
-    },
-
     updateTableBehavior(table: string, key: string, data: any) {
       // @ts-ignore
       this.tableBehavior[table][key] = data;

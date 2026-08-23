@@ -205,6 +205,8 @@ onUnmounted(() => {
     </v-card-title>
     <v-card-text>
       <ResponsiveDataTable
+        action-key="action"
+        :primary-keys="['siteId', 'title']"
         v-model="tableSelected"
         :custom-filter="tableFilterFn"
         :filter-keys="['id'] /* 对每个item值只检索一次 */"
@@ -288,11 +290,7 @@ onUnmounted(() => {
     @all-delete="handleDownloadHistoryDeleted"
   />
 
-  <v-dialog
-    v-model="showDownloadDetailDialog"
-    :aria-label="t('DownloadHistory.details')"
-    width="800"
-  >
+  <v-dialog v-model="showDownloadDetailDialog" :aria-label="t('DownloadHistory.details')" width="800">
     <v-card>
       <v-toolbar color="blue-grey-darken-2" density="compact">
         <v-toolbar-title>{{ t("DownloadHistory.details") }}</v-toolbar-title>

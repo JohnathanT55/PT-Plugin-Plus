@@ -177,7 +177,6 @@ const hiddenTagNamesText = computed({
       .filter(Boolean);
   },
 });
-
 </script>
 <template>
   <v-alert class="ptpp-search-status" type="info">
@@ -386,82 +385,84 @@ const hiddenTagNamesText = computed({
     </div>
 
     <ResponsiveDataTable
-        id="ptpp-search-entity-table"
-        v-model="tableSelectedRaw"
-        :custom-filter="tableFilterFn"
-        density="compact"
-        :filter-keys="['uniqueId']"
-        :headers="tableHeader"
-        :items="runtimeStore.search.searchResult"
-        :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
-        :items-per-page-options="[10, 25, 50]"
-        :multi-sort="configStore.enableTableMultiSort"
-        :search="tableFilterRef"
-        :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
-        class="ptpp-search-entity-table table-header-no-wrap"
-        hover
-        item-value="uniqueId"
-        return-object
-        :row-props="searchResultRowProps"
-        show-select
-        :top-scrollbar-label="t('SearchEntity.index.horizontalScroll')"
-        @update:itemsPerPage="(value: number) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
-        @update:sortBy="(value: any[]) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
-      >
-        <template #item.site="{ item }">
-          <div class="d-flex flex-column align-center">
-            <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
-            <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
-          </div>
-        </template>
+      action-key="action"
+      :primary-keys="['site', 'title']"
+      id="ptpp-search-entity-table"
+      v-model="tableSelectedRaw"
+      :custom-filter="tableFilterFn"
+      density="compact"
+      :filter-keys="['uniqueId']"
+      :headers="tableHeader"
+      :items="runtimeStore.search.searchResult"
+      :items-per-page="configStore.tableBehavior.SearchEntity.itemsPerPage"
+      :items-per-page-options="[10, 25, 50]"
+      :multi-sort="configStore.enableTableMultiSort"
+      :search="tableFilterRef"
+      :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
+      class="ptpp-search-entity-table table-header-no-wrap"
+      hover
+      item-value="uniqueId"
+      return-object
+      :row-props="searchResultRowProps"
+      show-select
+      :top-scrollbar-label="t('SearchEntity.index.horizontalScroll')"
+      @update:itemsPerPage="(value: number) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
+      @update:sortBy="(value: any[]) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+    >
+      <template #item.site="{ item }">
+        <div class="d-flex flex-column align-center">
+          <SiteFavicon :site-id="item.site" :size="configStore.searchEntifyControl.showSiteName ? 18 : 24" />
+          <SiteName v-if="configStore.searchEntifyControl.showSiteName" :site-id="item.site" />
+        </div>
+      </template>
 
-        <template #item.title="{ item }">
-          <TorrentTitleTd :item="item" />
-        </template>
+      <template #item.title="{ item }">
+        <TorrentTitleTd :item="item" />
+      </template>
 
-        <template #item.size="{ item }">
-          <v-container class="pa-0">
-            <v-row no-gutters>
-              <v-col class="pa-0">
-                <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
-              </v-col>
-            </v-row>
-            <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown" no-gutters>
-              <v-col class="pa-0">
-                <TorrentProcessTd :torrent="item" />
-              </v-col>
-            </v-row>
-          </v-container>
-        </template>
+      <template #item.size="{ item }">
+        <v-container class="pa-0">
+          <v-row no-gutters>
+            <v-col class="pa-0">
+              <span class="t_size text-no-wrap">{{ formatSize(item.size ?? 0) }}</span>
+            </v-col>
+          </v-row>
+          <v-row v-if="item.status && (item.status as ETorrentStatus) !== ETorrentStatus.unknown" no-gutters>
+            <v-col class="pa-0">
+              <TorrentProcessTd :torrent="item" />
+            </v-col>
+          </v-row>
+        </v-container>
+      </template>
 
-        <template #item.seeders="{ item }">
-          <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
-        </template>
-        <template #item.leechers="{ item }">
-          <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
-        </template>
-        <template #item.completed="{ item }">
-          <span class="t_completed text-no-wrap">{{ item.completed }}</span>
-        </template>
-        <template #item.comments="{ item }">
-          <span class="t_comments text-no-wrap">{{ item.comments }}</span>
-        </template>
+      <template #item.seeders="{ item }">
+        <span class="t_seeders text-no-wrap">{{ item.seeders }}</span>
+      </template>
+      <template #item.leechers="{ item }">
+        <span class="t_leechers text-no-wrap">{{ item.leechers }}</span>
+      </template>
+      <template #item.completed="{ item }">
+        <span class="t_completed text-no-wrap">{{ item.completed }}</span>
+      </template>
+      <template #item.comments="{ item }">
+        <span class="t_comments text-no-wrap">{{ item.comments }}</span>
+      </template>
 
-        <template #item.time="{ item }">
-          <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
-            {{
-              item.time
-                ? configStore.searchEntifyControl.uploadAtFormatAsAlive
-                  ? formatTimeAgo(item.time)
-                  : formatDate(item.time)
-                : "-"
-            }}
-          </span>
-        </template>
+      <template #item.time="{ item }">
+        <span class="t_time text-no-wrap" :title="item.time ? (formatDate(item.time) as string) : '-'">
+          {{
+            item.time
+              ? configStore.searchEntifyControl.uploadAtFormatAsAlive
+                ? formatTimeAgo(item.time)
+                : formatDate(item.time)
+              : "-"
+          }}
+        </span>
+      </template>
 
-        <template #item.action="{ item }">
-          <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
-        </template>
+      <template #item.action="{ item }">
+        <ActionTd :torrent-items="[item]" density="compact" show-favorite-btn :show-keep-upload-btn="false" />
+      </template>
     </ResponsiveDataTable>
   </v-card>
 

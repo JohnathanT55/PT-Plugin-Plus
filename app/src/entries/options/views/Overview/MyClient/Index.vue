@@ -346,6 +346,8 @@ function torrentKey(torrent: CTorrent) {
 
     <v-card-text>
       <ResponsiveDataTable
+        action-key="action"
+        :primary-keys="['clientId', 'name']"
         v-model="tableSelected"
         :headers="tableHeader"
         :items="filteredTorrents"

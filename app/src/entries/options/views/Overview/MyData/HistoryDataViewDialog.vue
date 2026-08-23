@@ -103,6 +103,7 @@ function afterEnter() {
       <v-divider />
       <v-card-text>
         <ResponsiveDataTable
+          :primary-keys="['date', 'name']"
           v-model="tableSelected"
           :headers="tableHeader"
           :items="siteHistoryData"
@@ -219,11 +220,7 @@ function afterEnter() {
       </v-card-text>
     </v-card>
 
-    <v-dialog
-      v-model="showStoreDataDialog"
-      :aria-label="t('MyData.HistoryDataView.action.viewRaw')"
-      width="800"
-    >
+    <v-dialog v-model="showStoreDataDialog" :aria-label="t('MyData.HistoryDataView.action.viewRaw')" width="800">
       <v-card>
         <v-toolbar color="blue-grey-darken-2" density="compact">
           <v-toolbar-title>{{ t("MyData.HistoryDataView.action.viewRaw") }}</v-toolbar-title>

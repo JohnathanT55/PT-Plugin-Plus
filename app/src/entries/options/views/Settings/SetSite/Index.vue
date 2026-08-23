@@ -235,6 +235,8 @@ async function flushSiteFavicon(siteId: TSiteID | TSiteID[]) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['name']"
       v-model="tableSelected"
       :headers="tableHeader"
       :items="allAddedSiteInfo"

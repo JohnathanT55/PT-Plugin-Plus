@@ -201,6 +201,8 @@ async function confirmDeleteDownloader(downloaderId: TDownloaderKey) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['type', 'name']"
       v-model="tableSelected"
       :custom-filter="tableFilterFn"
       :filter-keys="['id']"

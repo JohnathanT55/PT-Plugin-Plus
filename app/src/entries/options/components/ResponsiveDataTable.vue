@@ -1,32 +1,35 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUpdated, ref, watch } from "vue";
 import type { DataTableHeader } from "vuetify";
 
-import {
-  measureHorizontalOverflow,
-  normalizeResponsiveHeaders,
-} from "@/options/utils/responsiveTable.ts";
+import { measureHorizontalOverflow, normalizeResponsiveHeaders } from "@/options/utils/responsiveTable.ts";
 
 defineOptions({ inheritAttrs: false });
 
 const props = withDefaults(
   defineProps<{
     headers: readonly DataTableHeader[];
+    primaryKeys?: readonly string[];
     actionKey?: string | readonly string[];
     actionWidth?: number | string;
+    secondaryMinWidth?: number | string;
     topScrollbarLabel?: string;
   }>(),
   {
+    primaryKeys: () => [],
     actionKey: "action",
     actionWidth: "11rem",
+    secondaryMinWidth: "7rem",
     topScrollbarLabel: "Horizontal table scrollbar",
   },
 );
 
 const normalizedHeaders = computed(() =>
   normalizeResponsiveHeaders(props.headers, {
+    primaryKeys: props.primaryKeys,
     actionKey: props.actionKey,
     actionWidth: props.actionWidth,
+    secondaryMinWidth: props.secondaryMinWidth,
   }),
 );
 
@@ -35,9 +38,12 @@ const topScrollbar = ref<HTMLElement | null>(null);
 const scrollWidth = ref(0);
 const hasOverflow = ref(false);
 let tableScroller: HTMLElement | null = null;
+let observedTable: HTMLTableElement | null = null;
 let resizeObserver: ResizeObserver | undefined;
 let mutationObserver: MutationObserver | undefined;
-let pendingFrame: number | undefined;
+let metricsScheduled = false;
+let pendingConnectFrame: number | undefined;
+let remainingConnectAttempts = 0;
 
 function updateMetrics() {
   if (!tableScroller) return;
@@ -54,9 +60,10 @@ function updateMetrics() {
 }
 
 function scheduleMetrics() {
-  if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame);
-  pendingFrame = requestAnimationFrame(() => {
-    pendingFrame = undefined;
+  if (metricsScheduled) return;
+  metricsScheduled = true;
+  queueMicrotask(() => {
+    metricsScheduled = false;
     updateMetrics();
   });
 }
@@ -73,41 +80,80 @@ function handleTopScroll() {
   }
 }
 
-function disconnectScroller() {
+function disconnectTableScroller() {
   tableScroller?.removeEventListener("scroll", handleTableScroll);
   tableScroller = null;
+  observedTable = null;
   resizeObserver?.disconnect();
-  mutationObserver?.disconnect();
+  resizeObserver = undefined;
 }
 
-function connectScroller() {
-  void nextTick(() => {
-    const nextScroller = host.value?.querySelector<HTMLElement>(".v-table__wrapper") ?? null;
-    if (!nextScroller) return;
+function observeCurrentTable() {
+  if (!tableScroller || !resizeObserver) return;
+  const nextTable = tableScroller.querySelector<HTMLTableElement>("table");
+  if (!nextTable || nextTable === observedTable) return;
+  observedTable = nextTable;
+  resizeObserver.observe(nextTable);
+}
 
-    // Header/slot changes can reconnect the same Vuetify wrapper. Tear down
-    // every observer first so repeated table updates cannot leak observers.
-    disconnectScroller();
-    tableScroller = nextScroller;
-    tableScroller.addEventListener("scroll", handleTableScroll, { passive: true });
-
-    resizeObserver = new ResizeObserver(scheduleMetrics);
-    resizeObserver.observe(tableScroller);
-    const table = tableScroller.querySelector("table");
-    if (table) resizeObserver.observe(table);
-
-    mutationObserver = new MutationObserver(scheduleMetrics);
-    mutationObserver.observe(tableScroller, { childList: true, subtree: true });
-    scheduleMetrics();
+function scheduleConnectRetry() {
+  if (pendingConnectFrame !== undefined || remainingConnectAttempts <= 0) return;
+  remainingConnectAttempts -= 1;
+  pendingConnectFrame = requestAnimationFrame(() => {
+    pendingConnectFrame = undefined;
+    connectScroller();
   });
 }
 
+function connectScroller() {
+  const nextScroller = host.value?.querySelector<HTMLElement>(".v-table__wrapper") ?? null;
+  if (!nextScroller) {
+    scheduleConnectRetry();
+    return;
+  }
+  if (nextScroller === tableScroller) {
+    observeCurrentTable();
+    scheduleMetrics();
+    return;
+  }
+
+  disconnectTableScroller();
+  tableScroller = nextScroller;
+  tableScroller.addEventListener("scroll", handleTableScroll, { passive: true });
+
+  resizeObserver = new ResizeObserver(scheduleMetrics);
+  resizeObserver.observe(tableScroller);
+  observeCurrentTable();
+  scheduleMetrics();
+}
+
 watch(normalizedHeaders, connectScroller, { flush: "post" });
-onMounted(connectScroller);
+watch(
+  host,
+  (currentHost) => {
+    mutationObserver?.disconnect();
+    mutationObserver = undefined;
+    disconnectTableScroller();
+    if (!currentHost) return;
+
+    mutationObserver = new MutationObserver(connectScroller);
+    mutationObserver.observe(currentHost, { childList: true, subtree: true });
+    remainingConnectAttempts = 120;
+    connectScroller();
+  },
+  { flush: "post" },
+);
+onMounted(() => {
+  remainingConnectAttempts = 120;
+  connectScroller();
+});
+onUpdated(connectScroller);
 
 onBeforeUnmount(() => {
-  disconnectScroller();
-  if (pendingFrame !== undefined) cancelAnimationFrame(pendingFrame);
+  mutationObserver?.disconnect();
+  mutationObserver = undefined;
+  disconnectTableScroller();
+  if (pendingConnectFrame !== undefined) cancelAnimationFrame(pendingConnectFrame);
 });
 </script>
 

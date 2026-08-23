@@ -5,7 +5,6 @@ import type { TLangCode } from "@/options/plugins/i18n.ts";
 import type { ITimelineUserInfoField } from "@/options/views/Overview/MyData/UserDataTimeline/utils.ts";
 
 import type { TDownloadSizeUnit, TLocalDownloadMethod } from "../common/download.ts";
-import type { UiScalePercent } from "../../uiScale.ts";
 
 export const supportTheme = ["auto", "light", "dark"] as const;
 export type supportThemeType = (typeof supportTheme)[number];
@@ -23,9 +22,7 @@ export interface IConfigPiniaStorageSchema {
   lang: TLangCode;
   theme: supportThemeType;
   isNavBarOpen: boolean;
-  uiScale: UiScalePercent;
 
-  /** @deprecated Retained only so old backups can be restored without data loss. */
   ignoreWrongPixelRatio: boolean;
   showReleaseNoteOnVersionChange: boolean; // 是否在版本更新时展示更新日志
 

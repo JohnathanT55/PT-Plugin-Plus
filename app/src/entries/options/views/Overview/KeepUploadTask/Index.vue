@@ -313,7 +313,9 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
       action-width="14rem"
+      :primary-keys="['site', 'title']"
       :key="tableKey"
       v-model="selectedTasks"
       v-model:expanded="expanded"
@@ -418,11 +420,7 @@ async function copyLinksToClipboard(task: IKeepUploadTask) {
         <v-btn
           :icon="isExpanded(internalItem) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
           size="small"
-          :title="
-            isExpanded(internalItem)
-              ? t('KeepUploadTask.collapseDetails')
-              : t('KeepUploadTask.expandDetails')
-          "
+          :title="isExpanded(internalItem) ? t('KeepUploadTask.collapseDetails') : t('KeepUploadTask.expandDetails')"
           variant="text"
           @click="toggleExpand(internalItem)"
         />

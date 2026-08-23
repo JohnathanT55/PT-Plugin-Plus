@@ -147,6 +147,8 @@ async function confirmDeleteBackupServer(id: TBackupServerKey) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['type', 'name']"
       v-model="tableSelected"
       :headers="fullTableHeader"
       :filter-keys="['id', 'name', 'type']"

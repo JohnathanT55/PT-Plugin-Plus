@@ -40,7 +40,9 @@ onMounted(() => {
 <template>
   <v-alert :title="t('route.About.Logger')" type="info" />
 
-  <ResponsiveDataTable action-key="action"
+  <ResponsiveDataTable
+    action-key="action"
+    :primary-keys="['time', 'msg']"
     :headers="tableHeader"
     :items="logger"
     :sort-by="[{ key: 'time', order: 'desc' }]"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useLocale as useVuetifyLocal } from "vuetify";
 
@@ -24,33 +24,6 @@ watch(
     currentVuetifyLocal.value = vuetifyLangMap[newLang]; // 修改 vuetify 的语言
   },
   { immediate: true },
-);
-
-const uiScaleFactor = computed(() => configStore.uiScale / 100);
-const uiScaleStyle = computed(() =>
-  uiScaleFactor.value === 1
-    ? undefined
-    : {
-        zoom: uiScaleFactor.value,
-        minHeight: `${100 / uiScaleFactor.value}vh`,
-      },
-);
-watchEffect(() => {
-  document.documentElement.style.setProperty("--ptpp-ui-scale", String(uiScaleFactor.value));
-  document.documentElement.classList.toggle("ptpp-ui-scaled", uiScaleFactor.value !== 1);
-});
-let uiScaleResizeFrame: number | undefined;
-watch(
-  uiScaleFactor,
-  async () => {
-    await nextTick();
-    if (uiScaleResizeFrame !== undefined) cancelAnimationFrame(uiScaleResizeFrame);
-    uiScaleResizeFrame = requestAnimationFrame(() => {
-      uiScaleResizeFrame = undefined;
-      window.dispatchEvent(new Event("resize"));
-    });
-  },
-  { flush: "post" },
 );
 
 const showReleaseNoteDialog = ref<boolean>(false);
@@ -87,12 +60,7 @@ onMounted(() => {
   });
 });
 
-onBeforeUnmount(() => {
-  externalLinkObserver?.disconnect();
-  document.documentElement.style.removeProperty("--ptpp-ui-scale");
-  document.documentElement.classList.remove("ptpp-ui-scaled");
-  if (uiScaleResizeFrame !== undefined) cancelAnimationFrame(uiScaleResizeFrame);
-});
+onBeforeUnmount(() => externalLinkObserver?.disconnect());
 
 // 由于App.vue是整个应用的根组件，此时 configStore 等 pinia store 可能还未初始化完成，所以需要监听 $onReady
 configStore.$onReady(() => {
@@ -103,11 +71,7 @@ configStore.$onReady(() => {
 </script>
 
 <template>
-  <v-app
-    id="ptpp"
-    :style="uiScaleStyle"
-    :theme="configStore.uiTheme"
-  >
+  <v-app id="ptpp" :theme="configStore.uiTheme">
     <!-- 顶部工具条 -->
     <Topbar />
 

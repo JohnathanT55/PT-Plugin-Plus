@@ -209,6 +209,8 @@ async function dialogLeave() {
             </v-alert>
 
             <ResponsiveDataTable
+              action-key="action"
+              :primary-keys="['filename']"
               v-model="tableSelected"
               :headers="tableHeaders"
               :items="backupHistory"
@@ -248,6 +250,7 @@ async function dialogLeave() {
 
           <v-window-item value="runs">
             <ResponsiveDataTable
+              :primary-keys="['trigger']"
               :headers="runTableHeaders"
               :items="server?.backupHistory ?? []"
               class="table-header-no-wrap table-stripe mt-3"

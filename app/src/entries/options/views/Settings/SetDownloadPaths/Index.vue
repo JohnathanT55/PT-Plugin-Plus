@@ -31,15 +31,17 @@ watch(
 
 const rows = computed(() => {
   if (!selectedDownloaderId.value) return [];
-  return (allAddedSiteInfo.value ?? [])
-    .map((site) => ({
-      ...site,
-      target: metadataStore.siteDownloadProfiles[site.id]?.byDownloader[selectedDownloaderId.value],
-      isDefault: metadataStore.siteDownloadProfiles[site.id]?.defaultDownloaderId === selectedDownloaderId.value,
-    }))
-    // A downloader-only legacy preference is not a site binding. Keep it out
-    // of this directory table unless the site really owns a directory or tag.
-    .filter((site) => hasConfiguredSiteDownloadTarget(site.target));
+  return (
+    (allAddedSiteInfo.value ?? [])
+      .map((site) => ({
+        ...site,
+        target: metadataStore.siteDownloadProfiles[site.id]?.byDownloader[selectedDownloaderId.value],
+        isDefault: metadataStore.siteDownloadProfiles[site.id]?.defaultDownloaderId === selectedDownloaderId.value,
+      }))
+      // A downloader-only legacy preference is not a site binding. Keep it out
+      // of this directory table unless the site really owns a directory or tag.
+      .filter((site) => hasConfiguredSiteDownloadTarget(site.target))
+  );
 });
 
 const headers = computed(
@@ -153,6 +155,8 @@ async function removeTarget(siteId: string) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['site']"
       :headers="headers"
       :items="rows"
       item-value="id"
@@ -207,12 +211,7 @@ async function removeTarget(siteId: string) {
     </ResponsiveDataTable>
   </v-card>
 
-  <v-dialog
-    v-model="showEditor"
-    :aria-label="t('route.Settings.SetDownloadPaths')"
-    max-width="760"
-    scrollable
-  >
+  <v-dialog v-model="showEditor" :aria-label="t('route.Settings.SetDownloadPaths')" max-width="760" scrollable>
     <v-card>
       <v-card-title>{{ t("route.Settings.SetDownloadPaths") }}</v-card-title>
       <v-card-text>

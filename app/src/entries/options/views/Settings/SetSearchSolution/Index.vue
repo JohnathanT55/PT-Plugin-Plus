@@ -227,6 +227,8 @@ async function copySearchSolution(solutionId: TSolutionKey) {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['name']"
       v-model="tableSelected"
       :filter-keys="['name']"
       :headers="tableHeader"

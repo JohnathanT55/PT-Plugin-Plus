@@ -1,3 +1,5 @@
+export type ResponsiveColumnRole = "primary" | "secondary" | "action";
+
 export interface ResponsiveTableHeader {
   key?: string;
   value?: unknown;
@@ -7,12 +9,15 @@ export interface ResponsiveTableHeader {
   minWidth?: number | string;
   headerProps?: unknown;
   cellProps?: unknown;
+  ptppRole?: ResponsiveColumnRole;
   [key: string]: unknown;
 }
 
 export interface ResponsiveHeaderOptions {
+  primaryKeys?: readonly string[];
   actionKey?: string | readonly string[];
   actionWidth?: number | string;
+  secondaryMinWidth?: number | string;
 }
 
 function mergeClass(existing: unknown, required: string) {
@@ -25,33 +30,50 @@ function objectProps(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
 
+function withRoleClasses<T extends ResponsiveTableHeader>(header: T, role: ResponsiveColumnRole) {
+  const headerProps = objectProps(header.headerProps);
+  const cellProps = objectProps(header.cellProps);
+  const className = `ptpp-responsive-${role}-column`;
+  headerProps.class = mergeClass(headerProps.class, className);
+  cellProps.class = mergeClass(cellProps.class, className);
+  return { headerProps, cellProps };
+}
+
 export function normalizeResponsiveHeaders<T extends ResponsiveTableHeader>(
   headers: readonly T[],
   options: ResponsiveHeaderOptions = {},
-): T[] {
-  const actionKeys = new Set(
-    Array.isArray(options.actionKey) ? options.actionKey : [options.actionKey ?? "action"],
-  );
+): Array<T & { ptppRole: ResponsiveColumnRole }> {
+  const primaryKeys = new Set(options.primaryKeys ?? []);
+  const actionKeys = new Set(Array.isArray(options.actionKey) ? options.actionKey : [options.actionKey ?? "action"]);
   const actionWidth = options.actionWidth ?? "11rem";
+  const secondaryMinWidth = options.secondaryMinWidth ?? "7rem";
 
   return headers.map((header) => {
-    const normalized = { ...header } as T;
-    if (!actionKeys.has(String(header.key ?? header.value ?? ""))) return normalized;
+    const key = String(header.key ?? header.value ?? "");
+    const role: ResponsiveColumnRole = actionKeys.has(key) ? "action" : primaryKeys.has(key) ? "primary" : "secondary";
+    const normalized = {
+      ...header,
+      ...withRoleClasses(header, role),
+      ptppRole: role,
+    } as T & { ptppRole: ResponsiveColumnRole };
 
-    const headerProps = objectProps(header.headerProps);
-    const cellProps = objectProps(header.cellProps);
-    headerProps.class = mergeClass(headerProps.class, "ptpp-responsive-action-column");
-    cellProps.class = mergeClass(cellProps.class, "ptpp-responsive-action-column");
+    if (role === "action") {
+      return {
+        ...normalized,
+        fixed: "end",
+        sortable: false,
+        width: actionWidth,
+        minWidth: actionWidth,
+      };
+    }
 
-    return {
-      ...normalized,
-      fixed: "end",
-      sortable: false,
-      width: actionWidth,
-      minWidth: actionWidth,
-      headerProps,
-      cellProps,
-    } as T;
+    // Primary and secondary content must scroll beneath the isolated action
+    // region. Remove inherited sticky metadata rather than mutating the input.
+    delete normalized.fixed;
+    if (role === "secondary" && header.width === undefined && header.minWidth === undefined) {
+      normalized.minWidth = secondaryMinWidth;
+    }
+    return normalized;
   });
 }
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, useTemplateRef } from "vue";
+import { computed, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 
 import { setBaseChildren } from "@/options/plugins/router.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import { DEFAULT_SET_BASE_ROUTE_NAME } from "@/options/utils/navigation.ts";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -18,17 +19,31 @@ const setBaseTabs = setBaseChildren.map((x) => ({
   route: x.name,
   icon: x.meta!.icon,
 }));
+const legalSetBaseRouteNames = new Set(setBaseTabs.map((tab) => String(tab.route)));
 
 const setTabRef = useTemplateRef<{ beforeSave?: () => Promise<void>; afterSave?: () => Promise<void> }>("setTabRef");
 
 const activeTab = computed({
   get() {
-    return route.name;
+    const routeName = String(route.name ?? "");
+    return legalSetBaseRouteNames.has(routeName) ? routeName : DEFAULT_SET_BASE_ROUTE_NAME;
   },
   set(newRouteName) {
-    router.push({ name: newRouteName });
+    const routeName = String(newRouteName ?? "");
+    if (!legalSetBaseRouteNames.has(routeName) || routeName === route.name) return;
+    void router.push({ name: routeName });
   },
 });
+
+watch(
+  () => route.name,
+  (routeName) => {
+    if (!legalSetBaseRouteNames.has(String(routeName ?? ""))) {
+      void router.replace({ name: DEFAULT_SET_BASE_ROUTE_NAME });
+    }
+  },
+  { immediate: true },
+);
 
 const showSaveButton = computed(() => {
   return route.meta?.usesGlobalSave !== false;
@@ -52,21 +67,19 @@ async function save() {
       </v-tab>
     </v-tabs>
     <v-divider />
-    <v-window v-model="activeTab">
-      <v-card flat>
-        <v-card-text class="settings-content pa-4 pa-md-6">
-          <router-view v-slot="{ Component }">
-            <component :is="Component" ref="setTabRef" />
-          </router-view>
-        </v-card-text>
-        <v-divider v-if="showSaveButton" />
-        <v-card-actions v-if="showSaveButton" class="settings-save-bar justify-end px-6 py-3">
-          <v-btn color="success" min-width="120" prepend-icon="mdi-content-save-check" variant="elevated" @click="save">
-            {{ t("common.save") }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-window>
+    <v-card flat>
+      <v-card-text class="settings-content pa-4 pa-md-6">
+        <router-view v-slot="{ Component }">
+          <component :is="Component" ref="setTabRef" />
+        </router-view>
+      </v-card-text>
+      <v-divider v-if="showSaveButton" />
+      <v-card-actions v-if="showSaveButton" class="settings-save-bar justify-end px-6 py-3">
+        <v-btn color="success" min-width="120" prepend-icon="mdi-content-save-check" variant="elevated" @click="save">
+          {{ t("common.save") }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
   </v-card>
 </template>
 

@@ -6,7 +6,6 @@ import { definedLangMetaData } from "@/options/plugins/i18n.ts";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import SettingsSection from "./SettingsSection.vue";
-import UiScaleControl from "@/options/components/UiScaleControl.vue";
 
 const { t } = useI18n();
 const configStore = useConfigStore();
@@ -28,14 +27,6 @@ const configStore = useConfigStore();
           <v-list-item v-bind="props" :title="t('SetBase.ui.displayMode.' + item.raw)" />
         </template>
       </v-select>
-
-      <div class="ptpp-ui-scale-setting">
-        <div>
-          <div class="text-body-1">{{ t("SetBase.ui.uiScale") }}</div>
-          <div class="text-caption text-medium-emphasis">{{ t("SetBase.ui.uiScaleHint") }}</div>
-        </div>
-        <UiScaleControl />
-      </div>
 
       <v-switch
         v-model="configStore.showReleaseNoteOnVersionChange"
@@ -73,14 +64,5 @@ const configStore = useConfigStore();
 <style scoped lang="scss">
 .settings-stack {
   max-width: 1100px;
-}
-
-.ptpp-ui-scale-setting {
-  align-items: center;
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  display: flex;
-  justify-content: space-between;
-  min-height: 64px;
-  padding-inline: 16px 8px;
 }
 </style>

@@ -4,6 +4,7 @@ import { useDisplay } from "vuetify";
 
 import { routes } from "@/options/plugins/router";
 import { useConfigStore } from "@/options/stores/config.ts";
+import { getNavigationTargetName } from "@/options/utils/navigation.ts";
 
 import { isDebug, PROJECT_REPO_URL } from "~/helper.ts";
 
@@ -29,7 +30,7 @@ const menuOptions = routes
         .map((childrenRoute) => {
           return {
             title: `route.${String(route.name)}.${String(childrenRoute.name)}`,
-            name: childrenRoute.name,
+            name: getNavigationTargetName(childrenRoute),
             icon: childrenRoute.meta?.icon,
           };
         }),
@@ -82,9 +83,8 @@ async function clickMenuItem() {
               :href="`${PROJECT_REPO_URL}${git.long ? `/commit/${git.long}` : ''}`"
               rel="noopener noreferrer nofollow"
               target="_blank"
-            >{{
-              ext_version
-            }}</a>
+              >{{ ext_version }}</a
+            >
             <v-chip v-if="isDebug" class="pa-1 ml-1 mb-1" color="amber" label size="x-small">
               {{ t("common.test") }}
             </v-chip>

@@ -135,6 +135,8 @@ async function clearAllSearchSnapshots() {
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['name']"
       v-model="tableSelected"
       :headers="tableHeader"
       :items="metadataStore.getSearchSnapshotList"

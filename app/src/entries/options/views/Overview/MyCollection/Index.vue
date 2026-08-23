@@ -432,6 +432,8 @@ onMounted(loadCollection);
     </v-card-title>
 
     <ResponsiveDataTable
+      action-key="action"
+      :primary-keys="['title', 'siteId']"
       v-model="selectedLinks"
       :headers="headers"
       :items="visibleItems"
