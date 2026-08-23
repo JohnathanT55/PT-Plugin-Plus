@@ -27,24 +27,40 @@ if (tagIs === "a") {
   renderProp.href = "#";
   renderProp.target = "_blank";
   renderProp.rel = "noopener noreferrer nofollow";
+}
 
-  metadataStore.getSiteUrl(props.siteId).then((url) => {
-    renderProp.href = url;
-  });
+function updateSiteUrl(siteId: TSiteID) {
+  if (tagIs !== "a") return;
+  renderProp.href = "#";
+  if (!siteId) return;
+  metadataStore
+    .getSiteUrl(siteId)
+    .then((url) => {
+      renderProp.href = url || "#";
+    })
+    .catch(() => {
+      renderProp.href = "#";
+    });
 }
 
 function updateSiteName(siteId: TSiteID) {
   // 首先赋值为 siteId，防止空白
-  siteName.value = siteId;
+  siteName.value = siteId || "—";
+  if (!siteId) return;
 
   // 优先从缓存中读取
   if (metadataStore.siteNameMap?.[siteId]) {
     siteName.value = metadataStore.siteNameMap[siteId];
   } else {
     // 如果缓存中没有/或者没有生成缓存，则按之前的逻辑读取
-    metadataStore.getSiteName(siteId).then((name) => {
-      siteName.value = name;
-    });
+    metadataStore
+      .getSiteName(siteId)
+      .then((name) => {
+        siteName.value = name || siteId;
+      })
+      .catch(() => {
+        siteName.value = siteId;
+      });
   }
 }
 
@@ -52,6 +68,7 @@ watch(
   () => props.siteId,
   (newSiteId) => {
     updateSiteName(newSiteId);
+    updateSiteUrl(newSiteId);
   },
   { immediate: true },
 );

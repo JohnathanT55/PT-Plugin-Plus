@@ -440,6 +440,8 @@ export default class QBittorrent extends AbstractBittorrentClient<TorrentClientC
       }
     }
 
+    this.lastSyncTimestamp = 0;
+
     return addResult;
   }
 
@@ -523,6 +525,7 @@ export default class QBittorrent extends AbstractBittorrentClient<TorrentClientC
     // qBittorrent 5.0+ (WebAPI 2.11.0+) renamed /torrents/pause to /torrents/stop
     const endpoint = (await this.isApiVersionAtLeast(2, 11)) ? "/torrents/stop" : "/torrents/pause";
     await this.request(endpoint, { method: "post", data });
+    this.lastSyncTimestamp = 0;
     return true;
   }
 
@@ -533,6 +536,7 @@ export default class QBittorrent extends AbstractBittorrentClient<TorrentClientC
       deleteFiles: removeData,
     };
     await this.request("/torrents/delete", { method: "post", data });
+    this.lastSyncTimestamp = 0;
     return true;
   }
 
@@ -544,6 +548,7 @@ export default class QBittorrent extends AbstractBittorrentClient<TorrentClientC
     // qBittorrent 5.0+ (WebAPI 2.11.0+) renamed /torrents/resume to /torrents/start
     const endpoint = (await this.isApiVersionAtLeast(2, 11)) ? "/torrents/start" : "/torrents/resume";
     await this.request(endpoint, { method: "post", data });
+    this.lastSyncTimestamp = 0;
     return true;
   }
 

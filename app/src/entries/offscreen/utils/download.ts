@@ -23,9 +23,12 @@ import type {
   TTorrentDownloadStatus,
   IDownloadTorrentOption,
   IDownloadTorrentResult,
+  IClientOperationResult,
+  TClientOperation,
   AugmentedRequired,
 } from "@/shared/types.ts";
 import { sanitizeDownloadErrorMessage } from "@/shared/downloadError.ts";
+import { toPlainSerializable } from "@/shared/serializable.ts";
 
 import { logger } from "./logger.ts";
 import { getSiteInstance } from "./site.ts";
@@ -68,6 +71,44 @@ export async function getDownloaderInstance(downloaderId: string): Promise<Downl
 
 onMessage("getDownloaderConfig", async ({ data: downloaderId }) => await getDownloaderConfig(downloaderId));
 
+async function runClientOperation<T>(
+  downloaderId: string,
+  action: TClientOperation,
+  operation: (downloader: NonNullable<DownloaderInstance>) => Promise<T>,
+): Promise<IClientOperationResult<T>> {
+  try {
+    const downloaderInstance = await getDownloaderInstance(downloaderId);
+    if (!downloaderInstance) {
+      return {
+        success: false,
+        action,
+        downloaderId,
+        error: "下载器不存在、已停用或配置无效",
+      };
+    }
+    return { success: true, action, downloaderId, data: await operation(downloaderInstance) };
+  } catch (error) {
+    return {
+      success: false,
+      action,
+      downloaderId,
+      error: sanitizeDownloadErrorMessage(error) || "下载器请求失败",
+    };
+  }
+}
+
+async function runClientBooleanOperation(
+  downloaderId: string,
+  action: Exclude<TClientOperation, "list" | "version" | "status">,
+  operation: (downloader: NonNullable<DownloaderInstance>) => Promise<boolean>,
+): Promise<IClientOperationResult> {
+  const result = await runClientOperation(downloaderId, action, operation);
+  if (!result.success || result.data) {
+    return { success: result.success, action, downloaderId, error: result.error };
+  }
+  return { success: false, action, downloaderId, error: "下载器未确认该操作" };
+}
+
 onMessage("getDownloaderList", async () => {
   const metadata = (await sendMessage("getExtStorage", "metadata")) as IMetadataPiniaStorageSchema;
   const downloaders = metadata?.downloaders ?? {};
@@ -81,25 +122,11 @@ onMessage("getDownloaderList", async () => {
 });
 
 onMessage("getDownloaderVersion", async ({ data: downloaderId }) => {
-  let downloaderVersion = "unknown";
-
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    downloaderVersion = await downloaderInstance.getClientVersion();
-  }
-
-  return downloaderVersion;
+  return await runClientOperation(downloaderId, "version", (downloader) => downloader.getClientVersion());
 });
 
 onMessage("getDownloaderStatus", async ({ data: downloaderId }) => {
-  let downloaderStatus: TorrentClientStatus = { dlSpeed: 0, upSpeed: 0, dlData: 0, upData: 0 };
-
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    downloaderStatus = await downloaderInstance.getClientStatus();
-  }
-
-  return downloaderStatus;
+  return await runClientOperation(downloaderId, "status", (downloader) => downloader.getClientStatus());
 });
 
 onMessage("getDownloaderFreeSpace", async ({ data: downloaderId }) => {
@@ -130,41 +157,21 @@ export async function getTorrentInfoForVerification(torrent: ITorrent) {
 onMessage("getTorrentInfoForVerification", async ({ data: torrent }) => await getTorrentInfoForVerification(torrent));
 
 onMessage("getClientTorrents", async ({ data: downloaderId }) => {
-  let downloaderTorrents: CTorrent[] = [];
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    downloaderTorrents = await downloaderInstance.getAllTorrents();
-  }
-  return downloaderTorrents;
+  return await runClientOperation(downloaderId, "list", (downloader) => downloader.getAllTorrents());
 });
 
 onMessage("deleteClientTorrent", async ({ data: { downloaderId, id, removeData } }) => {
-  let deleteStatus: boolean = false;
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    deleteStatus = await downloaderInstance.removeTorrent(id, removeData ?? false);
-  }
-  return deleteStatus;
+  return await runClientBooleanOperation(downloaderId, "delete", (downloader) =>
+    downloader.removeTorrent(id, removeData ?? false),
+  );
 });
 
 onMessage("pauseClientTorrent", async ({ data: { downloaderId, id } }) => {
-  let pauseStatus: boolean = false;
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    pauseStatus = await downloaderInstance.pauseTorrent(id);
-  }
-
-  return pauseStatus;
+  return await runClientBooleanOperation(downloaderId, "pause", (downloader) => downloader.pauseTorrent(id));
 });
 
 onMessage("resumeClientTorrent", async ({ data: { downloaderId, id } }) => {
-  let resumeStatus: boolean = false;
-  const downloaderInstance = await getDownloaderInstance(downloaderId);
-  if (downloaderInstance) {
-    resumeStatus = await downloaderInstance.resumeTorrent(id);
-  }
-
-  return resumeStatus;
+  return await runClientBooleanOperation(downloaderId, "resume", (downloader) => downloader.resumeTorrent(id));
 });
 
 function buildDownloadHistory(downloadOption: IDownloadTorrentOption): ITorrentDownloadMetadata {
@@ -445,7 +452,7 @@ onMessage("getDownloadHistoryById", async ({ data: downloadId }) => (await getDo
 
 export async function setDownloadHistory(data: ITorrentDownloadMetadata) {
   const allowedSave = await isAllowedSaveDownloadHistory();
-  return allowedSave ? await (await ptdIndexDb).put("download_history", data) : 0;
+  return allowedSave ? await (await ptdIndexDb).put("download_history", toPlainSerializable(data)) : 0;
 }
 
 export async function patchDownloadHistory(downloadId: TTorrentDownloadKey, data: Partial<ITorrentDownloadMetadata>) {

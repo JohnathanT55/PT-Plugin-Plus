@@ -219,8 +219,11 @@ onUnmounted(() => {
       >
         <template #item.siteId="{ item }">
           <div class="d-flex flex-column align-center">
-            <SiteFavicon :site-id="item.siteId" :size="18" />
-            <SiteName :site-id="item.siteId" />
+            <template v-if="item.siteId">
+              <SiteFavicon :site-id="item.siteId" :size="18" />
+              <SiteName :site-id="item.siteId" />
+            </template>
+            <span v-else aria-label="No tracker site">—</span>
           </div>
         </template>
 

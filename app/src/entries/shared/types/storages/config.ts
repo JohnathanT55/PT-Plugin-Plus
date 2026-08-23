@@ -204,6 +204,8 @@ export interface IConfigPiniaStorageSchema {
 
     // 在我的下载器页面，进入时即刷新下载器
     initDownloaderTorrentOnEnter: boolean;
+    // “我的下载器”页面的前台自动刷新间隔（秒）；只在页面打开期间生效
+    clientAutoRefreshInterval: number;
 
     // 是否保存上一次使用的下载器
     saveLastDownloader: boolean;

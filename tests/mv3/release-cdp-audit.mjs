@@ -4,6 +4,7 @@ const linkPushRoute = "/link-push?link=https%3A%2F%2Fazusa.wiki%2Fdownload.php%3
 
 const productionRoutes = [
   "/my-data",
+  "/my-client",
   "/search-entity",
   "/search-result-snapshot",
   "/download-history",
@@ -48,15 +49,51 @@ const dialogCases = [
 
 const namedControlRoles = new Set(["button", "checkbox", "combobox", "dialog", "link", "radio", "textbox"]);
 
-const targets = await fetch(`${endpoint}/json/list`).then((response) => response.json());
-const optionsTarget = targets.find(
+let targets = await fetch(`${endpoint}/json/list`).then((response) => response.json());
+let optionsTarget = targets.find(
   (target) =>
     target.type === "page" &&
     target.url.startsWith("chrome-extension://") &&
     target.url.includes("/src/entries/options/index.html"),
 );
 if (!optionsTarget?.webSocketDebuggerUrl) {
-  throw new Error(`No PT-Plugin-Plus options target found at ${endpoint}`);
+  const extensionTarget = targets.find((target) => target.url?.startsWith("chrome-extension://"));
+  const extensionId = extensionTarget?.url?.match(/^chrome-extension:\/\/([^/]+)/)?.[1];
+  if (!extensionId) throw new Error(`No PT-Plugin-Plus extension target found at ${endpoint}`);
+
+  const browserVersion = await fetch(`${endpoint}/json/version`).then((response) => response.json());
+  const browserSocket = new WebSocket(browserVersion.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    browserSocket.addEventListener("open", resolve, { once: true });
+    browserSocket.addEventListener("error", reject, { once: true });
+  });
+  const targetId = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timed out creating the release-audit options target")), 10_000);
+    browserSocket.addEventListener("message", (event) => {
+      const message = JSON.parse(String(event.data));
+      if (message.id !== 1) return;
+      clearTimeout(timer);
+      if (message.error) reject(new Error(message.error.message));
+      else resolve(message.result.targetId);
+    });
+    browserSocket.send(
+      JSON.stringify({
+        id: 1,
+        method: "Target.createTarget",
+        params: { url: `chrome-extension://${extensionId}/src/entries/options/index.html#/my-data` },
+      }),
+    );
+  });
+  browserSocket.close();
+
+  for (let attempt = 0; attempt < 50 && !optionsTarget?.webSocketDebuggerUrl; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    targets = await fetch(`${endpoint}/json/list`).then((response) => response.json());
+    optionsTarget = targets.find((target) => target.id === targetId && target.webSocketDebuggerUrl);
+  }
+  if (!optionsTarget?.webSocketDebuggerUrl) {
+    throw new Error(`The PT-Plugin-Plus options target did not become inspectable at ${endpoint}`);
+  }
 }
 
 const socket = new WebSocket(optionsTarget.webSocketDebuggerUrl);
@@ -288,7 +325,7 @@ for (const route of productionRoutes) {
 
   const layout = await call("Runtime.evaluate", {
     expression: `(() => {
-      const forbiddenRoutes = ['/media-server', '/my-client', '/set-media-server', '/native-bridge', '/debugger'];
+      const forbiddenRoutes = ['/media-server', '/set-media-server', '/native-bridge', '/debugger'];
       return {
         hash: location.hash,
         title: document.title,

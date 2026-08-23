@@ -93,6 +93,15 @@ export const useConfigStore = defineStore("config", {
         needsSave = true;
       }
 
+      const clientAutoRefreshInterval = Number(state.download.clientAutoRefreshInterval);
+      if (!Number.isFinite(clientAutoRefreshInterval) || clientAutoRefreshInterval < 5) {
+        state.download.clientAutoRefreshInterval = 30;
+        needsSave = true;
+      } else if (clientAutoRefreshInterval > 3600) {
+        state.download.clientAutoRefreshInterval = 3600;
+        needsSave = true;
+      }
+
       state.backup ??= {};
       if (typeof state.backup.encryptionEnabled !== "boolean") {
         // Preserve the old PTD behavior where a non-empty key implicitly enabled encryption.
@@ -391,6 +400,7 @@ export const useConfigStore = defineStore("config", {
       saveDownloadHistory: true,
       allowDownloaderFilterForSite: false,
       initDownloaderTorrentOnEnter: false,
+      clientAutoRefreshInterval: 30,
       saveLastDownloader: false,
       allowDirectSendToClient: false,
       localDownloadMethod: "browser",

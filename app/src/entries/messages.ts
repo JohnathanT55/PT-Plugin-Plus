@@ -18,7 +18,6 @@ import type {
 } from "@ptd/social";
 import type { IMediaServerId, IMediaServerSearchOptions, IMediaServerSearchResult } from "@ptd/mediaServer";
 import type { IBackupData, IBackupFileInfo } from "@ptd/backupServer";
-import type { CTorrent, TorrentClientStatus } from "@ptd/downloader";
 import type { CollectionGroupRecord, CollectionItemRecord, CollectionState } from "@foundation/model/schema";
 
 // 可序列化的种子信息，用于辅种检测
@@ -63,6 +62,10 @@ import {
   IPtppLegacyBackupImportResult,
   IQueueDownloadBatchRequest,
   IQueueDownloadBatchResult,
+  IClientOperationResult,
+  IClientTorrentListResult,
+  IClientVersionResult,
+  IClientStatusResult,
 } from "@/shared/types.ts";
 
 import { isDebug } from "~/helper.ts";
@@ -134,8 +137,8 @@ interface ProtocolMap extends TMessageMap {
 
   // 2.3 下载器、下载历史 ( utils/download )
   getDownloaderConfig(downloaderId: string): IDownloaderMetadata;
-  getDownloaderVersion(downloaderId: string): string;
-  getDownloaderStatus(downloaderId: string): TorrentClientStatus;
+  getDownloaderVersion(downloaderId: string): IClientVersionResult;
+  getDownloaderStatus(downloaderId: string): IClientStatusResult;
   getDownloaderFreeSpace(downloaderId: string): number | "N/A";
   getTorrentDownloadLink(torrent: ITorrent): string;
   getTorrentInfoForVerification(torrent: ITorrent): ITorrentInfoForVerification;
@@ -163,10 +166,10 @@ interface ProtocolMap extends TMessageMap {
   setPtppCollectionItemGroup(data: { link: string; groupId: string; assigned: boolean }): IPtppCollectionState;
   setPtppDefaultCollectionGroup(data: { groupId?: string }): IPtppCollectionState;
 
-  getClientTorrents(downloaderId: string): CTorrent[];
-  deleteClientTorrent(data: { downloaderId: string; id: any; removeData?: boolean }): boolean;
-  pauseClientTorrent(data: { downloaderId: string; id: any }): boolean;
-  resumeClientTorrent(data: { downloaderId: string; id: any }): boolean;
+  getClientTorrents(downloaderId: string): IClientTorrentListResult;
+  deleteClientTorrent(data: { downloaderId: string; id: any; removeData?: boolean }): IClientOperationResult;
+  pauseClientTorrent(data: { downloaderId: string; id: any }): IClientOperationResult;
+  resumeClientTorrent(data: { downloaderId: string; id: any }): IClientOperationResult;
 
   downloadTorrent(data: IDownloadTorrentOption): IDownloadTorrentResult;
   createDownloadHistory(data: IDownloadTorrentOption): TTorrentDownloadKey;

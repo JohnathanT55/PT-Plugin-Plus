@@ -23,8 +23,9 @@ import {
 import { sendTorrentToDownloader } from "./utils.ts";
 
 const showDialog = defineModel<boolean>();
-const { torrentItems } = defineProps<{
+const { torrentItems, allowedDownloaderIds } = defineProps<{
   torrentItems: ITorrent[];
+  allowedDownloaderIds?: string[];
 }>();
 const emit = defineEmits<{
   (e: "cancel"): void;
@@ -50,6 +51,11 @@ const addTorrentOptions = ref<Required<Omit<CAddTorrentOptions, "localDownloadOp
 });
 
 const currentSiteIds = computed(() => [...new Set(torrentItems.map((t) => t.site).filter(Boolean))]);
+const allowedDownloaderIdSet = computed(() =>
+  allowedDownloaderIds === undefined ? undefined : new Set(allowedDownloaderIds),
+);
+const isAllowedDownloader = (downloader: IDownloaderMetadata) =>
+  allowedDownloaderIdSet.value === undefined || allowedDownloaderIdSet.value.has(downloader.id);
 const currentSiteId = computed(() => (currentSiteIds.value.length === 1 ? currentSiteIds.value[0] : undefined));
 const currentSiteProfile = computed(() =>
   currentSiteId.value ? metadataStore.siteDownloadProfiles?.[currentSiteId.value] : undefined,
@@ -76,10 +82,11 @@ const suggestTags = computed(() =>
 );
 const enabledDownloadersBySite = computed(() => {
   const ids = currentSiteIds.value;
-  if (ids.length === 0) return metadataStore.getEnabledDownloaders;
+  const enabledDownloaders = metadataStore.getEnabledDownloaders.filter(isAllowedDownloader);
+  if (ids.length === 0) return enabledDownloaders;
   const sets = ids.map((id) => new Set(metadataStore.getEnabledDownloadersBySite(id).map((d) => d.id)));
   const intersection = sets.reduce((acc, s) => new Set([...acc].filter((x) => s.has(x))));
-  return metadataStore.getEnabledDownloaders.filter((d) => intersection.has(d.id));
+  return enabledDownloaders.filter((d) => intersection.has(d.id));
 });
 const sortedEnabledDownloadersBySite = computed(() =>
   [...enabledDownloadersBySite.value].sort((a, b) => {
@@ -88,7 +95,11 @@ const sortedEnabledDownloadersBySite = computed(() =>
     return bBound - aBound || (b.sortIndex ?? 0) - (a.sortIndex ?? 0);
   }),
 );
-const quickTargets = computed(() => buildSiteDownloadMenuTargets(metadataStore, currentSiteId.value));
+const quickTargets = computed(() =>
+  buildSiteDownloadMenuTargets(metadataStore, currentSiteId.value).filter(
+    (target) => allowedDownloaderIdSet.value === undefined || allowedDownloaderIdSet.value.has(target.downloaderId),
+  ),
+);
 const firstGeneralTargetIndex = computed(() => quickTargets.value.findIndex((target) => target.kind === "general"));
 const downloaderTitle = (downloader: IDownloaderMetadata) => `${downloader.name} [${downloader.address}]`;
 const getDownloaderIcon = (x: string) => chrome.runtime.getURL(getDownloaderIconRaw(x));
@@ -166,10 +177,13 @@ async function dialogEnter() {
             hasSiteDownloadDirectoryBinding(currentSiteProfile.value?.byDownloader?.[downloader.id]),
         )
       : undefined;
+    const lastDownloader = lastDownloaderId
+      ? sortedEnabledDownloadersBySite.value.find((downloader) => downloader.id === lastDownloaderId)
+      : undefined;
     selectedDownloader.value = siteDownloader
       ? siteDownloader
-      : lastDownloaderId // 如果有上次选择的下载器，则直接使用
-        ? metadataStore.downloaders[lastDownloaderId]
+      : lastDownloader // 如果有上次选择且仍允许使用的下载器，则直接使用
+        ? lastDownloader
         : sortedEnabledDownloadersBySite.value.length === 1 // 如果只有一个启用的下载器，则直接使用
           ? sortedEnabledDownloadersBySite.value[0]
           : null;

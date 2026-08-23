@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 
 import type { ITorrent, TSiteID as TSiteKey } from "@ptd/site";
-import type { CAddTorrentOptions, CAddTorrentResult } from "@ptd/downloader";
+import type { CAddTorrentOptions, CAddTorrentResult, CTorrent, TorrentClientStatus } from "@ptd/downloader";
 import type { TDownloaderKey } from "@/shared/types/storages/metadata.ts";
 
 export type TTorrentDownloadKey = number;
@@ -102,3 +102,22 @@ export interface IDownloadTorrentResult {
   downloadStatus: TTorrentDownloadStatus;
   errorMessage?: string;
 }
+
+export type TClientOperation = "list" | "version" | "status" | "pause" | "resume" | "delete";
+
+/**
+ * Stable result envelope used by the My Downloader page. Downloader errors
+ * must stay isolated to one client and are sanitized before crossing the
+ * offscreen/options boundary.
+ */
+export interface IClientOperationResult<T = undefined> {
+  success: boolean;
+  action: TClientOperation;
+  downloaderId: TDownloaderKey;
+  data?: T;
+  error?: string;
+}
+
+export type IClientTorrentListResult = IClientOperationResult<CTorrent[]>;
+export type IClientVersionResult = IClientOperationResult<string>;
+export type IClientStatusResult = IClientOperationResult<TorrentClientStatus>;

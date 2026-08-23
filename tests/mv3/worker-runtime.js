@@ -80,6 +80,7 @@ const requiredSourceModules = [
   "src/collection/searchContext.ts",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
+  "app/src/entries/shared/clientDashboard.ts",
   "app/src/entries/options/components/DownloadTargetMenu.vue",
   "app/src/entries/options/views/Settings/SetBase/ToolbarWindow.vue",
   "app/src/entries/options/views/Settings/SetBase/BrowserIntegrationWindow.vue",
@@ -93,6 +94,10 @@ for (const sourceModule of requiredSourceModules) {
 
 const downloadMenuSource = fs.readFileSync(
   path.join(root, "app/src/entries/content-script/app/components/DownloadTargetMenu.vue"),
+  "utf8",
+);
+const clientDashboardSource = fs.readFileSync(
+  path.join(root, "app/src/entries/shared/clientDashboard.ts"),
   "utf8",
 );
 const optionsDownloadMenuSource = fs.readFileSync(
@@ -234,6 +239,11 @@ assert(
     downloadMenuSource.includes('document.addEventListener("pointerdown"'),
   "download-to menu closes across the shadow-root boundary",
 );
+assert(
+  clientDashboardSource.includes('SUPPORTED_CLIENT_DOWNLOADER_TYPES = ["qBittorrent", "Transmission"]') &&
+    clientDashboardSource.includes("sanitizeDownloadErrorMessage"),
+  "My Downloader remains scoped to supported clients and sanitizes grouped failures",
+);
 assert(!optionsDownloadMenuSource.includes("<v-menu"), "options download-to uses an anchored PTPP menu");
 assert(optionsDownloadMenuSource.includes('role="menu"'), "options download-to preserves menu semantics");
 assert(
@@ -241,9 +251,10 @@ assert(
     !siteDownloadProfileEditorSource.includes("<v-expansion-panel"),
   "site download bindings use the always-visible PTPP row layout instead of PTD accordions",
 );
-for (const ptdOnlyRoute of ["MediaServerEntity", "MyClient", "SetMediaServer", "Debugger"]) {
+for (const ptdOnlyRoute of ["MediaServerEntity", "SetMediaServer", "Debugger"]) {
   assert(!optionsRouterSource.includes(ptdOnlyRoute), `options router excludes PTD-only route: ${ptdOnlyRoute}`);
 }
+assert(optionsRouterSource.includes('name: "MyClient"'), "options router exposes the scoped PTPP downloader dashboard");
 assert(optionsRouterSource.includes('name: "MyCollection"'), "options router exposes the PTPP favorites page");
 assert(
   collectionSource.includes("ptpp-collection-groups") && collectionSource.includes("getPtppCollectionState"),

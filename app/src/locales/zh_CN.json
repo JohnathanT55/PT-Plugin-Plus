@@ -150,10 +150,10 @@
     },
     "autoRefresh": {
       "btnTitle": "自动刷新",
-      "clientSuspended": "{name} 刷新失败 3 次，已暂停自动刷新。点击下载器标签可恢复。",
+      "clientSuspended": "{name} 连续刷新失败 3 次，已单独暂停：{reason}",
       "downloaderFilter": "下载器筛选",
       "intervalLabel": "刷新间隔",
-      "intervalUnit": "秒（0 表示关闭）",
+      "intervalUnit": "秒（5–3600）",
       "resumeDownloader": "恢复该下载器的自动刷新",
       "start": "开始自动刷新",
       "stop": "停止自动刷新",
@@ -172,6 +172,15 @@
       "removeData": "同时删除数据"
     },
     "pauseSelected": "暂停",
+    "operation": {
+      "delete": "删除",
+      "list": "刷新",
+      "pause": "暂停",
+      "resume": "继续",
+      "status": "读取状态",
+      "summary": "{action}完成：成功 {success}，失败 {failed}{details}",
+      "version": "读取版本"
+    },
     "pushToDownloader": {
       "fileInputHint": "选择一个或多个 .torrent 文件进行推送",
       "fileInputLabel": "种子文件",
@@ -185,6 +194,7 @@
     "refresh": "刷新",
     "resumeSelected": "开始",
     "searchPlaceholder": "搜索种子名称、Hash、标签、路径",
+    "unknownError": "未知错误",
     "state": {
       "checking": "检查中",
       "downloading": "下载中",
@@ -627,6 +637,8 @@
     "download": {
       "allowDirectSendToClient": "是否允许直接将链接（而不是种子文件）发送到下载服务器（如非必要请勿启用）",
       "batchDownloadInterval": "批量下载时间间隔",
+      "clientAutoRefreshInterval": "前台自动刷新间隔",
+      "clientAutoRefreshIntervalHint": "仅在“我的下载器”页面保持打开时生效，允许 5–3600 秒。",
       "downloadFailedRetry": "下载失败后自动重试",
       "downloadFailedRetryCount": "最大重试次数",
       "downloadFailedRetryInterval": "重试间隔",

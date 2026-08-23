@@ -8,6 +8,9 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import SentToDownloaderDialog from "@/options/components/SentToDownloaderDialog/Index.vue";
 
 const showDialog = defineModel<boolean>();
+const { allowedDownloaderIds } = defineProps<{
+  allowedDownloaderIds: string[];
+}>();
 const metadataStore = useMetadataStore();
 const { t } = useI18n();
 
@@ -71,7 +74,7 @@ async function submit() {
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="560" scrollable @after-enter="cleanStatus">
+  <v-dialog v-model="showDialog" max-width="560" scrollable @before-enter="cleanStatus">
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">
@@ -136,6 +139,7 @@ async function submit() {
 
   <SentToDownloaderDialog
     v-model="showSentToDownloaderDialog"
+    :allowed-downloader-ids="allowedDownloaderIds"
     :torrent-items="pendingTorrentItems"
     @done="() => (showDialog = false)"
   />

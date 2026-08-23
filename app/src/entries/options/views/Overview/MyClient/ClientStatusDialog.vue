@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import { getDownloaderIcon, type TorrentClientStatus } from "@ptd/downloader";
 import { sendMessage } from "@/messages.ts";
 import { formatSize } from "@/options/utils.ts";
+import { sanitizeDownloadErrorMessage } from "@/shared/downloadError.ts";
 
 import {
   torrents,
@@ -12,6 +13,7 @@ import {
   suspendedDownloaders,
   useClientRefresh,
   autoRefreshRunning,
+  clientRefreshErrors,
 } from "./utils.ts";
 
 const showDialog = defineModel<boolean>();
@@ -22,6 +24,8 @@ const { enabledDownloaders, resumeDownloaderRefresh, clearDownloaderTimer } = us
 const clientStatuses = ref<Record<string, TorrentClientStatus>>({});
 const clientVersions = ref<Record<string, string>>({});
 const clientLoading = ref<Record<string, boolean>>({});
+const statusErrors = ref<Record<string, string>>({});
+const versionErrors = ref<Record<string, string>>({});
 
 /** Returns true when the downloader's torrents are included in the current filter. */
 function isDownloaderActive(id: string) {
@@ -51,11 +55,26 @@ async function fetchStatusFor(id: string) {
   try {
     // client version 只获取一次即可
     if (typeof clientVersions.value[id] === "undefined") {
-      clientVersions.value[id] = (await sendMessage("getDownloaderVersion", id)) ?? "—";
+      const versionResult = await sendMessage("getDownloaderVersion", id);
+      if (versionResult.success) {
+        clientVersions.value[id] = versionResult.data ?? "—";
+        const { [id]: _removed, ...remainingErrors } = versionErrors.value;
+        versionErrors.value = remainingErrors;
+      } else {
+        versionErrors.value[id] = versionResult.error ?? t("MyClient.unknownError");
+      }
     }
 
-    const status = await sendMessage("getDownloaderStatus", id);
-    if (status) clientStatuses.value[id] = status;
+    const statusResult = await sendMessage("getDownloaderStatus", id);
+    if (statusResult.success && statusResult.data) {
+      clientStatuses.value[id] = statusResult.data;
+      const { [id]: _removed, ...remainingErrors } = statusErrors.value;
+      statusErrors.value = remainingErrors;
+    } else {
+      statusErrors.value[id] = statusResult.error ?? t("MyClient.unknownError");
+    }
+  } catch (error) {
+    statusErrors.value[id] = sanitizeDownloadErrorMessage(error) || t("MyClient.unknownError");
   } finally {
     clientLoading.value[id] = false;
   }
@@ -73,17 +92,21 @@ async function fetchAll() {
 function onEnter() {
   fetchAll();
 }
+
+function closeDialog() {
+  showDialog.value = false;
+}
 </script>
 
 <template>
-  <v-dialog v-model="showDialog" max-width="800" scrollable @afterEnter="onEnter()">
+  <v-dialog v-model="showDialog" max-width="800" scrollable @after-enter="onEnter()">
     <v-card>
       <v-card-title class="pa-0">
         <v-toolbar color="blue-grey-darken-2">
           <v-toolbar-title>{{ t("MyClient.clientStatusDialog.title") }}</v-toolbar-title>
           <template #append>
             <v-btn icon="mdi-refresh" :title="t('MyClient.refresh')" @click="fetchAll" />
-            <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="showDialog = false" />
+            <v-btn icon="mdi-close" :title="t('common.dialog.close')" @click="closeDialog" />
           </template>
         </v-toolbar>
       </v-card-title>
@@ -129,6 +152,12 @@ function onEnter() {
               >
                 {{ d.address }}
               </a>
+              <div
+                v-if="versionErrors[d.id] || statusErrors[d.id] || clientRefreshErrors[d.id]"
+                class="text-error text-caption mt-1"
+              >
+                {{ versionErrors[d.id] || statusErrors[d.id] || clientRefreshErrors[d.id] }}
+              </div>
             </v-list-item-subtitle>
 
             <template #append>

@@ -11,6 +11,25 @@ const configStore = useConfigStore();
 
 <template>
   <div class="settings-stack">
+    <SettingsSection :title="t('SetBase.download.myClientTitle')" icon="mdi-download-network">
+      <v-switch
+        v-model="configStore.download.initDownloaderTorrentOnEnter"
+        :label="t('SetBase.download.initDownloaderTorrentOnEnter')"
+        color="success"
+        hide-details
+      />
+      <v-text-field
+        v-model.number="configStore.download.clientAutoRefreshInterval"
+        :label="t('SetBase.download.clientAutoRefreshInterval')"
+        :hint="t('SetBase.download.clientAutoRefreshIntervalHint')"
+        min="5"
+        max="3600"
+        persistent-hint
+        suffix="s"
+        type="number"
+      />
+    </SettingsSection>
+
     <SettingsSection :title="t('SetBase.download.pushDownloadServerTitle')" icon="mdi-download-network-outline">
       <v-switch
         v-model="configStore.download.saveDownloadHistory"

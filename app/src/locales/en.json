@@ -150,10 +150,10 @@
     },
     "autoRefresh": {
       "btnTitle": "Auto-Refresh",
-      "clientSuspended": "{name} failed 3 times in a row. Auto-refresh suspended. Click the chip to resume.",
+      "clientSuspended": "{name} failed to refresh 3 times and was suspended independently: {reason}",
       "downloaderFilter": "Downloader Filter",
       "intervalLabel": "Refresh interval",
-      "intervalUnit": "seconds (0 = off)",
+      "intervalUnit": "seconds (5–3600)",
       "resumeDownloader": "Resume auto-refresh for this downloader",
       "start": "Start auto-refresh",
       "stop": "Stop auto-refresh",
@@ -172,6 +172,15 @@
       "removeData": "Also remove data"
     },
     "pauseSelected": "Pause",
+    "operation": {
+      "delete": "Delete",
+      "list": "Refresh",
+      "pause": "Pause",
+      "resume": "Resume",
+      "status": "Read status",
+      "summary": "{action} finished: {success} succeeded, {failed} failed{details}",
+      "version": "Read version"
+    },
     "pushToDownloader": {
       "fileInputHint": "Select one or more .torrent files to push",
       "fileInputLabel": "Torrent Files",
@@ -185,6 +194,7 @@
     "refresh": "Refresh",
     "resumeSelected": "Resume",
     "searchPlaceholder": "Search by name, hash, label, or path",
+    "unknownError": "Unknown error",
     "state": {
       "checking": "Checking",
       "downloading": "Downloading",
@@ -628,6 +638,8 @@
       "MyClientTitle": "My Downloader",
       "allowDirectSendToClient": "Allow sending links directly (instead of torrent files) to the download server (Do not enable unless necessary)",
       "batchDownloadInterval": "Batch download interval",
+      "clientAutoRefreshInterval": "Foreground auto-refresh interval",
+      "clientAutoRefreshIntervalHint": "Only active while the My Downloader page remains open. Allowed range: 5–3600 seconds.",
       "downloadFailedRetry": "Retry failed downloads",
       "downloadFailedRetryCount": "Maximum retry count",
       "downloadFailedRetryInterval": "Retry interval",
@@ -1438,7 +1450,7 @@
       "DownloadHistory": "Download History",
       "KeepUploadTask": "Reseed Task",
       "MediaServerEntity": "Media Library",
-      "MyClient": "My BtClient",
+      "MyClient": "My Downloader",
       "MyCollection": "Collection",
       "MyData": "My Data",
       "SearchEntity": "Search Results",
