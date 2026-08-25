@@ -25,9 +25,16 @@ export interface IDurableBackupRetryTaskPayload {
   retryIndex: number;
 }
 
+export interface IDurableBackupCleanupTaskPayload {
+  type: "backupCleanup";
+  serverId: string;
+  runId: string;
+}
+
 export type TDurableTaskPayload =
   | IDurableDownloadTaskPayload
   | IDurableUserInfoRetryTaskPayload
   | IDurableDownloadBatchTaskPayload
-  | IDurableBackupRetryTaskPayload;
+  | IDurableBackupRetryTaskPayload
+  | IDurableBackupCleanupTaskPayload;
 export type TDurableTaskStorageSchema = IDurableTaskStore<TDurableTaskPayload>;

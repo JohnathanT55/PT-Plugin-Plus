@@ -15,6 +15,7 @@ import {
 } from "@ptd/backupServer";
 import { REPO_URL } from "~/helper.ts";
 import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
+import { createBackupVerificationKey, normalizeBackupRetentionPolicy } from "@foundation/backup/retention";
 
 import Editor from "./Editor.vue";
 
@@ -43,12 +44,18 @@ async function updateStoredDownloaderConfigByDefault(type: IBackupServerMetadata
     id: nanoid(),
     backupFields: [...BackupFields],
     backupFieldsVersion: CURRENT_BACKUP_FIELDS_VERSION,
+    backupNamespaceId: crypto.randomUUID(),
+    backupVerificationKey: createBackupVerificationKey(),
+    retentionPolicy: normalizeBackupRetentionPolicy(undefined),
   } as IBackupServerMetadata;
 }
 
 async function saveStoredBackupServerConfig() {
   const interval = storedBackupServerConfig.value.backupInterval;
   storedBackupServerConfig.value.nextBackupAt = interval && interval > 0 ? Date.now() : undefined;
+  storedBackupServerConfig.value.retentionPolicy = normalizeBackupRetentionPolicy(
+    storedBackupServerConfig.value.retentionPolicy,
+  );
   await metadataStore.addBackupServer(storedBackupServerConfig.value as IBackupServerMetadata);
   showDialog.value = false;
 }

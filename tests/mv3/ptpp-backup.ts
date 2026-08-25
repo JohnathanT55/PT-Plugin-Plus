@@ -6,6 +6,7 @@ import { backupDataToJSZipBlob, jsZipBlobToBackupData } from "../../app/src/pack
 import { parsePtppBackup } from "../../app/src/entries/shared/ptppBackup.ts";
 import { LEGACY_STORAGE_KEYS } from "../../src/storage/keys.ts";
 import { prepareConfigForBackup } from "../../src/backup/policy.ts";
+import { createBackupFilename, createBackupScopeFingerprint } from "../../src/backup/retention.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`PTPP backup parser test failed: ${message}`);
@@ -60,8 +61,33 @@ for (const encryptionKey of ["", "fixture-key"]) {
   assert(LEGACY_STORAGE_KEYS.userHistory in parsed.payload.legacy, "userdatas.json maps to the history key");
 }
 
+const currentIdentityBase = {
+  backupId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  namespaceId: "11111111-2222-4333-8444-555555555555",
+  serverId: "fixture-server",
+  createdAt: Date.UTC(2026, 7, 25, 12, 30, 45, 678),
+  trigger: "interval" as const,
+  scope: {
+    kind: "selected" as const,
+    fields: ["config", "collection"],
+    fingerprint: createBackupScopeFingerprint(["config", "collection"]),
+  },
+  encryption: "encrypted" as const,
+};
+const currentVerificationKey = "02".repeat(32);
+const currentIdentity = {
+  ...currentIdentityBase,
+  schemaVersion: 1 as const,
+  filename: createBackupFilename(currentIdentityBase, currentVerificationKey),
+  verificationSignature: "",
+};
+currentIdentity.verificationSignature = currentIdentity.filename.match(/_([0-9a-f]{16})\.zip$/)![1];
 const currentBackup = {
-  manifest: { version: "PT-Plugin-Plus MV3 (fixture)" },
+  manifest: {
+    version: "PT-Plugin-Plus MV3 (fixture)",
+    time: currentIdentity.createdAt,
+    backupIdentity: currentIdentity,
+  },
   config: prepareConfigForBackup({
     backup: { encryptionEnabled: true, encryptionKey: "fixture-key" },
     marker: "retained",
@@ -72,7 +98,12 @@ const currentBackup = {
     items: [{ title: "Fixture", link: "https://tracker.invalid/details/1", groups: ["group-a"] }],
   },
 };
-const currentBackupBlob = await backupDataToJSZipBlob(structuredClone(currentBackup), "fixture-key");
+const currentBackupInput = structuredClone(currentBackup);
+const currentBackupBlob = await backupDataToJSZipBlob(currentBackupInput, "fixture-key");
+assert(
+  currentBackupInput.manifest.backupIdentity.backupId === currentIdentity.backupId,
+  "ZIP creation does not mutate identity",
+);
 const currentBackupRestored = await jsZipBlobToBackupData(
   (await currentBackupBlob.arrayBuffer()) as unknown as Blob,
   "fixture-key",
@@ -83,6 +114,13 @@ assert(
   "current MV3 backup round-trips favorites, groups, and the default group",
 );
 assert(
+  currentBackupRestored.manifest.backupIdentity.backupId === currentIdentity.backupId &&
+    currentBackupRestored.manifest.backupIdentity.scope.fingerprint === currentIdentity.scope.fingerprint &&
+    currentBackupRestored.manifest.time === currentIdentity.createdAt &&
+    currentBackupRestored.manifest.encryption === true,
+  "the complete stable identity, exact scope fingerprint, timestamp, and encryption state survive the manifest",
+);
+assert(
   currentBackupRestored.config.backup.encryptionEnabled === true &&
     !("encryptionKey" in currentBackupRestored.config.backup) &&
     currentBackupRestored.config.marker === "retained",
@@ -91,10 +129,7 @@ assert(
 
 const offscreenBackupSource = readFileSync("app/src/entries/offscreen/utils/backup.ts", "utf8");
 const backgroundLegacyImportSource = readFileSync("app/src/entries/background/utils/legacyBackup.ts", "utf8");
-const restoreDialogSource = readFileSync(
-  "app/src/entries/options/views/Settings/SetBackup/RestoreDialog.vue",
-  "utf8",
-);
+const restoreDialogSource = readFileSync("app/src/entries/options/views/Settings/SetBackup/RestoreDialog.vue", "utf8");
 assert(
   !offscreenBackupSource.includes('onMessage("importPtppLegacyBackup"') &&
     !/chrome\.storage\.local\.(get|set|remove)/.test(offscreenBackupSource),

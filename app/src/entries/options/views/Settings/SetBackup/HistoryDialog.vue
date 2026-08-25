@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
 import { computed, ref, shallowRef } from "vue";
-import type { IBackupFileInfo } from "@ptd/backupServer";
 import type { DataTableHeader } from "vuetify";
+import type { IClassifiedBackupFile } from "@foundation/backup/retention";
 
 import { sendMessage } from "@/messages.ts";
 import { formatDate, formatSize } from "@/options/utils.ts";
@@ -13,6 +13,7 @@ import type { TBackupTrigger } from "@/shared/types.ts";
 import DeleteDialog from "@/options/components/DeleteDialog.vue";
 import NavButton from "@/options/components/NavButton.vue";
 import RestoreDialog from "./RestoreDialog.vue";
+import CleanupPreviewDialog from "./CleanupPreviewDialog.vue";
 
 const showDialog = defineModel<boolean>();
 const { backupServerId } = defineProps<{
@@ -25,12 +26,14 @@ const runtimeStore = useRuntimeStore();
 
 const isLoading = ref<boolean>(false);
 const loadError = ref<string>("");
-const backupHistory = shallowRef<IBackupFileInfo[]>([]);
+const backupHistory = shallowRef<IClassifiedBackupFile[]>([]);
 const activeView = ref<"files" | "runs">("files");
 const server = computed(() => metadataStore.backupServers[backupServerId]);
 
 const tableHeaders = [
   { title: t("SetBackup.HistoryDialog.table.filename"), key: "filename", align: "start" },
+  { title: t("SetBackup.HistoryDialog.table.type"), key: "classification", align: "start" },
+  { title: t("SetBackup.HistoryDialog.table.retention"), key: "disposition", align: "start" },
   { title: t("SetBackup.HistoryDialog.table.size"), key: "size", align: "end" },
   { title: t("SetBackup.HistoryDialog.table.time"), key: "time", align: "start" },
   { title: t("common.action"), key: "action", sortable: false },
@@ -44,6 +47,7 @@ const runTableHeaders = [
   { title: t("SetBackup.HistoryDialog.runTable.detail"), key: "error", sortable: false },
 ] as DataTableHeader[];
 const tableSelected = ref<string[]>([]);
+const showCleanupDialog = ref(false);
 
 function triggerLabel(trigger: TBackupTrigger) {
   return t(`SetBackup.trigger.${trigger}`);
@@ -53,6 +57,29 @@ function formatDuration(durationMs: number) {
   if (durationMs < 1000) return `${durationMs} ms`;
   if (durationMs < 60_000) return `${(durationMs / 1000).toFixed(1)} s`;
   return `${(durationMs / 60_000).toFixed(1)} min`;
+}
+
+function formatBackupTime(file: IClassifiedBackupFile) {
+  const value = file.identity?.createdAt ?? file.time;
+  return Number.isFinite(value) ? formatDate(value) : "—";
+}
+
+function classificationLabel(file: IClassifiedBackupFile) {
+  const classification = t(`SetBackup.HistoryDialog.classification.${file.classification}`);
+  return file.identity ? `${classification} · ${triggerLabel(file.identity.trigger)}` : classification;
+}
+
+function dispositionLabel(file: IClassifiedBackupFile) {
+  return t(`SetBackup.HistoryDialog.disposition.${file.disposition}`);
+}
+
+function identityDetail(file: IClassifiedBackupFile) {
+  if (!file.identity) return "";
+  return t("SetBackup.HistoryDialog.fileIdentity", {
+    scope: t(`SetBackup.HistoryDialog.scope.${file.identity.scopeKind}`),
+    encryption: t(`SetBackup.HistoryDialog.encryption.${file.identity.encryption}`),
+    fingerprint: file.identity.scopeFingerprint,
+  });
 }
 
 const showRestoreDialog = ref<boolean>(false);
@@ -115,7 +142,7 @@ async function dialogLeave() {
         name: metadataStore.backupServers[backupServerId]?.name ?? backupServerId,
       })
     "
-    max-width="1000"
+    max-width="1200"
     @after-enter="dialogEnter"
     @after-leave="dialogLeave"
   >
@@ -171,6 +198,22 @@ async function dialogLeave() {
               }}
             </div>
           </v-alert>
+          <v-alert
+            v-if="server?.lastCleanup"
+            class="ma-3 mt-0"
+            :type="server.lastCleanup.failedCount ? 'warning' : 'success'"
+            density="compact"
+            variant="tonal"
+          >
+            {{
+              t("SetBackup.HistoryDialog.cleanup.lastResult", {
+                deleted: server.lastCleanup.deletedCount,
+                failed: server.lastCleanup.failedCount,
+                skipped: server.lastCleanup.skippedCount,
+              })
+            }}
+            <div v-if="server.lastCleanup.error" class="backup-error-detail">{{ server.lastCleanup.error }}</div>
+          </v-alert>
         </v-card>
 
         <v-tabs v-model="activeView" color="primary" grow>
@@ -191,6 +234,12 @@ async function dialogLeave() {
                 color="error"
                 icon="mdi-delete"
                 @click="deleteBackupHistory(tableSelected)"
+              />
+              <NavButton
+                :text="t('SetBackup.HistoryDialog.cleanup.previewButton')"
+                color="warning"
+                icon="mdi-delete-clock"
+                @click="showCleanupDialog = true"
               />
               <v-btn
                 :loading="isLoading"
@@ -218,11 +267,33 @@ async function dialogLeave() {
               must-sort
               show-select
             >
+              <template #item.filename="{ item }">
+                <div class="py-1">
+                  <div>{{ item.filename }}</div>
+                  <div v-if="item.identity" class="text-caption text-medium-emphasis">
+                    {{ identityDetail(item) }}
+                  </div>
+                </div>
+              </template>
               <template #item.size="{ item }">
                 <span class="text-no-wrap">{{ item.size !== "N/A" ? formatSize(item.size) : item.size }}</span>
               </template>
+              <template #item.classification="{ item }">
+                <v-chip size="small" variant="tonal">{{ classificationLabel(item) }}</v-chip>
+              </template>
+              <template #item.disposition="{ item }">
+                <v-chip
+                  :color="
+                    item.disposition === 'candidate' ? 'warning' : item.disposition === 'protected' ? 'info' : 'success'
+                  "
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ dispositionLabel(item) }}
+                </v-chip>
+              </template>
               <template #item.time="{ item }">
-                <span class="text-no-wrap">{{ formatDate(item.time) }}</span>
+                <span class="text-no-wrap">{{ formatBackupTime(item) }}</span>
               </template>
               <template #item.action="{ item }">
                 <v-btn-group class="table-action" density="compact" variant="plain">
@@ -278,8 +349,18 @@ async function dialogLeave() {
                 </v-chip>
               </template>
               <template #item.error="{ item }">
-                <div v-if="item.error" class="backup-error-detail text-error">
-                  <div>{{ item.error }}</div>
+                <div v-if="item.error || item.cleanup" class="backup-error-detail">
+                  <div v-if="item.cleanup" :class="item.cleanup.failedCount ? 'text-warning' : 'text-success'">
+                    {{
+                      t("SetBackup.HistoryDialog.cleanup.runResult", {
+                        deleted: item.cleanup.deletedCount,
+                        failed: item.cleanup.failedCount,
+                        skipped: item.cleanup.skippedCount,
+                      })
+                    }}
+                  </div>
+                  <div v-if="item.error" class="text-error">{{ item.error }}</div>
+                  <div v-if="item.cleanup?.error" class="text-warning">{{ item.cleanup.error }}</div>
                   <div v-if="item.retryIndex > 0" class="text-caption mt-1">
                     {{ t("SetBackup.HistoryDialog.retryNumber", { n: item.retryIndex }) }}
                   </div>
@@ -294,6 +375,7 @@ async function dialogLeave() {
   </v-dialog>
 
   <RestoreDialog v-model="showRestoreDialog" :restore-metadata="restoreMetadata" />
+  <CleanupPreviewDialog v-model="showCleanupDialog" :backup-server-id="backupServerId" @completed="loadBackupHistory" />
   <DeleteDialog
     v-model="showDeleteDialog"
     :confirm-delete="confirmDeleteBackupHistory"

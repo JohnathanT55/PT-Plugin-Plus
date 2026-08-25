@@ -10,6 +10,12 @@ import type { TSelectSearchCategoryValue } from "@ptd/site";
 import type { CAddTorrentOptions, DownloaderBaseConfig } from "@ptd/downloader";
 import type { IMediaServerBaseConfig } from "@ptd/mediaServer";
 import type { IBackupConfig } from "@ptd/backupServer";
+import type {
+  IBackupCleanupFileResult,
+  IBackupIdentity,
+  IBackupRetentionPolicy,
+  IRemoteBackupFile,
+} from "@foundation/backup/retention";
 
 export interface ISearchSolution {
   id: string;
@@ -112,6 +118,36 @@ export type TBackupFields = (typeof BackupFields)[number];
 
 export type TBackupServerKey = string;
 export type TBackupTrigger = "manual" | "interval" | "userDataRefresh";
+export interface IBackupCleanupSummary {
+  runId: string;
+  status: "completed" | "partial" | "failed" | "nothingToDo";
+  startedAt: number;
+  finishedAt: number;
+  requestedCount: number;
+  deletedCount: number;
+  missingCount: number;
+  skippedCount: number;
+  failedCount: number;
+  releasedBytes: number;
+  error?: string;
+}
+export interface IBackupCleanupJournalItem extends IRemoteBackupFile {
+  status: "pending" | "deleted" | "missing" | "skipped";
+  attempts: number;
+  error?: string;
+}
+export interface IBackupCleanupJournal {
+  id: string;
+  mode: "automatic" | "manual";
+  status: "pending" | "running" | "partial";
+  createdAt: number;
+  updatedAt: number;
+  previewToken: string;
+  includeLegacyOnce: boolean;
+  protectedPaths: string[];
+  items: IBackupCleanupJournalItem[];
+  results: IBackupCleanupFileResult[];
+}
 export interface IBackupHistoryEvent {
   id: string;
   startedAt: number;
@@ -121,6 +157,11 @@ export interface IBackupHistoryEvent {
   trigger: TBackupTrigger;
   retryIndex: number;
   fields: TBackupFields[];
+  backup?: Pick<
+    IBackupIdentity,
+    "backupId" | "namespaceId" | "createdAt" | "filename" | "trigger" | "scope" | "encryption"
+  >;
+  cleanup?: IBackupCleanupSummary;
   error?: string;
 }
 export interface IBackupServerMetadata extends IBackupConfig {
@@ -128,6 +169,12 @@ export interface IBackupServerMetadata extends IBackupConfig {
   enabled: boolean; // 此处仅影响自动备份
   backupFields: TBackupFields[]; // 备份的字段
   backupFieldsVersion?: number; // 字段选择格式版本，用于只迁移一次后来新增的字段
+  backupNamespaceId?: string; // 每个服务器独有的随机命名空间；自动清理只处理该命名空间下的严格新文件名
+  backupVerificationKey?: string; // 仅用于验证严格新文件名来源，不进入文件名或 ZIP manifest
+  retentionPolicy?: IBackupRetentionPolicy; // 自动清理策略，默认关闭
+  pendingCleanup?: IBackupCleanupJournal; // 可在 MV3 worker 回收后幂等恢复的逐文件清理日志
+  lastCleanup?: IBackupCleanupSummary;
+  activeRestorePaths?: Record<string, number>; // 正在读取的远端恢复文件；短租约内禁止清理
 
   lastBackupAt?: number; // 上次备份时间
   backupInterval?: number; // 自动备份间隔（小时），不设置或为 0 表示不自动备份

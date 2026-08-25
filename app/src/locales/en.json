@@ -518,18 +518,70 @@
       "backupIntervalHint": "Set auto-backup interval (hours). Leave empty or 0 to disable auto backup. Max 48 hours.",
       "digestAuth": "Digest authentication",
       "digestAuthHint": "Enable only when the WebDAV server explicitly requires HTTP Digest Authentication. This is not backup encryption; normal OpenList/AList setups usually leave it off.",
-      "serverConfig": "Server Configuration"
+      "keepLatest": "Keep only the latest N per backup stream",
+      "maxAgeDays": "Delete automatic backups older than N days",
+      "minKeep": "Keep at least M per backup stream",
+      "minKeepHint": "Interval, post-refresh full, and changed field scopes are counted separately. The default minimum is 3.",
+      "retentionEnabled": "Automatically clean old automatic backups",
+      "retentionSafetyHint": "Off by default. Only strict new automatic names in this server namespace are eligible. Manual, legacy, lookalike, temporary, and other-app files are never auto-deleted.",
+      "retentionTitle": "Automatic backup retention and safe cleanup",
+      "serverConfig": "Server Configuration",
+      "strategyAge": "By age: delete files older than the configured days",
+      "strategyCount": "By count: keep only the configured latest files",
+      "tieredEnabled": "Enable recent / weekly / monthly tiers",
+      "tieredHint": "Protect representative backups in each time tier in addition to the base strategy. Week and month boundaries use the configured time zone.",
+      "tierMonthly": "Monthly copies",
+      "tierRecent": "Recent copies",
+      "tierTimeZone": "Week / month boundary time zone",
+      "tierTimeZoneHint": "Use an IANA zone such as Asia/Shanghai or America/New_York. Invalid values fall back to UTC on save.",
+      "tierWeekly": "Weekly copies"
     },
     "EditDialog": {
       "title": "Edit Backup Server"
     },
     "HistoryDialog": {
+      "classification": {
+        "automatic": "Automatic",
+        "legacy": "Legacy unclassified",
+        "manual": "Manual",
+        "otherServer": "Other server / stream",
+        "temporary": "Temporary",
+        "unverified": "Unverified"
+      },
+      "cleanup": {
+        "candidateCount": "{count} cleanup candidates",
+        "cleanSelected": "Clean {count} selected",
+        "confirmText": "This permanently deletes {count} remote files that still pass every safety check. Files are revalidated and recorded one by one. Continue?",
+        "confirmTitle": "Confirm remote cleanup",
+        "dateRange": "Candidate dates: {oldest} to {newest}",
+        "includeLegacyHint": "For this preview only, strict PTPP_backup_timestamp.zip files are evaluated by the current age/count policy. This never becomes automatic permission.",
+        "includeLegacyOnce": "Include strict legacy files in this preview",
+        "keepCount": "{count} kept by policy",
+        "lastResult": "Latest cleanup: {deleted} deleted, {failed} failed, {skipped} skipped",
+        "previewButton": "Cleanup preview",
+        "protectedCount": "{count} safety-protected",
+        "releaseSize": "Estimated release {size} ({unknown} unknown sizes)",
+        "result": "Cleanup finished: {deleted} deleted, {failed} failed, {skipped} skipped",
+        "runResult": "Backup cleanup: {deleted} deleted, {failed} failed, {skipped} skipped",
+        "safety": "This is a preview and deletes nothing. You may deselect any candidate. Execution re-lists the remote directory, revalidates policy and metadata, then asks for confirmation again.",
+        "title": "Safe old-backup cleanup preview"
+      },
       "deleteFailure": "Failed to delete backup history [{name}]",
       "deleteSuccess": "Deleted backup history [{name}] successfully",
+      "encryption": {
+        "encrypted": "Encrypted",
+        "plain": "Plain"
+      },
       "fieldCount": "{count} data groups",
+      "fileIdentity": "{scope} · {encryption} · scope {fingerprint}",
       "loadFailure": "Could not load remote backup files: {error}",
       "retryNumber": "Retry {n}",
       "restore": "Restore Backup",
+      "disposition": {
+        "candidate": "Pending cleanup",
+        "keep": "Keep",
+        "protected": "Safety protected"
+      },
       "runTable": {
         "detail": "Details / Failure reason",
         "duration": "Duration",
@@ -537,6 +589,10 @@
         "result": "Result",
         "time": "Completed",
         "trigger": "Trigger"
+      },
+      "scope": {
+        "full": "Full",
+        "selected": "Selected fields"
       },
       "status": {
         "failed": "Failed",
@@ -551,8 +607,10 @@
       },
       "table": {
         "filename": "Backup Filename",
+        "retention": "Retention",
         "size": "Backup Size",
-        "time": "Backup Time"
+        "time": "Backup Time",
+        "type": "Backup type"
       },
       "tabs": {
         "files": "Remote backup files",

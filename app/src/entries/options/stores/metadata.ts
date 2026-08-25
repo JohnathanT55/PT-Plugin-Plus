@@ -27,6 +27,12 @@ import {
   ISiteDownloadProfile,
 } from "@/shared/types.ts";
 import { normalizeBackupFields } from "@foundation/backup/policy";
+import {
+  createBackupVerificationKey,
+  normalizeBackupRetentionPolicy,
+  normalizeBackupVerificationKey,
+  normalizeUuid,
+} from "@foundation/backup/retention";
 import { sendMessage } from "@/messages.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -44,10 +50,24 @@ export const useMetadataStore = defineStore("metadata", {
       let needsSave = false;
       for (const server of Object.values(state.backupServers ?? {})) {
         const normalized = normalizeBackupFields(server.backupFields, server.backupFieldsVersion, BackupFields);
-        if (!normalized.changed) continue;
-        server.backupFields = normalized.fields as IBackupServerMetadata["backupFields"];
-        server.backupFieldsVersion = normalized.version;
-        needsSave = true;
+        if (normalized.changed) {
+          server.backupFields = normalized.fields as IBackupServerMetadata["backupFields"];
+          server.backupFieldsVersion = normalized.version;
+          needsSave = true;
+        }
+        if (!normalizeUuid(server.backupNamespaceId ?? "")) {
+          server.backupNamespaceId = crypto.randomUUID();
+          needsSave = true;
+        }
+        if (!normalizeBackupVerificationKey(server.backupVerificationKey ?? "")) {
+          server.backupVerificationKey = createBackupVerificationKey();
+          needsSave = true;
+        }
+        const retentionPolicy = normalizeBackupRetentionPolicy(server.retentionPolicy);
+        if (JSON.stringify(retentionPolicy) !== JSON.stringify(server.retentionPolicy)) {
+          server.retentionPolicy = retentionPolicy;
+          needsSave = true;
+        }
       }
       if (needsSave) context.store.$save();
     },
@@ -200,11 +220,7 @@ export const useMetadataStore = defineStore("metadata", {
         const siteUserConfig = state.sites[siteId];
         const siteMetadata = await getDefinedSiteMetadata(siteId);
 
-        if (
-          siteUserConfig.isOffline ||
-          siteMetadata.isDead ||
-          siteUserConfig.allowSearch === false
-        ) {
+        if (siteUserConfig.isOffline || siteMetadata.isDead || siteUserConfig.allowSearch === false) {
           return;
         }
 
@@ -270,11 +286,7 @@ export const useMetadataStore = defineStore("metadata", {
         let solutionItems = [];
         for (const solutionItem of solution.solutions) {
           const siteUserConfig = state.sites[solutionItem.siteId];
-          if (
-            !siteUserConfig ||
-            siteUserConfig.isOffline ||
-            siteUserConfig.allowSearch === false
-          ) {
+          if (!siteUserConfig || siteUserConfig.isOffline || siteUserConfig.allowSearch === false) {
             continue;
           }
           if (solutionItem.id === "default") {
@@ -595,6 +607,13 @@ export const useMetadataStore = defineStore("metadata", {
       );
       backupServerConfig.backupFields = normalized.fields as IBackupServerMetadata["backupFields"];
       backupServerConfig.backupFieldsVersion = normalized.version;
+      if (!normalizeUuid(backupServerConfig.backupNamespaceId ?? "")) {
+        backupServerConfig.backupNamespaceId = crypto.randomUUID();
+      }
+      if (!normalizeBackupVerificationKey(backupServerConfig.backupVerificationKey ?? "")) {
+        backupServerConfig.backupVerificationKey = createBackupVerificationKey();
+      }
+      backupServerConfig.retentionPolicy = normalizeBackupRetentionPolicy(backupServerConfig.retentionPolicy);
       this.backupServers[backupServerConfig.id] = backupServerConfig;
       await this.$save();
     },

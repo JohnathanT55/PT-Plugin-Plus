@@ -518,18 +518,70 @@
       "backupIntervalHint": "设置自动备份间隔（小时），留空或为 0 表示不自动备份，最大 48 小时",
       "digestAuth": "Digest 摘要认证",
       "digestAuthHint": "仅当 WebDAV 服务明确要求 HTTP Digest Authentication 时开启；它不是备份加密，普通 OpenList/AList 配置通常保持关闭。",
-      "serverConfig": "服务器配置"
+      "keepLatest": "只保留每个备份流最近 N 份",
+      "maxAgeDays": "删除早于 N 天的自动备份",
+      "minKeep": "每个备份流至少保留 M 份",
+      "minKeepHint": "固定间隔、刷新后全量备份和不同字段范围分别计算，默认至少保留 3 份。",
+      "retentionEnabled": "自动清理旧的自动备份",
+      "retentionSafetyHint": "默认关闭。只处理当前服务器严格新命名的自动备份；手动、旧版、相似名称、临时文件和其他应用文件永不自动删除。",
+      "retentionTitle": "自动备份保留与安全清理",
+      "serverConfig": "服务器配置",
+      "strategyAge": "按时间：删除早于指定天数的文件",
+      "strategyCount": "按数量：只保留最近指定份数",
+      "tieredEnabled": "启用最近 / 每周 / 每月分层保留",
+      "tieredHint": "在基础策略之外额外保护各时间层的代表备份。周和月边界按配置时区计算。",
+      "tierMonthly": "每月保留份数",
+      "tierRecent": "最近保留份数",
+      "tierTimeZone": "周 / 月边界时区",
+      "tierTimeZoneHint": "填写 IANA 时区，例如 Asia/Shanghai、America/New_York；无效值保存时回退 UTC。",
+      "tierWeekly": "每周保留份数"
     },
     "EditDialog": {
       "title": "编辑备份服务器"
     },
     "HistoryDialog": {
+      "classification": {
+        "automatic": "自动备份",
+        "legacy": "旧版未分类",
+        "manual": "手动备份",
+        "otherServer": "其他服务器 / 备份流",
+        "temporary": "临时文件",
+        "unverified": "无法验证"
+      },
+      "cleanup": {
+        "candidateCount": "待清理 {count} 份",
+        "cleanSelected": "立即清理 {count} 份",
+        "confirmText": "将永久删除预览中仍满足安全规则的 {count} 个远端文件。删除会逐文件验证并记录，确定继续吗？",
+        "confirmTitle": "二次确认远端清理",
+        "dateRange": "候选日期：{oldest} 至 {newest}",
+        "includeLegacyHint": "仅本次把严格匹配 PTPP_backup_时间.zip 的旧文件按当前年龄/数量策略计算；不会保存为自动权限。",
+        "includeLegacyOnce": "本次预览纳入严格旧版文件",
+        "keepCount": "策略保留 {count} 份",
+        "lastResult": "最近清理：删除 {deleted}，失败 {failed}，跳过 {skipped}",
+        "previewButton": "清理预览",
+        "protectedCount": "安全保护 {count} 份",
+        "releaseSize": "预计释放 {size}（未知大小 {unknown} 份）",
+        "result": "清理完成：删除 {deleted}，失败 {failed}，跳过 {skipped}",
+        "runResult": "随备份清理：删除 {deleted}，失败 {failed}，跳过 {skipped}",
+        "safety": "这里只展示候选，不会立即删除。你可以取消任意候选；执行前还会重新列出远端、核对当前策略与文件元数据，并再次确认。",
+        "title": "旧备份安全清理预览"
+      },
       "deleteFailure": "删除备份历史 [{name}] 失败",
       "deleteSuccess": "删除备份历史 [{name}] 成功",
+      "encryption": {
+        "encrypted": "已加密",
+        "plain": "未加密"
+      },
       "fieldCount": "{count} 类数据",
+      "fileIdentity": "{scope} · {encryption} · 范围 {fingerprint}",
       "loadFailure": "无法读取远端备份文件：{error}",
       "retryNumber": "第 {n} 次重试",
       "restore": "恢复备份",
+      "disposition": {
+        "candidate": "待清理",
+        "keep": "保留",
+        "protected": "安全保护"
+      },
       "runTable": {
         "detail": "详情 / 失败原因",
         "duration": "耗时",
@@ -537,6 +589,10 @@
         "result": "结果",
         "time": "完成时间",
         "trigger": "触发来源"
+      },
+      "scope": {
+        "full": "全量",
+        "selected": "选定字段"
       },
       "status": {
         "failed": "失败",
@@ -551,8 +607,10 @@
       },
       "table": {
         "filename": "备份文件名",
+        "retention": "保留状态",
         "size": "备份大小",
-        "time": "备份时间"
+        "time": "备份时间",
+        "type": "备份类型"
       },
       "tabs": {
         "files": "远端备份文件",

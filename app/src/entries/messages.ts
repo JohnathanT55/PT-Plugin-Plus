@@ -17,8 +17,15 @@ import type {
   TSupportSocialSite$1,
 } from "@ptd/social";
 import type { IMediaServerId, IMediaServerSearchOptions, IMediaServerSearchResult } from "@ptd/mediaServer";
-import type { IBackupData, IBackupFileInfo } from "@ptd/backupServer";
+import type { IBackupData } from "@ptd/backupServer";
 import type { CollectionGroupRecord, CollectionItemRecord, CollectionState } from "@foundation/model/schema";
+import type {
+  IBackupCleanupPreview,
+  IBackupCleanupRequest,
+  IBackupCleanupResult,
+  IBackupExportResult,
+  IClassifiedBackupFile,
+} from "@foundation/backup/retention";
 
 // 可序列化的种子信息，用于辅种检测
 export interface ITorrentInfoForVerification {
@@ -201,10 +208,22 @@ interface ProtocolMap extends TMessageMap {
   clearSocialInformationCache(): void;
 
   // 2.6 备份/恢复 ( utils/backup )
-  exportBackupData(data: { backupServerId: string | "local"; backupFields: TBackupFields[] }): boolean;
+  exportBackupData(data: {
+    backupServerId: string | "local";
+    backupFields: TBackupFields[];
+    trigger?: TBackupTrigger;
+  }): IBackupExportResult;
   runBackup(data: { backupServerId: string; trigger?: TBackupTrigger }): boolean;
   cancelBackupRetry(data: string): boolean;
-  getBackupHistory(data: string): IBackupFileInfo[];
+  getBackupHistory(data: string): IClassifiedBackupFile[];
+  previewBackupCleanup(data: {
+    backupServerId: string;
+    includeLegacyOnce?: boolean;
+    protectedPaths?: string[];
+  }): IBackupCleanupPreview;
+  executeBackupCleanup(data: IBackupCleanupRequest): IBackupCleanupResult;
+  prepareBackupCleanup(data: IBackupCleanupRequest & { mode: "automatic" | "manual" }): string;
+  resumeBackupCleanup(data: { backupServerId: string; runId: string }): IBackupCleanupResult;
   deleteBackupHistory(data: { backupServerId: string; path: string }): boolean;
   restoreBackupData(data: { restoreData: IBackupData; restoreOptions?: IRestoreOptions }): boolean;
   importPtppLegacyBackup(data: IPtppLegacyBackupImportPayload): IPtppLegacyBackupImportResult;

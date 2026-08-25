@@ -31,12 +31,13 @@ export async function backupDataToJSZipBlob(data: IBackupData, encryptionKey?: s
   const manifest = {
     ...(data.manifest ?? {}),
     encryption: typeof encryptionKey === "string" && encryptionKey !== "",
-    time: new Date().getTime(),
+    time: Number.isFinite(data.manifest?.time) ? data.manifest!.time : new Date().getTime(),
     files: {},
   } as IBackupFileManifest;
 
-  delete data.manifest; // 确保 manifest 不会被重复添加到 zip 中
-  for (const [key, value] of Object.entries(data)) {
+  // Never mutate the caller's object. The same identity is used to verify the
+  // remote listing and to record the run after serialization completes.
+  for (const [key, value] of Object.entries(data).filter(([key]) => key !== "manifest")) {
     const fileName = `${key}.json`;
     const fileContent = encryptData(value, encryptionKey);
     zip.file(fileName, fileContent);

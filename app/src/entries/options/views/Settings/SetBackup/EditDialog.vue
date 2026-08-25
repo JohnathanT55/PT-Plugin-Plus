@@ -7,6 +7,7 @@ import type { IBackupServerMetadata, TBackupServerKey } from "@/shared/types.ts"
 
 import Editor from "./Editor.vue";
 import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
+import { normalizeBackupRetentionPolicy } from "@foundation/backup/retention";
 
 const showDialog = defineModel<boolean>();
 const { clientId } = defineProps<{
@@ -19,7 +20,7 @@ const metadataStore = useMetadataStore();
 
 function dialogEnter() {
   if (clientId) {
-    clientConfig.value = { ...metadataStore.backupServers[clientId] }; // 防止直接修改父组件的数据
+    clientConfig.value = structuredClone(metadataStore.backupServers[clientId]); // 防止嵌套清理策略直接修改父组件数据
   }
 }
 
@@ -36,7 +37,10 @@ function editClientConfig() {
     delete clientConfig.value.backupRetryAt;
     delete clientConfig.value.backupRetryCount;
   }
-  if (clientConfig.value) clientConfig.value.backupFieldsVersion = CURRENT_BACKUP_FIELDS_VERSION;
+  if (clientConfig.value) {
+    clientConfig.value.backupFieldsVersion = CURRENT_BACKUP_FIELDS_VERSION;
+    clientConfig.value.retentionPolicy = normalizeBackupRetentionPolicy(clientConfig.value.retentionPolicy);
+  }
   metadataStore.addBackupServer(clientConfig.value as IBackupServerMetadata);
   showDialog.value = false;
 }

@@ -10,6 +10,7 @@ import {
   IConfigPiniaStorageSchema,
   IDownloadTorrentOption,
   IMetadataPiniaStorageSchema,
+  type IBackupCleanupSummary,
   type IDownloadBatchRecord,
   type IDownloadBatchStorageSchema,
   type IDownloadTorrentResult,
@@ -33,6 +34,12 @@ import {
   shouldUploadAfterUserRefresh,
 } from "@foundation/backup/policy";
 import { prependLimitedHistory } from "@foundation/backup/restore";
+import {
+  normalizeBackupRetentionPolicy,
+  type IBackupCleanupRequest,
+  type IBackupCleanupResult,
+  type IBackupExportResult,
+} from "@foundation/backup/retention";
 
 import { setupOffscreenDocument } from "./offscreen.ts";
 export enum EJobType {
@@ -44,6 +51,7 @@ const DOWNLOAD_TASK_PREFIX = "download:";
 const DOWNLOAD_BATCH_TASK_PREFIX = "download-batch:";
 const USER_INFO_RETRY_TASK_ID = "user-info-retry";
 const BACKUP_RETRY_TASK_PREFIX = "backup-retry:";
+const BACKUP_CLEANUP_TASK_PREFIX = "backup-cleanup:";
 const DOWNLOAD_BATCH_STORAGE_VERSION = 1 as const;
 const MAX_RETAINED_DOWNLOAD_BATCHES = 20;
 
@@ -183,10 +191,31 @@ jobs.scheduleJob({
   execute: autoFlushUserInfo(),
 });
 
-const activeBackupRuns = new Map<string, Promise<boolean>>();
+const activeBackupRuns = new Map<string, Promise<unknown>>();
 
 function backupRetryTaskId(serverId: string): string {
   return `${BACKUP_RETRY_TASK_PREFIX}${serverId}`;
+}
+
+function backupCleanupTaskId(serverId: string): string {
+  return `${BACKUP_CLEANUP_TASK_PREFIX}${serverId}`;
+}
+
+async function serializeBackupServerOperation<T>(serverId: string, operation: () => Promise<T>): Promise<T> {
+  while (activeBackupRuns.has(serverId)) {
+    try {
+      await activeBackupRuns.get(serverId);
+    } catch {
+      // The queued operation revalidates all remote state after acquiring the slot.
+    }
+  }
+  const run = operation();
+  activeBackupRuns.set(serverId, run);
+  try {
+    return await run;
+  } finally {
+    if (activeBackupRuns.get(serverId) === run) activeBackupRuns.delete(serverId);
+  }
 }
 
 async function patchBackupServer(
@@ -208,6 +237,8 @@ async function recordBackupSuccess(
   finishedAt: number,
   retryIndex: number,
   fields: TBackupFields[],
+  exported: IBackupExportResult,
+  cleanup?: IBackupCleanupSummary,
 ): Promise<void> {
   await patchBackupServer(serverId, (server) => {
     server.lastBackupAt = finishedAt;
@@ -224,6 +255,8 @@ async function recordBackupSuccess(
       trigger,
       retryIndex,
       fields: [...fields],
+      backup: exported.identity,
+      cleanup,
     });
     delete server.lastBackupFailureAt;
     delete server.lastBackupError;
@@ -302,19 +335,79 @@ async function recordBackupFailure(
   }).catch();
 }
 
-async function runBackupWithRetry(serverId: string, trigger: TBackupTrigger, retryIndex: number = 0): Promise<boolean> {
-  // Serialize runs for the same server instead of coalescing different triggers.
-  // In particular, an interval backup may contain only selected fields while the
-  // post-refresh upload must always create its own full backup.
-  while (activeBackupRuns.has(serverId)) {
-    try {
-      await activeBackupRuns.get(serverId);
-    } catch {
-      // The completed run records its own failure; the queued trigger must still run.
-    }
-  }
+function cleanupSummary(result: IBackupCleanupResult, startedAt: number): IBackupCleanupSummary {
+  return {
+    runId: result.runId,
+    status: result.status,
+    startedAt,
+    finishedAt: Date.now(),
+    requestedCount: result.requestedCount,
+    deletedCount: result.deletedCount,
+    missingCount: result.missingCount,
+    skippedCount: result.skippedCount,
+    failedCount: result.failedCount,
+    releasedBytes: result.releasedBytes,
+    error: result.error ? sanitizeDownloadErrorMessage(result.error) : undefined,
+  };
+}
 
-  const run = (async () => {
+function emptyCleanupResult(): IBackupCleanupResult {
+  return {
+    runId: "",
+    status: "nothingToDo",
+    requestedCount: 0,
+    deletedCount: 0,
+    missingCount: 0,
+    skippedCount: 0,
+    failedCount: 0,
+    releasedBytes: 0,
+    results: [],
+  };
+}
+
+async function resumePreparedCleanup(serverId: string, runId: string): Promise<IBackupCleanupResult> {
+  if (!runId) return emptyCleanupResult();
+  await durableTasks.schedule({
+    id: backupCleanupTaskId(serverId),
+    runAt: Date.now() + 60_000,
+    payload: { type: "backupCleanup", serverId, runId },
+  });
+  const result = await sendMessage("resumeBackupCleanup", { backupServerId: serverId, runId });
+  if (result.status === "completed" || result.status === "nothingToDo") {
+    await durableTasks.cancel(backupCleanupTaskId(serverId));
+  } else {
+    const retryDelay = await getCleanupRetryDelay(serverId);
+    await durableTasks.schedule({
+      id: backupCleanupTaskId(serverId),
+      runAt: Date.now() + retryDelay,
+      payload: { type: "backupCleanup", serverId, runId },
+    });
+  }
+  return result;
+}
+
+async function getCleanupRetryDelay(serverId: string): Promise<number> {
+  const metadataStore = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
+  const maxAttempts = Math.max(
+    1,
+    ...(metadataStore?.backupServers?.[serverId]?.pendingCleanup?.items
+      .filter((item) => item.status === "pending")
+      .map((item) => item.attempts) ?? [1]),
+  );
+  return Math.min(12 * 60 * 60_000, 5 * 60_000 * 2 ** Math.min(7, Math.max(0, maxAttempts - 1)));
+}
+
+async function prepareAndRunCleanup(
+  request: IBackupCleanupRequest,
+  mode: "automatic" | "manual",
+): Promise<IBackupCleanupResult> {
+  await setupOffscreenDocument();
+  const runId = await sendMessage("prepareBackupCleanup", { ...request, mode });
+  return await resumePreparedCleanup(request.backupServerId, runId);
+}
+
+async function runBackupWithRetry(serverId: string, trigger: TBackupTrigger, retryIndex: number = 0): Promise<boolean> {
+  return await serializeBackupServerOperation(serverId, async () => {
     await setupOffscreenDocument();
     const [metadataStore, configStore] = await Promise.all([
       extStorage.getItem("metadata") as Promise<IMetadataPiniaStorageSchema | undefined>,
@@ -347,9 +440,53 @@ async function runBackupWithRetry(serverId: string, trigger: TBackupTrigger, ret
     try {
       const backupFields =
         trigger === "userDataRefresh" ? [...BackupFields] : (normalizedFields.fields as typeof server.backupFields);
-      const ok = await sendMessage("exportBackupData", { backupServerId: serverId, backupFields });
-      if (!ok) throw new Error("Backup server returned a failure result.");
-      await recordBackupSuccess(serverId, trigger, startedAt, Date.now(), retryIndex, backupFields);
+      const exported = await sendMessage("exportBackupData", {
+        backupServerId: serverId,
+        backupFields,
+        trigger,
+      });
+      if (!exported.ok || !exported.verifiedRemote || !exported.path) {
+        throw new Error("Backup upload was not verified in the remote listing.");
+      }
+
+      let cleanup: IBackupCleanupSummary | undefined;
+      const retentionPolicy = normalizeBackupRetentionPolicy(server.retentionPolicy);
+      if (trigger !== "manual" && retentionPolicy.enabled) {
+        const cleanupStartedAt = Date.now();
+        try {
+          const preview = await sendMessage("previewBackupCleanup", {
+            backupServerId: serverId,
+            protectedPaths: [exported.path],
+          });
+          const result = await prepareAndRunCleanup(
+            {
+              backupServerId: serverId,
+              previewToken: preview.token,
+              paths: preview.candidatePaths,
+              protectedPaths: [exported.path],
+            },
+            "automatic",
+          );
+          cleanup = cleanupSummary(result, cleanupStartedAt);
+        } catch (cleanupError) {
+          // Cleanup uncertainty never changes a verified upload into a failure and
+          // never falls back to deleting without a freshly verified preview.
+          cleanup = {
+            runId: "",
+            status: "failed",
+            startedAt: cleanupStartedAt,
+            finishedAt: Date.now(),
+            requestedCount: 0,
+            deletedCount: 0,
+            missingCount: 0,
+            skippedCount: 0,
+            failedCount: 0,
+            releasedBytes: 0,
+            error: sanitizeDownloadErrorMessage(cleanupError),
+          };
+        }
+      }
+      await recordBackupSuccess(serverId, trigger, startedAt, Date.now(), retryIndex, backupFields, exported, cleanup);
       sendMessage("logger", { msg: `Backup completed for [${serverId}] (${trigger}).` }).catch();
       return true;
     } catch (error) {
@@ -358,14 +495,7 @@ async function runBackupWithRetry(serverId: string, trigger: TBackupTrigger, ret
       await recordBackupFailure(serverId, trigger, error, retryIndex, startedAt, backupFields);
       return false;
     }
-  })();
-
-  activeBackupRuns.set(serverId, run);
-  try {
-    return await run;
-  } finally {
-    if (activeBackupRuns.get(serverId) === run) activeBackupRuns.delete(serverId);
-  }
+  });
 }
 
 /** 检查每个服务器独立的固定间隔计划；定时刷新后上传走上面的独立入口。 */
@@ -532,6 +662,26 @@ async function executeDurableTask(task: IDurableTask<TDurableTaskPayload>): Prom
     return;
   }
 
+  if (task.payload.type === "backupCleanup") {
+    const cleanupTask = task.payload;
+    await serializeBackupServerOperation(cleanupTask.serverId, async () => {
+      await setupOffscreenDocument();
+      const result = await sendMessage("resumeBackupCleanup", {
+        backupServerId: cleanupTask.serverId,
+        runId: cleanupTask.runId,
+      });
+      if (result.status !== "completed" && result.status !== "nothingToDo") {
+        const retryDelay = await getCleanupRetryDelay(cleanupTask.serverId);
+        await durableTasks.schedule({
+          id: backupCleanupTaskId(cleanupTask.serverId),
+          runAt: Date.now() + retryDelay,
+          payload: cleanupTask,
+        });
+      }
+    });
+    return;
+  }
+
   if (task.payload.type === "downloadBatch") {
     await executeDownloadBatch(task.payload.batchId);
     return;
@@ -579,9 +729,7 @@ const durableTasks = createDurableTaskCoordinator<TDurableTaskPayload>({
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (!durableTaskIdFromAlarm(alarm.name)) return;
   const handle = () => durableTasks.handleAlarm(alarm.name);
-  const handled = navigator.locks
-    ? navigator.locks.request(`ptpp-durable-task:${alarm.name}`, handle)
-    : handle();
+  const handled = navigator.locks ? navigator.locks.request(`ptpp-durable-task:${alarm.name}`, handle) : handle();
   handled.catch(() => {
     sendMessage("logger", { msg: `A durable one-shot task failed; see its download history status.` }).catch();
   });
@@ -592,8 +740,35 @@ durableTasks.restore().catch((error) => {
   sendMessage("logger", { msg: `Restoring durable one-shot tasks failed: ${errorMessage}` }).catch();
 });
 
+async function restorePendingBackupCleanups(): Promise<void> {
+  const metadataStore = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
+  for (const [serverId, server] of Object.entries(metadataStore?.backupServers ?? {})) {
+    if (!server.pendingCleanup?.id) continue;
+    const taskId = backupCleanupTaskId(serverId);
+    if (await durableTasks.getTask(taskId)) continue;
+    await durableTasks.schedule({
+      id: taskId,
+      runAt: Date.now(),
+      payload: { type: "backupCleanup", serverId, runId: server.pendingCleanup.id },
+    });
+  }
+}
+
+restorePendingBackupCleanups().catch((error) => {
+  sendMessage("logger", {
+    level: "error",
+    msg: `Restoring pending backup cleanup failed: ${sanitizeDownloadErrorMessage(error)}`,
+  }).catch();
+});
+
 onMessage("runBackup", async ({ data }) => {
   return await runBackupWithRetry(data.backupServerId, data.trigger ?? "manual", 0);
+});
+
+onMessage("executeBackupCleanup", async ({ data }) => {
+  return await serializeBackupServerOperation(data.backupServerId, async () => {
+    return await prepareAndRunCleanup(data, "manual");
+  });
 });
 
 onMessage("cancelBackupRetry", async ({ data: serverId }) => {

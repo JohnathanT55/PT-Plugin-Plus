@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watchEffect } from "vue";
 import { useI18n } from "vue-i18n";
 import { computedAsync } from "@vueuse/core";
 import { getBackupServer, getBackupServerMetaData, IBackupMetadata } from "@ptd/backupServer";
@@ -8,6 +8,7 @@ import { BackupFields, type IBackupServerMetadata } from "@/shared/types.ts";
 import { formValidateRules } from "@/options/utils.ts";
 
 import ConnectCheckButton from "@/options/components/ConnectCheckButton.vue";
+import { normalizeBackupRetentionPolicy } from "@foundation/backup/retention";
 
 const { t } = useI18n();
 
@@ -41,6 +42,12 @@ async function checkConnect() {
 function resolveMetaText(value?: string) {
   return value?.startsWith("i18n.") ? t(value.slice(5)) : value;
 }
+
+watchEffect(() => {
+  if (clientConfig.value && !clientConfig.value.retentionPolicy) {
+    clientConfig.value.retentionPolicy = normalizeBackupRetentionPolicy(undefined);
+  }
+});
 </script>
 
 <template>
@@ -139,6 +146,102 @@ function resolveMetaText(value?: string) {
             />
           </v-col>
         </v-row>
+      </v-card-text>
+    </v-card>
+
+    <v-card v-if="clientConfig.retentionPolicy" class="mb-4" variant="outlined">
+      <v-card-title class="text-subtitle-1">{{ t("SetBackup.Editor.retentionTitle") }}</v-card-title>
+      <v-divider />
+      <v-card-text>
+        <v-switch
+          v-model="clientConfig.retentionPolicy.enabled"
+          :label="t('SetBackup.Editor.retentionEnabled')"
+          :messages="t('SetBackup.Editor.retentionSafetyHint')"
+          color="success"
+          hide-details="auto"
+        />
+
+        <template v-if="clientConfig.retentionPolicy.enabled">
+          <v-radio-group v-model="clientConfig.retentionPolicy.strategy" class="mt-3" hide-details>
+            <v-radio :label="t('SetBackup.Editor.strategyAge')" value="age" />
+            <v-radio :label="t('SetBackup.Editor.strategyCount')" value="count" />
+          </v-radio-group>
+
+          <v-row class="mt-1">
+            <v-col v-if="clientConfig.retentionPolicy.strategy === 'age'" cols="12" md="6">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.maxAgeDays"
+                :label="t('SetBackup.Editor.maxAgeDays')"
+                :min="1"
+                :max="36500"
+                suffix="d"
+                type="number"
+              />
+            </v-col>
+            <v-col v-else cols="12" md="6">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.keepLatest"
+                :label="t('SetBackup.Editor.keepLatest')"
+                :min="1"
+                :max="10000"
+                type="number"
+              />
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.minKeep"
+                :label="t('SetBackup.Editor.minKeep')"
+                :min="1"
+                :max="10000"
+                :messages="t('SetBackup.Editor.minKeepHint')"
+                type="number"
+              />
+            </v-col>
+          </v-row>
+
+          <v-divider class="my-2" />
+          <v-switch
+            v-model="clientConfig.retentionPolicy.tiered.enabled"
+            :label="t('SetBackup.Editor.tieredEnabled')"
+            :messages="t('SetBackup.Editor.tieredHint')"
+            color="success"
+            hide-details="auto"
+          />
+          <v-row v-if="clientConfig.retentionPolicy.tiered.enabled" class="mt-1">
+            <v-col cols="12" md="4">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.tiered.recentCount"
+                :label="t('SetBackup.Editor.tierRecent')"
+                :min="0"
+                type="number"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.tiered.weeklyCount"
+                :label="t('SetBackup.Editor.tierWeekly')"
+                :min="0"
+                type="number"
+              />
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-text-field
+                v-model.number="clientConfig.retentionPolicy.tiered.monthlyCount"
+                :label="t('SetBackup.Editor.tierMonthly')"
+                :min="0"
+                type="number"
+              />
+            </v-col>
+            <v-col cols="12">
+              <v-text-field
+                v-model="clientConfig.retentionPolicy.tiered.timeZone"
+                :label="t('SetBackup.Editor.tierTimeZone')"
+                :messages="t('SetBackup.Editor.tierTimeZoneHint')"
+                placeholder="UTC"
+              />
+            </v-col>
+          </v-row>
+        </template>
       </v-card-text>
     </v-card>
 

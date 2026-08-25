@@ -74,10 +74,12 @@ const requiredSourceModules = [
   "app/src/entries/background/utils/alarms.ts",
   "app/src/entries/options/views/Overview/MyCollection/Index.vue",
   "app/src/entries/options/views/Overview/MyCollection/GroupCard.vue",
+  "app/src/entries/options/views/Settings/SetBackup/CleanupPreviewDialog.vue",
   "app/src/entries/options/views/Overview/SearchEntity/CollectionGroupMenu.vue",
   "app/src/entries/options/views/Overview/SearchEntity/favoriteState.ts",
   "app/src/entries/options/composables/collectionState.ts",
   "src/collection/searchContext.ts",
+  "src/backup/retention.ts",
   "app/src/entries/content-script/index.ts",
   "app/src/entries/content-script/app/components/DownloadTargetMenu.vue",
   "app/src/entries/content-script/app/components/SpeedDialBtn.vue",
@@ -99,22 +101,13 @@ const downloadMenuSource = fs.readFileSync(
   path.join(root, "app/src/entries/content-script/app/components/DownloadTargetMenu.vue"),
   "utf8",
 );
-const contentToolbarSource = fs.readFileSync(
-  path.join(root, "app/src/entries/content-script/app/App.vue"),
-  "utf8",
-);
+const contentToolbarSource = fs.readFileSync(path.join(root, "app/src/entries/content-script/app/App.vue"), "utf8");
 const speedDialSource = fs.readFileSync(
   path.join(root, "app/src/entries/content-script/app/components/SpeedDialBtn.vue"),
   "utf8",
 );
-const toolbarPositionSource = fs.readFileSync(
-  path.join(root, "app/src/entries/shared/toolbarPosition.ts"),
-  "utf8",
-);
-const clientDashboardSource = fs.readFileSync(
-  path.join(root, "app/src/entries/shared/clientDashboard.ts"),
-  "utf8",
-);
+const toolbarPositionSource = fs.readFileSync(path.join(root, "app/src/entries/shared/toolbarPosition.ts"), "utf8");
+const clientDashboardSource = fs.readFileSync(path.join(root, "app/src/entries/shared/clientDashboard.ts"), "utf8");
 const optionsDownloadMenuSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/components/DownloadTargetMenu.vue"),
   "utf8",
@@ -194,6 +187,11 @@ const collectionWorkerSource = fs.readFileSync(
 const collectionSearchContextSource = fs.readFileSync(path.join(root, "src/collection/searchContext.ts"), "utf8");
 const backupSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/backup.ts"), "utf8");
 const alarmsSource = fs.readFileSync(path.join(root, "app/src/entries/background/utils/alarms.ts"), "utf8");
+const backupRetentionSource = fs.readFileSync(path.join(root, "src/backup/retention.ts"), "utf8");
+const backupCleanupDialogSource = fs.readFileSync(
+  path.join(root, "app/src/entries/options/views/Settings/SetBackup/CleanupPreviewDialog.vue"),
+  "utf8",
+);
 const offscreenDownloadSource = fs.readFileSync(path.join(root, "app/src/entries/offscreen/utils/download.ts"), "utf8");
 const downloadDispatchSource = fs.readFileSync(
   path.join(root, "app/src/entries/options/components/SentToDownloaderDialog/utils.ts"),
@@ -355,6 +353,41 @@ assert(
   backupSource.includes('backupFields.includes("collection")') &&
     backupSource.includes('restoreFields.includes("collection")'),
   "favorites participate in current local and WebDAV backup round trips",
+);
+assert(
+  backupSource.includes("backupIdentity: identity") &&
+    backupSource.includes("Uploaded backup could not be verified in the remote listing") &&
+    backupSource.includes("delete server.backupVerificationKey") &&
+    backupSource.includes("server.backupVerificationKey = createBackupVerificationKey()") &&
+    backupSource.includes('onMessage("prepareBackupCleanup"') &&
+    backupSource.includes('onMessage("resumeBackupCleanup"') &&
+    backupSource.includes("activeRestorePaths"),
+  "remote retention requires a verified identity and protects active restores with a durable cleanup journal",
+);
+assert(
+  alarmsSource.includes('BACKUP_CLEANUP_TASK_PREFIX = "backup-cleanup:"') &&
+    alarmsSource.includes('payload: { type: "backupCleanup"') &&
+    alarmsSource.includes("restorePendingBackupCleanups") &&
+    alarmsSource.includes('onMessage("executeBackupCleanup"') &&
+    alarmsSource.includes("serializeBackupServerOperation"),
+  "upload and cleanup are serialized per server and pending cleanup resumes after worker restart",
+);
+assert(
+  backupRetentionSource.includes("STRICT_BACKUP_NAME") &&
+    backupRetentionSource.includes("HmacSHA256") &&
+    backupRetentionSource.includes('classification: "manual"') &&
+    backupRetentionSource.includes('classification: "otherServer"') &&
+    backupRetentionSource.includes("includeLegacyOnce") &&
+    backupRetentionSource.includes("executeBackupCleanupItems"),
+  "strict classification protects manual, legacy, other-stream, and unverified files before bounded deletion",
+);
+assert(
+  backupCleanupDialogSource.includes("previewBackupCleanup") &&
+    backupCleanupDialogSource.includes("includeLegacyOnce") &&
+    backupCleanupDialogSource.includes("showConfirm") &&
+    backupCleanupDialogSource.includes("executeBackupCleanup") &&
+    backupCleanupDialogSource.includes('item-selectable="selectable"'),
+  "backup history offers a deselectable preview and a separate second confirmation",
 );
 assert(
   ["general", "toolbar", "browserIntegration", "userData", "search", "download", "backup"].every((tabKey) =>
