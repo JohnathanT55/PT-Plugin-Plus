@@ -898,7 +898,7 @@
       "title": "编辑下载服务器"
     },
     "editor": {
-      "addressTip": "完整的服务器地址（含端口），如：http://192.168.1.1:5000/",
+      "addressTip": "完整的服务器地址（含端口），如：http://nas.example:5000/",
       "autoStart": "发送种子时自动开始下载",
       "nameTip": "取一个好听又好分辨的名称",
       "password": "密码",

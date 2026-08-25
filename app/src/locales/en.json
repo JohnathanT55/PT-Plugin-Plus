@@ -898,7 +898,7 @@
       "title": "Edit Download Server"
     },
     "editor": {
-      "addressTip": "Full Server Address (may include port or path), Like: http://192.168.1.1:5000/",
+      "addressTip": "Full Server Address (may include port or path), Like: http://nas.example:5000/",
       "autoStart": "Automatically start downloading when sending a torrent",
       "nameTip": "Pick a nice and recognizable name for this Download Server",
       "password": "Password",

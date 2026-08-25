@@ -19,6 +19,7 @@
     "build": "vite build",
     "build:firefox": "cross-env TARGET=firefox vite build",
     "validate": "node scripts/validate-mv3.js",
+    "audit:privacy": "node scripts/audit-repository-privacy.mjs",
     "audit:chrome-store": "node scripts/audit-chrome-store.mjs",
     "package:chrome": "pnpm validate && pnpm audit:chrome-store && node scripts/package-chrome-release.mjs",
     "test:runtime": "node tests/mv3/worker-runtime.js",
@@ -27,7 +28,7 @@
     "test:client-cdp": "node tests/mv3/client-dashboard-cdp-audit.mjs",
     "test:backup-retention-cdp": "node tests/mv3/backup-retention-cdp-audit.mjs",
     "test:responsive-table-cdp": "node tests/mv3/responsive-table-cdp-audit.mjs",
-    "verify": "pnpm typecheck && pnpm typecheck:foundation && pnpm test && pnpm build && pnpm validate && pnpm audit:chrome-store && pnpm test:runtime",
+    "verify": "pnpm audit:privacy && pnpm typecheck && pnpm typecheck:foundation && pnpm test && pnpm build && pnpm validate && pnpm audit:chrome-store && pnpm test:runtime",
     "format": "prettier --write app vite.config.ts scripts tests src"
   },
   "dependencies": {

@@ -1,9 +1,14 @@
 const endpoint = process.argv[2] ?? "http://127.0.0.1:9222";
 const phase = process.argv[3] ?? "setup";
-const expectedExtensionId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const desiredWebDavRoot = "http://webdav.example/dav";
+const desiredWebDavRoot = (process.argv[4] ?? process.env.PTPP_RETENTION_WEBDAV_ROOT ?? "").replace(/\/+$/, "");
 const auditStorageKey = "ptppBackupRetentionAudit";
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+if (!/^https?:\/\/[^/]+(?:\/.*)?$/i.test(desiredWebDavRoot)) {
+  throw new Error(
+    "Set PTPP_RETENTION_WEBDAV_ROOT or pass the WebDAV root as argument 4; no private endpoint is stored in the repository.",
+  );
+}
 
 function assert(condition, message, details) {
   if (!condition) {
@@ -103,8 +108,16 @@ async function getTargets() {
 
 async function getExtensionSessions() {
   const targets = await getTargets();
+  const optionsTarget = targets.find(
+    (target) =>
+      target.type === "page" &&
+      target.url?.startsWith("chrome-extension://") &&
+      target.url.includes("/src/entries/options/index.html"),
+  );
+  const extensionId = optionsTarget?.url?.match(/^chrome-extension:\/\/([^/]+)/)?.[1];
+  assert(extensionId, "the running options page identifies the extension under test", optionsTarget);
   const extensionTargets = targets.filter((target) =>
-    target.url?.startsWith(`chrome-extension://${expectedExtensionId}/`),
+    target.url?.startsWith(`chrome-extension://${extensionId}/`),
   );
   assert(extensionTargets.length >= 2, "extension page and background targets are present", extensionTargets);
   const pageTarget = extensionTargets.find((target) => target.type === "page");
@@ -114,7 +127,7 @@ async function getExtensionSessions() {
     const session = await new CdpSession(target.webSocketDebuggerUrl).open();
     sessions.push({ target, session });
   }
-  return { page: sessions.find(({ target }) => target.id === pageTarget.id).session, sessions };
+  return { extensionId, page: sessions.find(({ target }) => target.id === pageTarget.id).session, sessions };
 }
 
 const sendMessageHelper = `
@@ -127,8 +140,8 @@ const sendMessageHelper = `
   };
 `;
 
-async function navigateToBackupPage(page) {
-  const url = `chrome-extension://${expectedExtensionId}/src/entries/options/index.html#/set-backup`;
+async function navigateToBackupPage(page, extensionId) {
+  const url = `chrome-extension://${extensionId}/src/entries/options/index.html#/set-backup`;
   await page.call("Page.enable");
   await page.call("Page.navigate", { url });
   await waitFor(
@@ -330,8 +343,8 @@ async function setupPhase(page) {
   return result;
 }
 
-async function auditPreviewUi(page, serverId, expectedCandidateCount, baselineRemoteZipCount) {
-  await navigateToBackupPage(page);
+async function auditPreviewUi(page, extensionId, serverId, expectedCandidateCount, baselineRemoteZipCount) {
+  await navigateToBackupPage(page, extensionId);
   const historyClicked = await evaluate(
     page,
     `(() => {
@@ -536,13 +549,13 @@ async function verifyRestartAndFinish(page) {
   );
 }
 
-const { page, sessions } = await getExtensionSessions();
+const { extensionId, page, sessions } = await getExtensionSessions();
 try {
   const manifest = await evaluate(page, `chrome.runtime.getManifest()`);
   assert(manifest.manifest_version === 3 && manifest.version === "2.0.0", "runtime identity is MV3 2.0.0", manifest);
   if (phase === "setup") {
     const setup = await setupPhase(page);
-    await auditPreviewUi(page, setup.serverId, setup.candidateCount, setup.baselineRemoteZipCount);
+    await auditPreviewUi(page, extensionId, setup.serverId, setup.candidateCount, setup.baselineRemoteZipCount);
     const prepared = await cleanupSubsetAndPrepareRestart(page);
     console.log(
       JSON.stringify(
