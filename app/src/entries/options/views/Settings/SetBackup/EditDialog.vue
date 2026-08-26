@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, toRaw, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 import { useMetadataStore } from "@/options/stores/metadata.ts";
@@ -10,7 +10,7 @@ import { CURRENT_BACKUP_FIELDS_VERSION } from "@foundation/backup/policy";
 import { normalizeBackupRetentionPolicy } from "@foundation/backup/retention";
 
 const showDialog = defineModel<boolean>();
-const { clientId } = defineProps<{
+const props = defineProps<{
   clientId: TBackupServerKey;
 }>();
 const clientConfig = ref<IBackupServerMetadata>();
@@ -18,14 +18,17 @@ const clientConfig = ref<IBackupServerMetadata>();
 const { t } = useI18n();
 const metadataStore = useMetadataStore();
 
-function dialogEnter() {
-  if (clientId) {
-    clientConfig.value = structuredClone(metadataStore.backupServers[clientId]); // 防止嵌套清理策略直接修改父组件数据
-  }
-}
+watch(
+  [showDialog, () => props.clientId],
+  ([visible, clientId]) => {
+    const storedConfig = visible && clientId ? metadataStore.backupServers[clientId] : undefined;
+    clientConfig.value = storedConfig ? structuredClone(toRaw(storedConfig)) : undefined;
+  },
+  { immediate: true },
+);
 
 function editClientConfig() {
-  const existingInterval = metadataStore.backupServers[clientId]?.backupInterval;
+  const existingInterval = metadataStore.backupServers[props.clientId]?.backupInterval;
   if (clientConfig.value && clientConfig.value.backupInterval !== existingInterval) {
     const interval = clientConfig.value.backupInterval;
     clientConfig.value.nextBackupAt =
@@ -53,7 +56,6 @@ function editClientConfig() {
     :aria-label="t('SetBackup.EditDialog.title')"
     max-width="800"
     scrollable
-    @after-enter="dialogEnter"
   >
     <v-card>
       <v-card-title class="pa-0">
@@ -75,7 +77,13 @@ function editClientConfig() {
           {{ t("common.dialog.cancel") }}
         </v-btn>
 
-        <v-btn color="success" prepend-icon="mdi-check-circle-outline" variant="text" @click="editClientConfig">
+        <v-btn
+          :disabled="!clientConfig"
+          color="success"
+          prepend-icon="mdi-check-circle-outline"
+          variant="text"
+          @click="editClientConfig"
+        >
           {{ t("common.dialog.ok") }}
         </v-btn>
       </v-card-actions>

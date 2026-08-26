@@ -14,6 +14,25 @@ export interface NormalizedBackupFields {
 }
 
 /**
+ * Early MV3 builds could persist backup-server records without copying the
+ * dictionary key into the record's `id` field. The dictionary key is the
+ * canonical identifier used by every backup operation, so repair missing or
+ * mismatched record IDs during hydration before the table exposes actions.
+ */
+export function repairBackupServerRecordIds<T extends { id?: string }>(
+  servers: Record<string, T> | undefined,
+): boolean {
+  let changed = false;
+  for (const [serverId, server] of Object.entries(servers ?? {})) {
+    if (server.id !== serverId) {
+      server.id = serverId;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/**
  * `collection` was added after the first MV3 WebDAV configuration format.
  * Add it exactly once to pre-versioned servers. Once a server carries the
  * current version, an explicit user choice to exclude it is preserved.

@@ -563,18 +563,18 @@
       "minKeep": "Keep at least M per backup stream",
       "minKeepHint": "Interval, post-refresh full, and changed field scopes are counted separately. The default minimum is 3.",
       "retentionEnabled": "Automatically clean old automatic backups",
-      "retentionSafetyHint": "Off by default. Only strict new automatic names in this server namespace are eligible. Manual, legacy, lookalike, temporary, and other-app files are never auto-deleted.",
+      "retentionSafetyHint": "Off by default. When enabled, every successful automatic backup automatically previews and cleans eligible strict new automatic names in this server namespace; no manual confirmation is required. Manual, legacy, lookalike, temporary, and other-app files are never auto-deleted.",
       "retentionTitle": "Automatic backup retention and safe cleanup",
       "serverConfig": "Server Configuration",
       "strategyAge": "By age: delete files older than the configured days",
       "strategyCount": "By count: keep only the configured latest files",
-      "tieredEnabled": "Enable recent / weekly / monthly tiers",
-      "tieredHint": "Protect representative backups in each time tier in addition to the base strategy. Week and month boundaries use the configured time zone.",
-      "tierMonthly": "Monthly copies",
-      "tierRecent": "Recent copies",
+      "tieredEnabled": "Enable recent / weekly-representative / monthly-representative tiers",
+      "tieredHint": "In addition to the base strategy, protect the latest N backups, then one extra representative from the remaining unprotected backups in each calendar week or month. Week and month values are the maximum number of distinct calendar periods covered, not copies kept per period.",
+      "tierMonthly": "Monthly representative months",
+      "tierRecent": "Recent backups kept directly",
       "tierTimeZone": "Week / month boundary time zone",
       "tierTimeZoneHint": "Use an IANA zone such as Asia/Shanghai or America/New_York. Invalid values fall back to UTC on save.",
-      "tierWeekly": "Weekly copies"
+      "tierWeekly": "Weekly representative weeks"
     },
     "EditDialog": {
       "title": "Edit Backup Server"
@@ -598,13 +598,13 @@
         "includeLegacyOnce": "Include strict legacy files in this preview",
         "keepCount": "{count} kept by policy",
         "lastResult": "Latest cleanup: {deleted} deleted, {failed} failed, {skipped} skipped",
-        "previewButton": "Cleanup preview",
+        "previewButton": "Manual cleanup preview",
         "protectedCount": "{count} safety-protected",
         "releaseSize": "Estimated release {size} ({unknown} unknown sizes)",
         "result": "Cleanup finished: {deleted} deleted, {failed} failed, {skipped} skipped",
         "runResult": "Backup cleanup: {deleted} deleted, {failed} failed, {skipped} skipped",
-        "safety": "This is a preview and deletes nothing. You may deselect any candidate. Execution re-lists the remote directory, revalidates policy and metadata, then asks for confirmation again.",
-        "title": "Safe old-backup cleanup preview"
+        "safety": "This manual cleanup preview deletes nothing when opened. You may deselect any candidate. Execution re-lists the remote directory, revalidates policy and metadata, then asks for confirmation again. Automatic cleanup after a successful automatic backup runs without confirmation here.",
+        "title": "Safe manual old-backup cleanup preview"
       },
       "deleteFailure": "Failed to delete backup history [{name}]",
       "deleteSuccess": "Deleted backup history [{name}] successfully",

@@ -26,7 +26,7 @@ import {
   ISearchSolutionMetadata,
   ISiteDownloadProfile,
 } from "@/shared/types.ts";
-import { normalizeBackupFields } from "@foundation/backup/policy";
+import { normalizeBackupFields, repairBackupServerRecordIds } from "@foundation/backup/policy";
 import {
   createBackupVerificationKey,
   normalizeBackupRetentionPolicy,
@@ -47,7 +47,7 @@ export const useMetadataStore = defineStore("metadata", {
   persistWebExt: {
     afterRestore: (context) => {
       const state = context.store.$state as IMetadataPiniaStorageSchema;
-      let needsSave = false;
+      let needsSave = repairBackupServerRecordIds(state.backupServers);
       for (const server of Object.values(state.backupServers ?? {})) {
         const normalized = normalizeBackupFields(server.backupFields, server.backupFieldsVersion, BackupFields);
         if (normalized.changed) {
@@ -390,7 +390,9 @@ export const useMetadataStore = defineStore("metadata", {
     },
 
     getBackupServers(state) {
-      return Object.values(state.backupServers);
+      return Object.entries(state.backupServers).map(([serverId, server]) =>
+        server.id === serverId ? server : { ...server, id: serverId },
+      );
     },
   },
   actions: {

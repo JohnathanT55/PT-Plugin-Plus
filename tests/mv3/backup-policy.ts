@@ -5,6 +5,7 @@ import {
   getNextIntervalBackupAt,
   normalizeBackupFields,
   prepareConfigForBackup,
+  repairBackupServerRecordIds,
   shouldUploadAfterUserRefresh,
 } from "../../src/backup/policy";
 
@@ -44,6 +45,21 @@ assert(
 );
 const explicitSelection = normalizeBackupFields(["config", "metadata"], CURRENT_BACKUP_FIELDS_VERSION, supportedFields);
 assert(!explicitSelection.fields.includes("collection"), "a current explicit exclusion of collections is preserved");
+
+const legacyBackupServers: Record<string, { id?: string; type: string }> = {
+  "legacy-webdav": { type: "WebDAV" },
+  "canonical-webdav": { id: "stale-id", type: "WebDAV" },
+};
+assert(repairBackupServerRecordIds(legacyBackupServers), "legacy backup-server IDs are repaired from dictionary keys");
+assert(
+  legacyBackupServers["legacy-webdav"].id === "legacy-webdav",
+  "a missing legacy backup-server ID is restored",
+);
+assert(
+  legacyBackupServers["canonical-webdav"].id === "canonical-webdav",
+  "the dictionary key remains the canonical backup-server ID",
+);
+assert(!repairBackupServerRecordIds(legacyBackupServers), "backup-server ID repair is idempotent");
 
 assert(getEffectiveBackupEncryptionKey(false, "fixture-secret") === "", "the explicit switch disables encryption");
 assert(
