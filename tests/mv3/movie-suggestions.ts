@@ -3,6 +3,7 @@ import {
   normalizeDoubanMovieSuggestions,
   parseMovieSuggestionIdentity,
   preferMovieSuggestionImdb,
+  selectUnambiguousMovieSuggestion,
 } from "../../app/src/packages/social/movieSuggestions.ts";
 
 function assert(condition: unknown, message: string) {
@@ -53,6 +54,35 @@ assert(getMovieSuggestionSearchTerm(imdbPreferred, "title") === "肖申克的救
 assert(
   suggestions[0].poster?.startsWith("https://img1.doubanio.com/"),
   "Douban poster hosts are normalized for retry handling",
+);
+
+const ambiguousSuggestions = normalizeDoubanMovieSuggestions(
+  [
+    { id: "one", title: "同名作品", sub_title: "Same Title", year: "1998", type: "movie" },
+    { id: "two", title: "同名作品", sub_title: "Same Title", year: "2024", type: "movie" },
+    { id: "three", title: "另一部电影", sub_title: "Another Film", year: "2024", type: "movie" },
+  ],
+  5,
+);
+assert(
+  selectUnambiguousMovieSuggestion("任意相关搜索", [suggestions[0]]) === suggestions[0],
+  "a sole visible candidate can bind without blocking the tracker search",
+);
+assert(
+  selectUnambiguousMovieSuggestion("同名作品", ambiguousSuggestions) === undefined,
+  "same-title releases stay unbound until the user disambiguates",
+);
+assert(
+  selectUnambiguousMovieSuggestion("同名作品 2024", ambiguousSuggestions)?.id === "two",
+  "an exact title and year can bind one release",
+);
+assert(
+  selectUnambiguousMovieSuggestion("Another Film", ambiguousSuggestions)?.id === "three",
+  "a unique exact original title can bind one release",
+);
+assert(
+  selectUnambiguousMovieSuggestion("tt0111161", [suggestions[0]]) === undefined,
+  "direct IDs remain owned by the direct-identity parser",
 );
 
 console.log("Movie suggestion normalization and identity tests passed.");

@@ -1,10 +1,14 @@
 /**
- * 此文件用于描述 sessionStorage['__ptd_runtime_store'] 中字段格式
+ * 此文件描述选项页当前运行态。
+ *
+ * 这些字段故意只保留在当前页面内存中：普通搜索词、结果和影片身份不应写入
+ * sessionStorage、chrome.storage 或 IndexedDB。只有用户主动创建搜索快照时才会持久化完整搜索数据。
  */
 import type { VNodeProps } from "vue";
 import type { VSnackbar } from "vuetify/components";
 import type { ISearchResult, ITorrent, TSiteID } from "@ptd/site";
 import type { IMediaServerItem, IMediaServerSearchResult } from "@ptd/mediaServer";
+import type { IMovieSearchIdentity } from "@ptd/social";
 
 import type { TMediaServerKey, TSearchSnapshotKey, TSolutionKey } from "./metadata.ts";
 
@@ -38,6 +42,9 @@ export interface ISearchData {
   // 该搜索相关的搜索条件
   searchKey: string;
   searchPlanKey: string;
+  // Current movie identity. It stays page-memory-only unless the user explicitly
+  // saves this search as a snapshot.
+  movieIdentity?: IMovieSearchIdentity;
 
   // 该搜索相关的搜索结果
   searchPlan: Record<TSearchSolutionKey, ISearchPlanStatus>;
@@ -65,6 +72,7 @@ export type SnackbarMessageOptions = Partial<
 
 export interface IRuntimePiniaStorageSchema {
   search: ISearchData;
+  pendingMovieIdentity?: IMovieSearchIdentity;
   userInfo: {
     flushPlan: Record<TSiteID, boolean>;
   };

@@ -16,8 +16,8 @@ onMessage("getSiteSearchResult", async ({ data: { siteId, keyword = "", searchEn
   const configStorage = (await sendMessage("getExtStorage", "config")) as IConfigPiniaStorageSchema;
 
   logger({
-    msg: `getSiteSearchResult For site: ${siteId} with keyword: ${keyword}`,
-    data: { siteId, keyword, searchEntry },
+    msg: `getSiteSearchResult for site: ${siteId}`,
+    data: { siteId },
   });
   const site = await getSiteInstance<"public">(siteId);
 
@@ -71,7 +71,10 @@ onMessage("getSearchResultSnapshotData", async ({ data: snapshotId }) => {
 onMessage("saveSearchResultSnapshotData", async ({ data: { snapshotId, data } }) => {
   const snapshotData = await getSnapshotData();
   snapshotData[snapshotId] = data;
-  logger({ msg: `A new SearchResult Snapshot will be add at: ${snapshotId}`, data });
+  logger({
+    msg: `A new SearchResult Snapshot will be added at: ${snapshotId}`,
+    data: { snapshotId, recordCount: Array.isArray(data.searchResult) ? data.searchResult.length : 0 },
+  });
   await sendMessage("setExtStorage", { key: "searchResultSnapshot", value: snapshotData });
 });
 

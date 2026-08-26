@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useDisplay, type DataTableHeader } from "vuetify";
 import { EResultParseStatus, ETorrentStatus } from "@ptd/site";
@@ -36,6 +36,7 @@ import {
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const configStore = useConfigStore();
 const metadataStore = useMetadataStore();
 const runtimeStore = useRuntimeStore();
@@ -121,10 +122,15 @@ watch(
         (newParams.search && newParams.search != oldParams?.search) ||
         (newParams.plan && newParams.plan != oldParams?.plan)
       ) {
+        const searchKey = (newParams.search as string) ?? "";
+        const searchPlanKey = (newParams.plan as string) ?? "default";
         // 清理已选择项 （ #622 ）
         tableSelectedRaw.value = [];
+        // 搜索词只用路由完成当次页面内交接。立即替换为无敏感参数的 URL，
+        // 避免普通搜索词进入浏览器历史或会话恢复数据。快照 ID 属于用户主动持久化，不走此分支。
+        void router.replace({ name: "SearchEntity" });
         // doSearch 会自动处理过滤器重置
-        doSearch((newParams.search as string) ?? "", (newParams.plan as string) ?? "default", true);
+        void doSearch(searchKey, searchPlanKey, true);
       }
     }
   },

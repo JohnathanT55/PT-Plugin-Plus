@@ -7,6 +7,15 @@
 
 import { defineStore } from "pinia";
 import type { IRuntimePiniaStorageSchema, ISearchData, SnackbarMessageOptions } from "@/shared/types.ts";
+import type { IMovieSearchIdentity } from "@ptd/social";
+
+// PTD used to serialize the full current search (including torrent links) to
+// sessionStorage. Remove that legacy value on upgrade and never write it again.
+try {
+  sessionStorage.removeItem("__ptd_runtime_store");
+} catch {
+  // Some non-page test contexts do not expose Web Storage.
+}
 
 const initialSearchData: () => ISearchData = () => ({
   isSearching: false,
@@ -26,10 +35,6 @@ const initialMediaServerSearchData = () => ({
 });
 
 export const useRuntimeStore = defineStore("runtime", {
-  persist: {
-    storage: sessionStorage,
-    key: "__ptd_runtime_store", // 由于 runtimeStore 可能会在 content-script 中注册，所以此处需要使用一个独特的 key
-  },
   persistWebExt: false,
   state: (): IRuntimePiniaStorageSchema => ({
     search: initialSearchData(),
@@ -70,6 +75,16 @@ export const useRuntimeStore = defineStore("runtime", {
 
     resetMediaServerSearchData() {
       this.mediaServerSearch = initialMediaServerSearchData();
+    },
+
+    prepareMovieSearch(identity?: IMovieSearchIdentity) {
+      this.pendingMovieIdentity = identity;
+    },
+
+    consumeMovieSearch(searchTerm: string): IMovieSearchIdentity | undefined {
+      const pending = this.pendingMovieIdentity;
+      this.pendingMovieIdentity = undefined;
+      return pending?.boundSearchTerm.trim() === searchTerm.trim() ? pending : undefined;
     },
 
     showSnakebar(text: string, options: SnackbarMessageOptions = {}) {

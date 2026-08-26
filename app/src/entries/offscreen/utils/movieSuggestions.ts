@@ -1,5 +1,5 @@
 import type { ISocialInformation, ISocialMovieSuggestion, ISocialMovieSuggestionResult } from "@ptd/social";
-import { fetchMovieSuggestions, preferMovieSuggestionImdb } from "@ptd/social";
+import { fetchMovieSuggestions, preferMovieSuggestionImdb, sanitizeMovieProviderError } from "@ptd/social";
 
 import { onMessage, sendMessage } from "@/messages.ts";
 import type { IConfigPiniaStorageSchema } from "@/shared/types.ts";
@@ -74,10 +74,11 @@ export async function queryMovieSuggestions(
       suggestionCache.set(cacheKey, { createAt: Date.now(), items });
       return { items, failed: false };
     } catch (error) {
+      const sanitizedError = sanitizeMovieProviderError(error);
       await logger({
         msg: "Movie suggestion lookup failed; direct torrent search remains available",
         level: "warn",
-        data: { error: error instanceof Error ? error.message : String(error) },
+        data: { errorCode: sanitizedError.errorCode },
       });
       return { items: [], failed: true };
     } finally {

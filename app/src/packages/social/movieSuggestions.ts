@@ -41,6 +41,39 @@ export function getMovieSuggestionSearchTerm(item: ISocialMovieSuggestion, mode:
   return mode === "title" ? item.title : preferMovieSuggestionImdb(item).searchTerm;
 }
 
+function normalizedComparableTitle(value?: string) {
+  return (value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+
+/**
+ * Resolve a plain-text query only when the visible candidate set is safe to
+ * bind without silently choosing between same-title releases. The caller can
+ * still start the tracker search immediately; this helper never performs I/O.
+ */
+export function selectUnambiguousMovieSuggestion(
+  query: string,
+  suggestions: ISocialMovieSuggestion[],
+): ISocialMovieSuggestion | undefined {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery || parseMovieSuggestionIdentity(normalizedQuery) || suggestions.length === 0) return undefined;
+  if (suggestions.length === 1) return suggestions[0];
+
+  const queryYear = normalizedQuery.match(/(?:^|\D)((?:19|20)\d{2})(?:\D|$)/)?.[1];
+  const queryTitle = normalizedComparableTitle(
+    queryYear ? normalizedQuery.replace(new RegExp(`(?:^|\\s|[（(])${queryYear}(?:\\s|[）)]|$)`), " ") : normalizedQuery,
+  );
+  if (!queryTitle) return undefined;
+
+  const exactTitleMatches = suggestions.filter((item) =>
+    [item.title, item.originalTitle].some((title) => normalizedComparableTitle(title) === queryTitle),
+  );
+  const resolved = queryYear ? exactTitleMatches.filter((item) => item.year === queryYear) : exactTitleMatches;
+  return resolved.length === 1 ? resolved[0] : undefined;
+}
+
 export interface ISocialMovieSuggestionResult {
   items: ISocialMovieSuggestion[];
   failed: boolean;

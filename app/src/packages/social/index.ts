@@ -9,6 +9,7 @@ import {
 export * from "./types.ts";
 export * from "./recommendations.ts";
 export * from "./movieSuggestions.ts";
+export * from "./movieEntity.ts";
 
 // From https://github.com/ourbits/PtGen#usage
 export const buildInPtGenApi = [

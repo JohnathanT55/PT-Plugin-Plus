@@ -175,8 +175,7 @@ export async function doSearchEntity(
       const activePlan = runtimeStore.search.searchPlan[solutionKey];
       if (!activePlan) return;
       console.log(
-        `success get search ${solutionKey} result, with code ${searchStatus}: ${searchStatusMsg ?? ""}`,
-        searchResult,
+        `Search ${solutionKey} completed with code ${searchStatus}, ${searchResult.length} result(s).`,
       );
       activePlan.status = searchStatus;
       searchStatusMsg && (activePlan.statusMsg = searchStatusMsg);
@@ -229,6 +228,7 @@ export async function doSearch(search: string, plan?: string, flush: boolean = t
   const searchKey = search ?? runtimeStore.search.searchKey ?? "";
   const searchPlanKey = plan ?? runtimeStore.search.searchPlanKey ?? "default";
   const runId = flush ? beginSearchRun() : searchRunGuard.current();
+  const movieIdentity = flush ? runtimeStore.consumeMovieSearch(searchKey) : runtimeStore.search.movieIdentity;
 
   if (flush) {
     runtimeStore.resetSearchData();
@@ -241,10 +241,11 @@ export async function doSearch(search: string, plan?: string, flush: boolean = t
     }
   }
 
-  console.log("Start search with: ", searchKey, searchPlanKey, flush);
+  console.log(`Start search with plan ${searchPlanKey}; replace current run: ${flush}.`);
 
   runtimeStore.search.searchKey = searchKey;
   runtimeStore.search.searchPlanKey = searchPlanKey;
+  runtimeStore.search.movieIdentity = movieIdentity;
 
   // Expand search plan
   const searchSolution = await metadataStore.getSearchSolution(runtimeStore.search.searchPlanKey);
@@ -256,7 +257,7 @@ export async function doSearch(search: string, plan?: string, flush: boolean = t
   }
 
   runtimeStore.search.searchPlanKey = searchSolution.id; // 重写 searchPlanKey 为实际的 id
-  console.log(`Expanded Search Plan for ${searchPlanKey}: `, searchSolution);
+  console.log(`Expanded search plan ${searchPlanKey} to ${searchSolution.solutions.length} site group(s).`);
 
   if (searchSolution.solutions.length === 0) {
     runtimeStore.showSnakebar("请至少添加一个站点进行搜索", { color: "error" });
@@ -282,7 +283,7 @@ export async function retrySearch(retryStatus: EResultParseStatus[] = defaultErr
     runtimeStore.showSnakebar("没有需要重试的搜索计划", { color: "info" });
     return;
   }
-  console.log("Retrying search plans: ", shouldRetrySearchPlan);
+  console.log(`Retrying ${shouldRetrySearchPlan.length} search plan(s).`);
   for (const plan of shouldRetrySearchPlan) {
     await doSearchEntity(plan.siteId, plan.searchEntryName, plan.searchEntry, true);
   }

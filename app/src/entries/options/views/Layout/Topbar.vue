@@ -9,7 +9,14 @@ import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { sendMessage } from "@/messages.ts";
-import { getMovieSuggestionSearchTerm, type ISocialMovieSuggestion } from "@ptd/social";
+import {
+  createMovieIdentityFromSuggestion,
+  getMovieSuggestionSearchTerm,
+  parseDirectMovieIdentity,
+  selectUnambiguousMovieSuggestion,
+  type IMovieSearchIdentity,
+  type ISocialMovieSuggestion,
+} from "@ptd/social";
 
 import { PROJECT_REPO_URL, PTPP_UPSTREAM_URL } from "~/helper";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -41,6 +48,7 @@ const searchInputRevision = ref(0);
 let movieSuggestionTimer: ReturnType<typeof setTimeout> | undefined;
 let movieSuggestionRequestId = 0;
 let suppressedMovieSuggestionQuery: string | undefined;
+let loadedMovieSuggestionQuery = "";
 
 const searchPlans = computed(() =>
   metadataStore.getSearchSolutions
@@ -52,9 +60,18 @@ const searchPlans = computed(() =>
     })),
 );
 
-function startSearchEntity() {
+function inferMovieIdentity(query: string) {
+  if (loadedMovieSuggestionQuery !== query) return undefined;
+  const item = selectUnambiguousMovieSuggestion(query, movieSuggestions.value);
+  return item ? createMovieIdentityFromSuggestion(item, query, "unambiguous-candidate") : undefined;
+}
+
+function startSearchEntity(movieIdentity?: IMovieSearchIdentity) {
   const normalizedSearchKey = typeof searchKey.value === "string" ? searchKey.value.trim() : "";
   searchKey.value = normalizedSearchKey;
+  runtimeStore.prepareMovieSearch(
+    movieIdentity ?? parseDirectMovieIdentity(normalizedSearchKey) ?? inferMovieIdentity(normalizedSearchKey),
+  );
   movieSuggestionMenuOpen.value = false;
   router.push({
     name: "SearchEntity",
@@ -89,7 +106,7 @@ async function selectMovieSuggestion(rawItem: unknown) {
   suppressedMovieSuggestionQuery = selectedSearchTerm;
   movieSuggestions.value = [];
   searchKey.value = selectedSearchTerm;
-  startSearchEntity();
+  startSearchEntity(createMovieIdentityFromSuggestion(item, selectedSearchTerm));
   // VCombobox applies its own selection model after the slotted row click.
   // Re-assert the PTPP advanced-search term on the next tick so the visible
   // input never degrades to a bare Douban/IMDb ID.
@@ -134,12 +151,22 @@ async function loadMovieSuggestions(query: string) {
     if (requestId !== movieSuggestionRequestId) return;
 
     movieSuggestions.value = result.items;
+    loadedMovieSuggestionQuery = query;
     movieSuggestionFailed.value = result.failed;
     movieSuggestionMenuOpen.value = true;
+    if (
+      !runtimeStore.search.snapshot &&
+      !runtimeStore.search.movieIdentity &&
+      runtimeStore.search.startAt > 0 &&
+      runtimeStore.search.searchKey.trim() === query
+    ) {
+      runtimeStore.search.movieIdentity = inferMovieIdentity(query);
+    }
     void enrichMovieSuggestions(requestId, [...result.items]);
   } catch {
     if (requestId !== movieSuggestionRequestId) return;
     movieSuggestions.value = [];
+    loadedMovieSuggestionQuery = "";
     movieSuggestionFailed.value = true;
     movieSuggestionMenuOpen.value = true;
   } finally {
@@ -155,6 +182,7 @@ function scheduleMovieSuggestions(value: unknown) {
     suppressedMovieSuggestionQuery = undefined;
     movieSuggestionRequestId += 1;
     movieSuggestions.value = [];
+    loadedMovieSuggestionQuery = "";
     movieSuggestionFailed.value = false;
     movieSuggestionMenuOpen.value = false;
     movieSuggestionLoading.value = false;
@@ -165,6 +193,7 @@ function scheduleMovieSuggestions(value: unknown) {
   if (!configStore.searchEntity.movieSuggestionEnabled || !query) {
     movieSuggestionRequestId += 1;
     movieSuggestions.value = [];
+    loadedMovieSuggestionQuery = "";
     movieSuggestionFailed.value = false;
     movieSuggestionMenuOpen.value = false;
     movieSuggestionLoading.value = false;
@@ -260,7 +289,7 @@ onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer)
       :return-object="false"
       style="width: 300px"
       type="search"
-      @keyup.enter="startSearchEntity"
+      @keyup.enter="() => startSearchEntity()"
     >
       <template #prepend-item>
         <v-list-item
@@ -268,7 +297,7 @@ onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer)
           prepend-icon="mdi-magnify"
           :title="t('layout.header.movieSuggestions.directSearch', { key: searchKey.trim() })"
           @mousedown.prevent
-          @click.stop="startSearchEntity"
+          @click.stop="() => startSearchEntity()"
         />
         <v-divider v-if="movieSuggestions.length > 0" />
       </template>
