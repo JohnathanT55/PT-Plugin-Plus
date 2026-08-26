@@ -70,7 +70,9 @@ export async function getSocialSiteInformation(
   if (preferPtGen && PtGenApiSupportSite.includes(site)) {
     console?.log("Use PtGen API to fetch social site information ", { site, id });
 
-    for (const ptGenEndpointElement of new Set<string>([ptGenEndpoint, buildInPtGenApi.at(-1)!.url].filter(Boolean))) {
+    for (const ptGenEndpointElement of new Set<string>(
+      [ptGenEndpoint, ...buildInPtGenApi.map((item) => item.url)].filter(Boolean),
+    )) {
       const ptGenUrl = ptGenEndpointElement.replace("<site>", site).replace("<sid>", id);
       try {
         const req = await axios.get(ptGenUrl, { timeout, responseType: "json" });

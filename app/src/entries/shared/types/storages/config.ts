@@ -250,6 +250,8 @@ export interface IConfigPiniaStorageSchema {
     movieSuggestionEnabled: boolean;
     movieSuggestionCount: number;
     movieSuggestionSearchMode: "id" | "title";
+    // 与候选列表分离：搜索结果页是否展示归档版 PTPP 风格影片资料头卡。
+    movieInfoCardEnabled: boolean;
   };
 
   // 配置同样在 searchEntity 页面（偷懒下）

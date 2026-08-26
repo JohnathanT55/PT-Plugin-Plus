@@ -5,7 +5,7 @@
  */
 
 import type { DBSchema } from "idb";
-import type { ISocialInformation } from "@ptd/social";
+import type { IMovieEntityCacheRecord, ISocialInformation } from "@ptd/social";
 import type { TSiteID as TSiteKey } from "@ptd/site";
 
 import type { ITorrentDownloadMetadata, TTorrentDownloadKey } from "../common/download.ts";
@@ -24,9 +24,20 @@ export interface IPtdDBSchemaV2 extends IPtdDBSchemaV1 {
   };
 }
 
-export interface IPtdDBSchema extends IPtdDBSchemaV2 {
+export interface IPtdDBSchemaV3 extends IPtdDBSchemaV2 {
   favicon: {
     key: TSiteKey;
+    value: string;
+  };
+}
+
+export interface IPtdDBSchema extends IPtdDBSchemaV3 {
+  movie_entity: {
+    key: string;
+    value: IMovieEntityCacheRecord;
+  };
+  movie_alias: {
+    key: string;
     value: string;
   };
 }

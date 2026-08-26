@@ -134,6 +134,17 @@ interface IDoubanPtGen extends IPtgenApiResponse {
   genre?: string[];
   imdb_id?: string;
   imdb_link?: string;
+  director?: string[];
+  directors?: string[];
+  writer?: string[];
+  writers?: string[];
+  cast?: string[];
+  actor?: string[];
+  actors?: string[];
+  release_date?: string[] | string;
+  release_dates?: string[];
+  runtime?: string[] | string;
+  runtimes?: string[];
 }
 
 export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
@@ -145,6 +156,7 @@ export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
   ]);
   const titles = Array.from(uniqueTitles).filter(Boolean);
   const imdbId = parseImdb(data.imdb_id ?? data.imdb_link);
+  const asArray = (value?: string[] | string) => (Array.isArray(value) ? value : value ? [value] : []);
 
   return {
     site: "douban",
@@ -155,6 +167,13 @@ export function transformPtGen(data: IDoubanPtGen): ISocialInformation {
     releaseYear: data.year ?? "",
     region: data.region?.[0] ?? "",
     genres: data.genre ?? [],
+    aliases: data.aka ?? [],
+    originalTitle: data.foreign_title ?? "",
+    directors: data.directors ?? data.director ?? [],
+    writers: data.writers ?? data.writer ?? [],
+    cast: data.cast ?? data.actors ?? data.actor ?? [],
+    releaseDates: [...asArray(data.release_dates), ...asArray(data.release_date)],
+    runtimes: [...asArray(data.runtimes), ...asArray(data.runtime)],
     external_ids: imdbId ? { imdb: imdbId } : undefined,
     ratingScore: Number(data.douban_rating_average ?? 0),
     ratingCount: Number(data.douban_votes ?? 0),

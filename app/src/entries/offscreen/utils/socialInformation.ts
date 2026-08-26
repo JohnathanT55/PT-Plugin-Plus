@@ -1,5 +1,5 @@
 import type { ISocialInformation, TSupportSocialSite$1 } from "@ptd/social";
-import { getSocialSiteInformation } from "@ptd/social";
+import { getSocialSiteInformation, normalizeMovieEntityCachePolicy } from "@ptd/social";
 
 import { onMessage, sendMessage } from "@/messages.ts";
 import type { IConfigPiniaStorageSchema } from "@/shared/types.ts";
@@ -25,11 +25,19 @@ export async function getSocialInformation(
 ): Promise<ISocialInformation> {
   const configStoreRaw = (await sendMessage("getExtStorage", "config")) as IConfigPiniaStorageSchema;
   const socialInformationConfig = configStoreRaw.socialSiteInformation ?? {};
+  const persistentCacheEnabled = socialInformationConfig.movieEntityCache?.enabled !== false;
+  const movieCachePolicy = normalizeMovieEntityCachePolicy(socialInformationConfig.movieEntityCache);
 
   const key = `${site}:${sid}`;
-  let stored = await (await ptdIndexDb).get("social_information", key);
+  let stored = persistentCacheEnabled ? await (await ptdIndexDb).get("social_information", key) : undefined;
+  const now = Date.now();
+  if (stored && (!Number.isFinite(stored.createAt) || stored.createAt <= now - movieCachePolicy.retentionMs)) {
+    await (await ptdIndexDb).delete("social_information", key);
+    stored = undefined;
+  }
 
-  const isExpired = stored && stored.createAt < Date.now() - 86400000 * (socialInformationConfig.cacheDay ?? 3);
+  const cacheDays = socialInformationConfig.movieEntityCache?.metadataDays ?? socialInformationConfig.cacheDay ?? 7;
+  const isExpired = stored && stored.createAt < now - 86400000 * cacheDays;
   // 仅在本会话尚未因缺失字段重取过该 key 时才允许补取，避免源本身无数据时反复联网。
   const canRetryForMissingFields = !enrichmentAttemptedKeys.has(key);
   const isMissingRequiredSummary = canRetryForMissingFields && options.requireSummary && stored && !stored.summary;
@@ -49,7 +57,7 @@ export async function getSocialInformation(
     if (shouldMarkEnrichmentAttempted) {
       enrichmentAttemptedKeys.add(key);
     }
-    if (stored && (stored.title !== "" || stored.poster !== "")) {
+    if (persistentCacheEnabled && stored && (stored.title !== "" || stored.poster !== "")) {
       await setSocialInformation(site, sid, stored);
     }
     logger({ msg: `getSocialInformation for ${site} with sid: ${sid}`, data: stored });
@@ -72,6 +80,20 @@ export async function deleteSocialInformation(site: TSupportSocialSite$1, sid: s
 
 export async function clearSocialInformation() {
   return await (await ptdIndexDb).clear("social_information");
+}
+
+export async function pruneSocialInformationCache(retentionMs: number, now = Date.now()): Promise<number> {
+  const db = await ptdIndexDb;
+  const keys = await db.getAllKeys("social_information");
+  const cutoff = now - Math.max(0, retentionMs);
+  let removed = 0;
+  for (const key of keys) {
+    const record = await db.get("social_information", key);
+    if (record && Number.isFinite(record.createAt) && record.createAt > cutoff) continue;
+    await db.delete("social_information", key);
+    removed += 1;
+  }
+  return removed;
 }
 
 onMessage("clearSocialInformationCache", async () => {

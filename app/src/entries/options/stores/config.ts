@@ -155,6 +155,33 @@ export const useConfigStore = defineStore("config", {
         state.searchEntity.movieSuggestionSearchMode = "id";
         needsSave = true;
       }
+      if (typeof state.searchEntity.movieInfoCardEnabled !== "boolean") {
+        state.searchEntity.movieInfoCardEnabled = true;
+        needsSave = true;
+      }
+
+      state.socialSiteInformation ??= {};
+      const movieEntityCacheDefaults = {
+        enabled: true,
+        metadataDays: 7,
+        ratingHours: 24,
+        negativeMinutes: 15,
+        retentionDays: 30,
+        maxEntries: 200,
+      };
+      const previousMovieEntityCache = state.socialSiteInformation.movieEntityCache;
+      state.socialSiteInformation.movieEntityCache = {
+        ...movieEntityCacheDefaults,
+        ...(previousMovieEntityCache ?? {}),
+      };
+      if (!previousMovieEntityCache) needsSave = true;
+      state.socialSiteInformation.socialSite ??= {};
+      for (const provider of ["anidb", "bangumi", "douban", "imdb", "tmdb", "tvmaze", "omdb"] as const) {
+        if (!state.socialSiteInformation.socialSite[provider]) {
+          state.socialSiteInformation.socialSite[provider] = {};
+          needsSave = true;
+        }
+      }
 
       state.contentScript ??= {};
       const normalizedToolbarPlacement = normalizeToolbarPlacement({
@@ -431,6 +458,7 @@ export const useConfigStore = defineStore("config", {
       movieSuggestionEnabled: true,
       movieSuggestionCount: 5,
       movieSuggestionSearchMode: "id",
+      movieInfoCardEnabled: true,
     },
 
     mediaServerEntity: {
@@ -458,6 +486,14 @@ export const useConfigStore = defineStore("config", {
       preferPtGen: true,
       timeout: 10e3,
       cacheDay: 7,
+      movieEntityCache: {
+        enabled: true,
+        metadataDays: 7,
+        ratingHours: 24,
+        negativeMinutes: 15,
+        retentionDays: 30,
+        maxEntries: 200,
+      },
       socialSite: {
         anidb: {},
         bangumi: {},
@@ -465,6 +501,7 @@ export const useConfigStore = defineStore("config", {
         imdb: {},
         tmdb: {},
         tvmaze: {},
+        omdb: {},
       },
     },
 

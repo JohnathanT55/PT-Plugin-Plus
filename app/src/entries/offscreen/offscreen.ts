@@ -9,4 +9,5 @@ import "./utils/backup.ts";
 import "./utils/socialInformation.ts";
 import "./utils/socialRecommendations.ts";
 import "./utils/movieSuggestions.ts";
+import "./utils/movieEntity.ts";
 import "./utils/keepUploadTask.ts";

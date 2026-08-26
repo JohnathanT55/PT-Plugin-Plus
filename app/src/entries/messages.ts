@@ -14,6 +14,9 @@ import type {
   ISocialMovieSuggestionResult,
   ISocialRecommendationItem,
   ISocialRecommendationsResult,
+  IMovieEntityRequest,
+  IMovieEntityResponse,
+  IMovieEntityCacheStats,
   TSupportSocialSite$1,
 } from "@ptd/social";
 import type { IMediaServerId, IMediaServerSearchOptions, IMediaServerSearchResult } from "@ptd/mediaServer";
@@ -198,6 +201,7 @@ interface ProtocolMap extends TMessageMap {
   getSocialInformation(data: { site: TSupportSocialSite$1; sid: string }): ISocialInformation;
   queryMovieSuggestions(data: { query: string; count?: number; flush?: boolean }): ISocialMovieSuggestionResult;
   getMovieSuggestionDetails(data: { item: ISocialMovieSuggestion }): { item: ISocialMovieSuggestion };
+  getMovieEntity(data: IMovieEntityRequest): IMovieEntityResponse;
   getSocialRecommendations(data?: {
     flush?: boolean;
     enrichment?: "all" | "none" | "visible";
@@ -206,6 +210,8 @@ interface ProtocolMap extends TMessageMap {
     item: ISocialRecommendationItem;
   };
   clearSocialInformationCache(): void;
+  clearMovieEntityCache(): void;
+  getMovieEntityCacheStats(): IMovieEntityCacheStats;
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: {

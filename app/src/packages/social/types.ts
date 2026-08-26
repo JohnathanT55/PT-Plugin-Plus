@@ -35,6 +35,13 @@ export interface ISocialInformation extends Omit<ISocialSitePageInformation, "ti
   releaseYear?: string; // 发行年份
   region?: string; // 地区
   genres?: string[]; // 类型
+  aliases?: string[];
+  originalTitle?: string;
+  directors?: string[];
+  writers?: string[];
+  cast?: string[];
+  releaseDates?: string[];
+  runtimes?: string[];
   ratingScore?: number; // 按10分满分的评分
   ratingCount?: number; // 评分人数
   createAt: number; // 创建时间
@@ -50,7 +57,16 @@ export interface IFetchSocialSiteInformationConfig {
   // 缓存时间（天）
   cacheDay?: number;
 
-  socialSite?: Record<TSupportSocialSite, Record<"apikey" | string, any>>;
+  movieEntityCache?: {
+    enabled?: boolean;
+    metadataDays?: number;
+    ratingHours?: number;
+    negativeMinutes?: number;
+    retentionDays?: number;
+    maxEntries?: number;
+  };
+
+  socialSite?: Record<TSupportSocialSite | "omdb", Record<"apikey" | string, any>>;
 }
 
 export interface IPtgenApiResponse {
