@@ -1,7 +1,7 @@
 {
   "name": "pt-plugin-plus-mv3",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "description": "Manifest V3 continuation of PT-Plugin-Plus, based on the PT-depiler application framework",
   "homepage": "https://github.com/JohnathanT55/PT-Plugin-Plus",

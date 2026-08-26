@@ -6,17 +6,18 @@ PT-Plugin-Plus 的 Chrome Manifest V3 延续版本。仓库根目录保存新版
 
 ## 当前状态
 
-Chrome MV3 `2.0.0` 已完成并具备独立发布条件，包含：
+Chrome MV3 当前稳定版本为 `2.1.0`。它在 `2.0.0` 首发基础上完成第二批六项更新，包含：
 
 - 当前构建导入的 PTD 站点定义均可添加；搜索、用户信息和页面增强能力以各站点定义声明为准；
 - 聚合与单站搜索、搜索方案、影片候选、PTPP 风格影片聚合头卡、搜索快照和批量操作；
 - 用户数据刷新、历史、时间线、统计图和批量打开；
 - qBittorrent、Transmission、下载历史和持久化批量任务；
+- PTPP 风格的“我的下载器”任务总览、筛选与批量管理；
 - 收藏与分组、辅种任务、站点页面常驻工具栏；
-- 本地 ZIP、WebDAV、AES 加密、定时备份、刷新后上传和旧版 ZIP 恢复；
+- 本地 ZIP、WebDAV、AES 加密、定时备份、刷新后上传、旧版 ZIP 恢复及安全的自动备份保留；
 - 归档版 PTPP 的站点、下载器、目录、历史、快照、收藏、辅种、Cookies 和 WebDAV 数据迁移。
 
-当前 `master` 在 2.0.0 上规划的第二批更新已经全部完成，包括“我的下载器”、自动备份保留、站点工具栏放宽、搜索结果响应式表格、辅种/下载历史布局收口和搜索结果影片信息聚合头卡。生产构建使用 Manifest V3 service worker 和幂等 offscreen document，不包含 `unsafe-eval`、动态执行的远端脚本或旧版自定义站点 JavaScript。详细状态见 [`MV3_UPGRADE_CHECKLIST.md`](./MV3_UPGRADE_CHECKLIST.md)。
+`2.1.0` 的六项更新包括“我的下载器”、自动备份保留、站点工具栏放宽、搜索结果响应式表格、辅种/下载历史布局收口和搜索结果影片信息聚合头卡。生产构建使用 Manifest V3 service worker 和幂等 offscreen document，不包含 `unsafe-eval`、动态执行的远端脚本或旧版自定义站点 JavaScript。详细状态见 [`MV3_UPGRADE_CHECKLIST.md`](./MV3_UPGRADE_CHECKLIST.md)。
 
 ## 默认下载器与站点目录
 
@@ -76,10 +77,10 @@ Chrome 生产构建输出到 `dist-chrome/`。在 `chrome://extensions` 开启�
 - service worker、offscreen、路由和生产入口 smoke test。
 
 `pnpm package:chrome` 会在验证 `dist-chrome/` 后生成可复现的
-`releases/PT-Plugin-Plus-v2.0.0-chrome.zip` 和对应 `.sha256` 文件。ZIP 根目录直接包含
+`releases/PT-Plugin-Plus-v2.1.0-chrome.zip` 和对应 `.sha256` 文件。ZIP 根目录直接包含
 `manifest.json`，可直接用于 Chrome Web Store 上传；`releases/` 是本地发布产物，不提交到 Git。
 
-版本号以 `package.json` 为唯一来源。Chrome manifest 使用商店版本 `2.0.0`，开发者模式中可见的
+版本号以 `package.json` 为唯一来源。Chrome manifest 使用商店版本 `2.1.0`，开发者模式中可见的
 `version_name` 额外包含构建提交短哈希，便于定位具体源码而不改变商店升级顺序。
 
 真实扩展页面、站点工具栏、下载器、备份服务及浏览器重启必须在加载 `dist-chrome/` 后验证；普通网页预览不具备扩展 API，不能替代实机测试。当前发布目标是 Chrome，Edge 与 Firefox 兼容性单独安排。发布 ZIP 还应解压到临时目录后重新加载，确认测试对象是最终包而不是工作目录构建。
