@@ -35,6 +35,12 @@ export const setBaseChildren: RouteRecordRaw[] = [
     component: () => import("../views/Settings/SetBase/SearchEntityWindow.vue"),
   },
   {
+    path: "movie-information",
+    name: "SetBaseMovieInformation",
+    meta: { icon: "mdi-movie-open-outline", tabKey: "movieInformation" },
+    component: () => import("../views/Settings/SetBase/SocialInformationWindow.vue"),
+  },
+  {
     path: "download",
     name: "SetBaseDownload",
     meta: { icon: "mdi-cloud-download", tabKey: "download" },

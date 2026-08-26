@@ -22,6 +22,7 @@ import QuickFilterNotice from "./QuickFilterNotice.vue";
 import SearchStatusDialog from "./SearchStatusDialog.vue";
 import SaveSnapshotDialog from "./SaveSnapshotDialog.vue";
 import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
+import MovieInfoCard from "./MovieInfoCard.vue";
 
 // 主要助手方法
 import { tableCustomFilter } from "./utils/filter";
@@ -185,6 +186,11 @@ const hiddenTagNamesText = computed({
 });
 </script>
 <template>
+  <MovieInfoCard
+    :enabled="configStore.searchEntity.movieInfoCardEnabled"
+    :identity="runtimeStore.search.movieIdentity"
+  />
+
   <v-alert class="ptpp-search-status" type="info">
     <div class="ptpp-search-status-content">
       <div class="ptpp-search-status-text">

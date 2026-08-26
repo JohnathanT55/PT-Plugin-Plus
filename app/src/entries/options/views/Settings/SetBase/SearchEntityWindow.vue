@@ -86,6 +86,13 @@ const hiddenTagNamesText = computed({
         hide-details
       />
 
+      <v-switch
+        v-model="configStore.searchEntity.movieInfoCardEnabled"
+        :label="t('SetBase.searchEntity.movieInfoCardEnabled')"
+        color="success"
+        hide-details
+      />
+
       <template v-if="configStore.searchEntity.movieSuggestionEnabled">
         <v-number-input
           v-model="configStore.searchEntity.movieSuggestionCount"
