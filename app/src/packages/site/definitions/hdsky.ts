@@ -1,5 +1,5 @@
 import urlJoin from "url-join";
-import { omit } from "es-toolkit";
+import { omit, toMerged } from "es-toolkit";
 
 import {
   ETorrentStatus,
@@ -335,6 +335,12 @@ export const siteMetadata: ISiteMetadata = {
 };
 
 export default class Hdsky extends NexusPHP {
+  private appendConfiguredDownloadLinkSuffix(link: string): string {
+    const suffix = this.userConfig.downloadLinkAppendix;
+    if (!suffix || link.includes(suffix)) return link;
+    return `${link}${suffix}`;
+  }
+
   public override async getTorrentDownloadLink(torrent: ITorrent): Promise<string> {
     /**
      * HDSky 的下载链接有两种格式，分别为：
@@ -344,9 +350,9 @@ export default class Hdsky extends NexusPHP {
      * 因此，在获取下载链接时，优先使用第一种格式的链接，如果不存在或过期，则使用第二种格式的链接。
      */
     if (torrent.link) {
-      const hasPasskey = /&passkey=/.test(torrent.link);
+      const hasPasskey = /(?:\?|&)passkey=/.test(torrent.link);
       if (hasPasskey) {
-        return torrent.link;
+        return this.appendConfiguredDownloadLinkSuffix(torrent.link);
       }
 
       const linkCreatedTime = this.runQueryFilters(torrent.link, [{ name: "querystring", args: ["t"] }]) as string;
@@ -355,15 +361,30 @@ export default class Hdsky extends NexusPHP {
       const expiredTimestamp = parseInt(linkCreatedTime || "0") + 10 * 60; // 这里假定下载链接有效期10分钟（具体不明）
 
       if (currentTimestamp < expiredTimestamp) {
-        return torrent.link;
+        return this.appendConfiguredDownloadLinkSuffix(torrent.link);
       } else {
         delete torrent.link; // 删除过期链接属性，以便重新获取
       }
     }
 
-    // 为 content-script 的 drag 生成 url，以免 super 无法获取到 torrent.url 进而无法生成 link
+    // NexusPHP 的父类现在会在 link 为空时直接按 id 生成 /download.php?id=...。
+    // HDSky 的这个裸链接可能返回 404，必须先从详情页取得带 sign/passkey 的真实链接，
+    // 因此这里不能直接把空 link 交给 super。
     if (torrent.id && !torrent.url) {
       torrent.url = urlJoin(this.url, `/details.php?id=${torrent.id}`);
+    }
+
+    if (!torrent.link && torrent.url && this.metadata.detail?.selectors?.link) {
+      const { data } = await this.request<any>(
+        toMerged(
+          { responseType: "document", url: torrent.url },
+          this.metadata.detail.requestConfig ?? {},
+        ),
+      );
+      torrent.link = this.getFieldData(data, this.metadata.detail.selectors.link) as string;
+      if (torrent.link) {
+        torrent.link = this.fixLink(torrent.link, { baseURL: torrent.url });
+      }
     }
 
     return super.getTorrentDownloadLink(torrent);
