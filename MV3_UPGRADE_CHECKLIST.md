@@ -340,7 +340,7 @@ A、B、C 以及本机全部技术门禁均已完成；Chrome Stable、最终 ZI
 
 本批只增加三个明确范围，不恢复 PTD 独有产品入口。每项完成后单独进行自动验证和 Chrome 实机检查，创建独立 commit，等待维护者审核后再继续；不在本地执行 push。
 
-### 10.1 OpenAI-compatible 轻量助手（已实现，待人工验收）
+### 10.1 OpenAI-compatible 轻量助手（已实现，实机验收通过）
 
 目标是提供用户主动触发、无 Agent 工具调用的轻量辅助，不把 MoviePilot 的 LangChain/LangGraph 或 MCP 直接嵌入扩展。
 
@@ -352,7 +352,7 @@ A、B、C 以及本机全部技术门禁均已完成；Chrome Stable、最终 ZI
 - [x] 请求失败、超时、无效 JSON 或服务端错误只显示脱敏原因，不影响原有搜索流程；提供复制结果，不自动执行后续动作。
 - [x] 增加 API 连通性测试、结构化响应解析、超时/取消、敏感字段排除和配置迁移测试；类型检查、完整自动测试、生产构建、MV3 校验和隐私审计均通过。
 
-验收证据：测试覆盖 endpoint 规范化、凭据查询参数拒绝、上下文截断、响应解析、密钥不进入备份、Cookie 不随请求发送和错误脱敏；`pnpm test`、`pnpm exec vue-tsc --noEmit`、`pnpm build`、`pnpm validate` 与 `pnpm audit:privacy` 已通过。真实 endpoint 的网络连通性仍需维护者在自己的 Chrome 配置中手动验证，未使用共享 API Key。
+验收证据：测试覆盖 endpoint 规范化、凭据查询参数拒绝、上下文截断、响应解析、密钥不进入备份、Cookie 不随请求发送和错误脱敏；`pnpm test`、`pnpm exec vue-tsc --noEmit`、`pnpm build`、`pnpm validate` 与 `pnpm audit:privacy` 已通过。真实 Chrome 实机检查已完成：设置页可启用 AI 助手并通过连通性测试，搜索结果页的显式入口可打开并返回文字建议；关闭 AI 后入口置灰，不会自动触发请求。密钥仅保留在隔离浏览器的本地扩展存储中，未写入备份、日志或仓库内容。
 
 ### 10.2 站点签到助手（待实现）
 

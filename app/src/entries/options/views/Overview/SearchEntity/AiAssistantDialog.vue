@@ -113,7 +113,7 @@ async function copyResult() {
         </v-card>
       </v-card-text>
       <v-card-actions class="justify-end">
-        <v-btn variant="text" @click="dialogModel = false">{{ t("common.cancel") }}</v-btn>
+        <v-btn variant="text" @click="dialogModel = false">{{ t("common.dialog.cancel") }}</v-btn>
         <v-btn :loading="loading" color="primary" prepend-icon="mdi-send" variant="elevated" @click="ask">
           {{ t("aiAssistant.ask") }}
         </v-btn>
