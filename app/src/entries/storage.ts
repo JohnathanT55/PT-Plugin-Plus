@@ -14,6 +14,9 @@ export interface IExtensionStorageSchema {
   // 既可以被 pinia 使用，也可以被其他地方使用
   config: IConfigPiniaStorageSchema;
 
+  // OpenAI-compatible API key is a local secret and is intentionally excluded from backup fields.
+  aiAssistantSecret: string;
+
   metadata: IMetadataPiniaStorageSchema;
 
   userInfo: TUserInfoStorageSchema; // 用于存储用户信息

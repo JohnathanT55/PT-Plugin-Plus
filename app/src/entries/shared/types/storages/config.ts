@@ -10,6 +10,13 @@ export const supportTheme = ["auto", "light", "dark"] as const;
 export type supportThemeType = (typeof supportTheme)[number];
 export const toolbarDockSides = ["left", "right"] as const;
 export type ToolbarDockSide = (typeof toolbarDockSides)[number];
+
+export interface IAiAssistantConfig {
+  enabled: boolean;
+  endpoint: string;
+  model: string;
+  timeoutMs: number;
+}
 type UiTableBehaviorKey = "SetSite" | "SearchEntity" | "MyData" | "DownloadHistory" | "MyClient" | string;
 interface UiTableBehaviorItem<T = string> {
   itemsPerPage?: number;
@@ -253,6 +260,9 @@ export interface IConfigPiniaStorageSchema {
     // 与候选列表分离：搜索结果页是否展示归档版 PTPP 风格影片资料头卡。
     movieInfoCardEnabled: boolean;
   };
+
+  // 可选的 OpenAI-compatible 轻量助手配置；API Key 单独保存在 aiAssistantSecret 中。
+  aiAssistant: IAiAssistantConfig;
 
   // 配置同样在 searchEntity 页面（偷懒下）
   mediaServerEntity: {

@@ -22,6 +22,7 @@ import type {
 import type { IMediaServerId, IMediaServerSearchOptions, IMediaServerSearchResult } from "@ptd/mediaServer";
 import type { IBackupData } from "@ptd/backupServer";
 import type { CollectionGroupRecord, CollectionItemRecord, CollectionState } from "@foundation/model/schema";
+import type { IAiAssistRequest, IAiAssistResponse } from "@/shared/aiAssistant.ts";
 import type {
   IBackupCleanupPreview,
   IBackupCleanupRequest,
@@ -212,6 +213,9 @@ interface ProtocolMap extends TMessageMap {
   clearSocialInformationCache(): void;
   clearMovieEntityCache(): void;
   getMovieEntityCacheStats(): IMovieEntityCacheStats;
+
+  // 2.5 AI 辅助：只执行用户主动触发的 OpenAI-compatible 文本请求，不开放工具调用。
+  runAiAssistant(data: IAiAssistRequest): IAiAssistResponse;
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: {

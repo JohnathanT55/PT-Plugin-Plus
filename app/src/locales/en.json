@@ -427,6 +427,7 @@
       "horizontalScroll": "Scroll search results horizontally",
       "action": {
         "cancel": "Cancel current waiting search",
+        "aiAssistant": "AI assistant",
         "displayPreferences": "Search Results Display Preferences",
         "pause": "Pause search queue",
         "retry": "Retry Search",
@@ -803,6 +804,7 @@
       "download": "Download",
       "general": "Interface",
       "movieInformation": "Movie Info",
+      "aiAssistant": "AI Assistant",
       "native-bridge": "Native Bridge",
       "search": "Search",
       "search-entity": "@:common.search",
@@ -1602,6 +1604,32 @@
     "requestTimeoutMs": "Request Timeout (milliseconds)",
     "tmdbCredential": "TMDb API Key or Read Access Token (optional)",
     "tmdbCredentialMessage": "Accepts a TMDb API key or an eyJ-prefixed Read Access Token. Leave blank to disable TMDb."
+  },
+  "aiAssistant": {
+    "title": "OpenAI-compatible lightweight assistant",
+    "description": "Only sends a search-assistance request after you click. It has no Agent tools and never performs downloads or site actions automatically.",
+    "privacyNotice": "Requests are sent only to the endpoint you enter. Cookies, passkeys, downloader credentials, and complete site responses are not sent; the API key stays in this browser and is not included in backups, WebDAV, or logs. The third-party service may still retain request content.",
+    "enabled": "Enable AI assistant",
+    "endpoint": "Chat Completions endpoint",
+    "endpointHint": "Enter a service root, /v1 URL, or full /chat/completions URL. Only HTTP(S) is allowed; credentials in URL query parameters are rejected.",
+    "model": "Model name",
+    "apiKey": "API key (optional)",
+    "apiKeyHint": "Local models may leave this blank; the key is never written to backups.",
+    "timeout": "Request timeout (milliseconds)",
+    "test": "Test connection",
+    "testSuccess": "Connection succeeded",
+    "testFailed": "Connection failed. Check the configuration and network.",
+    "dialogTitle": "AI search assistant",
+    "dialogDescription": "Describe what you want to find or organize. The assistant returns text suggestions only and never starts a search or download automatically.",
+    "prompt": "What should AI help with?",
+    "promptPlaceholder": "For example: turn this movie into PT search keywords while keeping the original title, year, and season.",
+    "includeSearchContext": "Include current search context",
+    "searchContext": "Current search: {value}",
+    "ask": "Get suggestion",
+    "copy": "Copy result",
+    "copySuccess": "Copied to clipboard",
+    "empty": "Enter a request",
+    "notConfigured": "Configure an endpoint and model in General → AI Assistant first."
   },
   "torrent": {
     "status": {

@@ -41,6 +41,12 @@ export const setBaseChildren: RouteRecordRaw[] = [
     component: () => import("../views/Settings/SetBase/SocialInformationWindow.vue"),
   },
   {
+    path: "ai-assistant",
+    name: "SetBaseAiAssistant",
+    meta: { icon: "mdi-robot-outline", tabKey: "aiAssistant" },
+    component: () => import("../views/Settings/SetBase/AIWindow.vue"),
+  },
+  {
     path: "download",
     name: "SetBaseDownload",
     meta: { icon: "mdi-cloud-download", tabKey: "download" },

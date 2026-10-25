@@ -183,6 +183,38 @@ export const useConfigStore = defineStore("config", {
         }
       }
 
+      const aiAssistantDefaults = {
+        enabled: false,
+        endpoint: "",
+        model: "",
+        timeoutMs: 30_000,
+      };
+      const previousAiAssistant = state.aiAssistant;
+      state.aiAssistant = {
+        ...aiAssistantDefaults,
+        ...(previousAiAssistant ?? {}),
+      };
+      if (
+        typeof state.aiAssistant.enabled !== "boolean" ||
+        typeof state.aiAssistant.endpoint !== "string" ||
+        typeof state.aiAssistant.model !== "string"
+      ) {
+        state.aiAssistant = { ...aiAssistantDefaults };
+        needsSave = true;
+      }
+      const normalizedAiTimeout = Math.round(Number(state.aiAssistant.timeoutMs));
+      if (!Number.isFinite(normalizedAiTimeout)) {
+        state.aiAssistant.timeoutMs = aiAssistantDefaults.timeoutMs;
+        needsSave = true;
+      } else {
+        const clampedAiTimeout = Math.min(60_000, Math.max(1_000, normalizedAiTimeout));
+        if (state.aiAssistant.timeoutMs !== clampedAiTimeout) {
+          state.aiAssistant.timeoutMs = clampedAiTimeout;
+          needsSave = true;
+        }
+      }
+      if (!previousAiAssistant) needsSave = true;
+
       state.contentScript ??= {};
       const normalizedToolbarPlacement = normalizeToolbarPlacement({
         dockSide: state.contentScript.dockSide,
@@ -459,6 +491,13 @@ export const useConfigStore = defineStore("config", {
       movieSuggestionCount: 5,
       movieSuggestionSearchMode: "id",
       movieInfoCardEnabled: true,
+    },
+
+    aiAssistant: {
+      enabled: false,
+      endpoint: "",
+      model: "",
+      timeoutMs: 30_000,
     },
 
     mediaServerEntity: {

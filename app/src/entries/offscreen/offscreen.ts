@@ -11,3 +11,4 @@ import "./utils/socialRecommendations.ts";
 import "./utils/movieSuggestions.ts";
 import "./utils/movieEntity.ts";
 import "./utils/keepUploadTask.ts";
+import "./utils/aiAssistant.ts";
