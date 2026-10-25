@@ -103,6 +103,26 @@ const selectedTorrentTitles = computed(() =>
     .filter((title): title is string => Boolean(title))
     .slice(0, 20),
 );
+// Keep AI context deliberately narrower than the table rows: links, ids and
+// downloader metadata must never leave the extension.  When nothing is
+// selected, use only the first page-sized slice so a large result set stays
+// responsive and bounded.
+const aiTorrentResults = computed(() => {
+  const source =
+    tableSelectedRaw.value.length > 0 ? tableSelectedRaw.value : runtimeStore.search.searchResult.slice(0, 30);
+  return source.map((item) => ({
+    site: item.site,
+    title: item.title,
+    subTitle: item.subTitle,
+    category: item.category,
+    size: item.size,
+    seeders: item.seeders,
+    leechers: item.leechers,
+    completed: item.completed,
+    comments: item.comments,
+    tags: item.tags?.map((tag) => tag.name).slice(0, 12),
+  }));
+});
 function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
   const selected = selectedTorrentIds.value.has(item.uniqueId);
   return {
@@ -506,6 +526,7 @@ const hiddenTagNamesText = computed({
     v-model="showAiAssistantDialog"
     :search-key="runtimeStore.search.searchKey"
     :torrent-titles="selectedTorrentTitles"
+    :torrent-results="aiTorrentResults"
   />
 </template>
 

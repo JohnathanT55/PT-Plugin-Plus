@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import PQueue from "p-queue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
@@ -213,6 +213,24 @@ function searchRecommendation(title: string) {
   startSearchEntity();
 }
 
+function applyAiSearchDraft(event: Event) {
+  const detail = (event as CustomEvent<unknown>).detail;
+  if (!detail || typeof detail !== "object" || typeof (detail as { keyword?: unknown }).keyword !== "string") return;
+  const keyword = (detail as { keyword: string }).keyword.trim().slice(0, 240);
+  if (!keyword) return;
+
+  // Applying a draft only fills the existing search box.  The user still
+  // submits it explicitly, so an AI response can never start a search by
+  // itself.
+  suppressedMovieSuggestionQuery = keyword;
+  searchKey.value = keyword;
+  void nextTick(() => {
+    const input = document.querySelector<HTMLInputElement>(".ptpp-search-input input");
+    input?.focus();
+    input?.select();
+  });
+}
+
 async function toggleNavigation() {
   if (navigationToggleBusy.value) return;
 
@@ -243,6 +261,8 @@ watch(
 );
 
 watch(searchKey, scheduleMovieSuggestions);
+onMounted(() => window.addEventListener("ptpp-ai-search-draft", applyAiSearchDraft));
+onBeforeUnmount(() => window.removeEventListener("ptpp-ai-search-draft", applyAiSearchDraft));
 onBeforeUnmount(() => movieSuggestionTimer && clearTimeout(movieSuggestionTimer));
 </script>
 

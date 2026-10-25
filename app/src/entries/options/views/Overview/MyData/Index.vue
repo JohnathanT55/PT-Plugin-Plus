@@ -20,6 +20,7 @@ import ResultParseStatus from "@/options/components/ResultParseStatus.vue";
 import NavButton from "@/options/components/NavButton.vue";
 import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
+import AiAssistantDialog from "../SearchEntity/AiAssistantDialog.vue";
 
 import { formatRatio } from "./utils/format.ts";
 import { tableData, initTableData, flushSiteLastUserInfo } from "./utils/lastUserData.ts";
@@ -31,6 +32,7 @@ const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
 const tableSelected = ref<TSiteID[]>([]);
+const showAiSiteSummaryDialog = ref(false);
 
 type TExtendDataTableHeader = DataTableHeader & { props?: any };
 
@@ -95,6 +97,27 @@ const { tableWaitFilterRef, tableFilterRef, tableFilterFn, buildFilterDictFn } =
     status: "number",
   },
 });
+
+const aiSiteSummaries = computed(() =>
+  tableData.value
+    .filter((item) => tableSelected.value.includes(item.site))
+    .map((item) => ({
+      // Only site-level aggregates are sent. User identity, URL, cookies and raw site data stay local.
+      site: item.site,
+      level: item.levelName,
+      ratio: item.ratio,
+      uploaded: item.uploaded,
+      downloaded: item.downloaded,
+      seeding: item.seeding,
+      seedingSize: item.seedingSize,
+      bonus: typeof item.bonus === "number" ? item.bonus : undefined,
+      hnr:
+        typeof item.hnrUnsatisfied === "number" || typeof item.hnrPreWarning === "number"
+          ? (item.hnrUnsatisfied ?? 0) + (item.hnrPreWarning ?? 0)
+          : undefined,
+      updatedAt: item.updateAt ? new Date(item.updateAt).toISOString() : undefined,
+    })),
+);
 
 async function initPtppTable() {
   const columns = configStore.tableBehavior.MyData.columns ?? [];
@@ -178,6 +201,15 @@ function viewStatistic() {
           :text="t('MyData.index.multiOpen')"
           :title="t('MyData.index.multiOpenHint')"
           @click="multiOpen"
+        />
+
+        <NavButton
+          color="deep-purple"
+          icon="mdi-robot-outline"
+          :text="t('MyData.index.aiSummary')"
+          :title="t('MyData.index.aiSummaryHint')"
+          :disabled="!configStore.aiAssistant.enabled || aiSiteSummaries.length === 0"
+          @click="showAiSiteSummaryDialog = true"
         />
 
         <v-btn
@@ -541,6 +573,7 @@ function viewStatistic() {
       </template>
     </v-data-table>
   </v-card>
+  <AiAssistantDialog v-model="showAiSiteSummaryDialog" initial-mode="site-summary" :site-summary="aiSiteSummaries" />
 </template>
 
 <style scoped lang="scss">
