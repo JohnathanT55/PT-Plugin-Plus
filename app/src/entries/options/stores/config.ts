@@ -115,6 +115,23 @@ export const useConfigStore = defineStore("config", {
         };
         needsSave = true;
       }
+      state.signIn ??= { enabled: false, paused: false, intervalHours: 24 };
+      if (typeof state.signIn.enabled !== "boolean") {
+        state.signIn.enabled = false;
+        needsSave = true;
+      }
+      if (typeof state.signIn.paused !== "boolean") {
+        state.signIn.paused = false;
+        needsSave = true;
+      }
+      const signInInterval = Number(state.signIn.intervalHours);
+      if (!Number.isFinite(signInInterval) || signInInterval < 6) {
+        state.signIn.intervalHours = 24;
+        needsSave = true;
+      } else if (signInInterval > 168) {
+        state.signIn.intervalHours = 168;
+        needsSave = true;
+      }
       if (!state.backup.retry) {
         state.backup.retry = { max: 3, interval: 5 };
         needsSave = true;
@@ -453,6 +470,12 @@ export const useConfigStore = defineStore("config", {
       alwaysPickLastUserInfo: true,
       showDeadSiteInOverview: false,
       showPassedSiteInOverview: false,
+    },
+
+    signIn: {
+      enabled: false,
+      paused: false,
+      intervalHours: 24,
     },
 
     download: {

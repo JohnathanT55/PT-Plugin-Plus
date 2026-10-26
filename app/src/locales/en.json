@@ -879,6 +879,26 @@
     },
     "userInfo": {
       "afterTime": "Earliest daily refresh time",
+      "siteSignIn": "Site sign-in",
+      "siteSignInEnabled": "Enable low-frequency site sign-in",
+      "siteSignInPaused": "Pause all automatic sign-ins",
+      "siteSignInInterval": "Automatic sign-in interval (hours)",
+      "siteSignInHint": "Only static sign-in requests declared by a site definition or the NexusPHP fallback are supported. Sites requiring page JavaScript, CAPTCHA, Cloudflare, or automatic login must be completed manually.",
+      "siteSignInNow": "Sign in now",
+      "siteSignInOpenSite": "Open site and complete manually",
+      "siteSignInNever": "Not signed in yet",
+      "siteSignInSupported": "Static sign-in request declared safe",
+      "siteSignInGeneric": "Generic NexusPHP sign-in rule (confirm site support first)",
+      "siteSignInManualOnly": "No automatic sign-in declared; open the site to finish manually",
+      "siteSignInNoSites": "No sites have been added yet.",
+      "siteSignInStatuses": {
+        "idle": "Idle",
+        "success": "Signed in",
+        "alreadySigned": "Already signed in",
+        "notLoggedIn": "Not logged in",
+        "failed": "Sign-in failed",
+        "needsManual": "Manual action required"
+      },
       "userDataRefresh": "User Data Refresh",
       "userInfoDisplay": "User Info Display"
     }

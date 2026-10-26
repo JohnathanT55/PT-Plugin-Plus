@@ -31,6 +31,17 @@ export const siteMetadata: ISiteMetadata = {
   urls: ["https://pterclub.net/"],
   legacyUrls: ["https://pter.club/", "https://pterclub.com/"],
 
+  // MoviePilot autosignin: PTer exposes a JSON attendance endpoint.
+  signIn: {
+    enabled: true,
+    path: "/attendance-ajax.php",
+    method: "get",
+    responseType: "json",
+    success: { responseTextIncludes: ['"status":"1"'] },
+    alreadySigned: { responseTextIncludes: ['"status":"0"'] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   category: [
     {
       name: "类型",

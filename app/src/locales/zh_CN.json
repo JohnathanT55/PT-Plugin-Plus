@@ -879,6 +879,26 @@
     },
     "userInfo": {
       "afterTime": "每日最早刷新时间",
+      "siteSignIn": "站点签到",
+      "siteSignInEnabled": "启用低频站点签到",
+      "siteSignInPaused": "暂停所有自动签到",
+      "siteSignInInterval": "自动签到间隔（小时）",
+      "siteSignInHint": "仅对站点定义或 NexusPHP 通用规则声明的静态签到请求生效；需要页面 JavaScript、验证码、Cloudflare 或自动登录的站点必须手动完成。",
+      "siteSignInNow": "立即签到",
+      "siteSignInOpenSite": "打开站点并手动完成",
+      "siteSignInNever": "尚未签到",
+      "siteSignInSupported": "已声明安全的静态签到请求",
+      "siteSignInGeneric": "通用 NexusPHP 签到规则（请先确认站点支持）",
+      "siteSignInManualOnly": "未声明自动签到；请打开站点手动完成",
+      "siteSignInNoSites": "暂无已添加站点。",
+      "siteSignInStatuses": {
+        "idle": "未执行",
+        "success": "签到成功",
+        "alreadySigned": "今日已签到",
+        "notLoggedIn": "未登录",
+        "failed": "签到失败",
+        "needsManual": "需手动完成"
+      },
       "userDataRefresh": "用户数据刷新",
       "userInfoDisplay": "用户信息展示"
     }

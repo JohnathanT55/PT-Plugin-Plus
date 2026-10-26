@@ -5,6 +5,7 @@ import type {
   IUserInfo,
   TSiteHost,
   TSiteID as TSiteKey,
+  TSiteSignInStatus,
 } from "@ptd/site";
 import type { TSelectSearchCategoryValue } from "@ptd/site";
 import type { CAddTorrentOptions, DownloaderBaseConfig } from "@ptd/downloader";
@@ -49,6 +50,15 @@ export interface ISearchSnapshotMetadata {
 }
 
 export interface IStoredUserInfo extends IUserInfo {}
+
+export interface ISiteSignInState {
+  status: TSiteSignInStatus;
+  lastAttemptAt?: number;
+  lastSuccessAt?: number;
+  nextRunAt?: number;
+  failureCount?: number;
+  error?: string;
+}
 
 export type TDownloaderKey = string;
 
@@ -229,6 +239,9 @@ export interface IMetadataPiniaStorageSchema {
    * 此处仅存储站点最近一次的记录，如果需要获取历史记录，需要使用 storage 方法获取
    */
   lastUserInfo: Record<TSiteKey, IStoredUserInfo>;
+
+  /** Redacted status only; cookies, response bodies and credentials are never stored. */
+  siteSignIns: Record<TSiteKey, ISiteSignInState>;
 
   lastDownloader?: {
     id?: TDownloaderKey;

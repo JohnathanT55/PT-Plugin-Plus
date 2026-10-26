@@ -15,6 +15,27 @@ export const siteMetadata: ISiteMetadata = {
   type: "private",
   urls: ["https://u2.dmhy.org/"],
 
+  // MoviePilot's U2 handler uses a per-session form.  The flow is declarative:
+  // hidden values are read from the sign-in page and one of the site's submit
+  // options is selected; no remote script or CAPTCHA solver is executed.
+  signIn: {
+    enabled: true,
+    path: "/showup.php",
+    method: "get",
+    responseType: "document",
+    success: { responseTextIncludes: ["window.location.href = 'showup.php';"] },
+    alreadySigned: { responseTextIncludes: ["已签到"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+    form: {
+      submitPath: "/showup.php?action=show",
+      hiddenFieldNames: ["req", "hash", "form"],
+      submitSelector: 'input[type="submit"]',
+      extraData: { message: "一切随缘~" },
+      randomSubmitOption: true,
+    },
+    cooldownMinutes: 24 * 60,
+  },
+
   favicon: "./dmhy.ico",
 
   category: [

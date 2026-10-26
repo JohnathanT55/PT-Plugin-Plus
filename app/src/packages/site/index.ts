@@ -59,6 +59,34 @@ export async function getDefinedSiteMetadata(definition: string): Promise<ISiteM
   siteMetadata.tags ??= [];
   siteMetadata.timezoneOffset ??= siteMetadata.schema === "NexusPHP" ? "+0800" : "+0000";
 
+  // MoviePilot's autosignin plugin has a deliberately small generic fallback
+  // for ordinary NexusPHP sites: request the conventional attendance page
+  // with the existing browser session and classify the returned page.  Keep
+  // that fallback opt-in at the user-site level (signInEnabled defaults to
+  // false) and exclude sites whose handlers need a CAPTCHA, question, token,
+  // or a site-specific API.  Site definitions can always override this with a
+  // more precise `signIn` declaration.
+  const genericSignInUnsupported = new Set(["52pt", "chdbits", "haidan", "hdsky", "hdupt", "tjupt", "ttg"]);
+  if (
+    !siteMetadata.signIn &&
+    siteMetadata.type === "private" &&
+    siteMetadata.schema === "NexusPHP" &&
+    !siteMetadata.isDead &&
+    !genericSignInUnsupported.has(siteMetadata.id)
+  ) {
+    siteMetadata.signIn = {
+      enabled: true,
+      source: "generic",
+      browserNavigation: true,
+      path: "/attendance.php",
+      method: "get",
+      responseType: "document",
+      success: { statusCodes: [200], responseTextExcludes: ["login.php"] },
+      alreadySigned: { responseTextIncludes: ["已签到", "今日已签到", "已经签到", "签到已得"] },
+      notLoggedIn: { responseTextIncludes: ["login.php"] },
+    };
+  }
+
   return siteMetadata;
 }
 

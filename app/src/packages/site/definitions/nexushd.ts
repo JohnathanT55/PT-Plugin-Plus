@@ -16,6 +16,19 @@ export const siteMetadata: ISiteMetadata = {
 
   urls: ["https://v6.nexushd.org/", "https://www.nexushd.org/"],
 
+  // MoviePilot autosignin: NexusHD accepts a small form POST and returns a
+  // human-readable success/already-signed message.
+  signIn: {
+    enabled: true,
+    path: "/signin.php",
+    method: "post",
+    responseType: "document",
+    data: { action: "post", content: "" },
+    success: { responseTextIncludes: ["本次签到获得"] },
+    alreadySigned: { responseTextIncludes: ["你今天已经签到过了"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   category: [
     {
       name: "分类",

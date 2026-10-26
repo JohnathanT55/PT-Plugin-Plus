@@ -25,6 +25,21 @@ export const siteMetadata: ISiteMetadata = {
 
   urls: ["uggcf://jjj.cggvzr.bet/"],
 
+  // MoviePilot's PTTime handler uses this static NexusPHP attendance endpoint.
+  // Keep it opt-in at the user-config level; no credentials or page scripts are
+  // required, and the response markers distinguish success from a used session.
+  signIn: {
+    enabled: true,
+    browserNavigation: true,
+    path: "/attendance.php",
+    method: "get",
+    responseType: "document",
+    success: { responseTextIncludes: ["签到成功"] },
+    alreadySigned: { responseTextIncludes: ["已签到", "今日已签到"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+    cooldownMinutes: 24 * 60,
+  },
+
   category: [
     {
       name: "搜索入口",

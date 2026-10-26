@@ -173,6 +173,18 @@ export const siteMetadata: ISiteMetadata = {
   urls: ["uggcf://uqpvgl.pvgl/", "uggcf://uqpvgl.yravgre.bet/", "uggcf://uqpvgl.jbex/"],
   legacyUrls: ["https://hdcity.top/"],
 
+  // MoviePilot autosignin uses the rendered sign page; no CAPTCHA or
+  // client-side script is required for this site.
+  signIn: {
+    enabled: true,
+    path: "/sign",
+    method: "get",
+    responseType: "document",
+    success: { responseTextIncludes: ["本次签到获得魅力"] },
+    alreadySigned: { responseTextIncludes: ["已签到"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   category: [
     {
       name: "类型",

@@ -24,6 +24,19 @@ export const siteMetadata: ISiteMetadata = {
   urls: ["uggcf://cg.ogfpubby.pyho/"],
   legacyUrls: ["uggcf://cg.ogfpubby.arg/"],
 
+  // MoviePilot autosignin: the action removes the daily-sign link after a
+  // successful request.  The exclusion keeps a normal "already available"
+  // page from being reported as a fresh sign-in.
+  signIn: {
+    enabled: true,
+    path: "/index.php?action=addbonus",
+    method: "get",
+    responseType: "document",
+    success: { statusCodes: [200], responseTextExcludes: ["每日签到"] },
+    alreadySigned: { responseTextIncludes: ["每日签到"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   favicon: "./btschool.ico",
 
   category: [

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { range } from "es-toolkit";
 
 import { EJobType } from "@/background/utils/alarms.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
+import { useRuntimeStore } from "@/options/stores/runtime.ts";
 import { formatDate } from "@/options/utils.ts";
 import { sendMessage } from "@/messages.ts";
 import { useI18n } from "vue-i18n";
@@ -13,12 +14,15 @@ import SettingsSection from "./SettingsSection.vue";
 const { t } = useI18n();
 const configStore = useConfigStore();
 const metadataStore = useMetadataStore();
+const runtimeStore = useRuntimeStore();
 
 const backupServerItems = computed(() =>
   metadataStore.getBackupServers.map((server) => ({ title: server.name, value: server.id })),
 );
 
 const nextFlushUserInfoAt = ref<number>(0);
+const signInSiteItems = ref<Array<{ id: string; name: string; supported: boolean; generic: boolean }>>([]);
+const signInBusy = reactive(new Set<string>());
 
 async function getNextFlushUserInfoAt() {
   const alarm = await chrome.alarms.get(EJobType.FlushUserInfo);
@@ -37,6 +41,11 @@ async function save() {
 }
 
 async function beforeSave() {
+  // Site-level sign-in switches live in the metadata store rather than the
+  // global config store. Persist them together with the settings tab so the
+  // background/offscreen signer sees the same values after a reload.
+  await metadataStore.$save();
+
   const autoUpload = configStore.backup.autoUploadUserData;
   if (autoUpload.enabled && !metadataStore.backupServers[autoUpload.serverId]) {
     autoUpload.serverId = backupServerItems.value[0]?.value ?? "";
@@ -53,6 +62,49 @@ async function beforeSave() {
   }
 }
 
+async function loadSignInSites() {
+  signInSiteItems.value = await Promise.all(
+    metadataStore.getAddedSiteIds.map(async (id) => {
+      const site = await metadataStore.getSiteMetadata(id);
+      return {
+        id,
+        name: await metadataStore.getSiteName(id),
+        supported: Boolean(site.signIn?.enabled),
+        generic: site.signIn?.source === "generic",
+      };
+    }),
+  );
+}
+
+async function runSiteSignIn(siteId: string) {
+  if (signInBusy.has(siteId)) return;
+  signInBusy.add(siteId);
+  try {
+    const result = await sendMessage("runSiteSignIn", siteId);
+    metadataStore.siteSignIns[siteId] = result;
+    const color = result.status === "success" || result.status === "alreadySigned" ? "success" : "warning";
+    runtimeStore.showSnakebar(result.error ?? result.status, { color });
+  } catch {
+    metadataStore.siteSignIns[siteId] = {
+      status: "failed",
+      lastAttemptAt: Date.now(),
+      error: t("SetBase.userInfo.siteSignInStatuses.failed"),
+    };
+    runtimeStore.showSnakebar(t("SetBase.userInfo.siteSignInStatuses.failed"), { color: "warning" });
+  } finally {
+    signInBusy.delete(siteId);
+  }
+}
+
+async function openSite(siteId: string) {
+  const url = await metadataStore.getSiteUrl(siteId);
+  if (/^https?:\/\//i.test(url)) await sendMessage("openSiteTabs", [url]);
+}
+
+function signInStatusLabel(status: string | undefined) {
+  return status ? t(`SetBase.userInfo.siteSignInStatuses.${status}`) : t("SetBase.userInfo.siteSignInNever");
+}
+
 defineExpose({
   beforeSave,
   afterSave: save,
@@ -61,6 +113,7 @@ defineExpose({
 onMounted(async () => {
   // noinspection ES6MissingAwait
   getNextFlushUserInfoAt();
+  await loadSignInSites();
 });
 </script>
 
@@ -202,6 +255,95 @@ onMounted(async () => {
         color="success"
         hide-details
       />
+    </SettingsSection>
+
+    <SettingsSection :title="t('SetBase.userInfo.siteSignIn')" icon="mdi-calendar-check-outline">
+      <v-alert class="mb-3" density="compact" type="info" variant="tonal">
+        {{ t("SetBase.userInfo.siteSignInHint") }}
+      </v-alert>
+      <v-switch
+        v-model="configStore.signIn.enabled"
+        :label="t('SetBase.userInfo.siteSignInEnabled')"
+        color="success"
+        hide-details
+      />
+      <v-switch
+        v-if="configStore.signIn.enabled"
+        v-model="configStore.signIn.paused"
+        :label="t('SetBase.userInfo.siteSignInPaused')"
+        color="warning"
+        hide-details
+      />
+      <v-number-input
+        v-if="configStore.signIn.enabled"
+        v-model="configStore.signIn.intervalHours"
+        :label="t('SetBase.userInfo.siteSignInInterval')"
+        :min="6"
+        :max="168"
+        hint="6–168"
+        persistent-hint
+      />
+      <v-list v-if="signInSiteItems.length > 0" class="mt-2" lines="two">
+        <v-list-item v-for="item in signInSiteItems" :key="item.id" :title="item.name">
+          <template #prepend>
+            <v-switch
+              v-model="metadataStore.sites[item.id].signInEnabled"
+              class="mr-3"
+              color="success"
+              density="compact"
+              :disabled="!item.supported"
+              hide-details
+              :aria-label="item.name"
+            />
+          </template>
+          <template #subtitle>
+            {{
+              !item.supported
+                ? t("SetBase.userInfo.siteSignInManualOnly")
+                : item.generic
+                  ? t("SetBase.userInfo.siteSignInGeneric")
+                  : t("SetBase.userInfo.siteSignInSupported")
+            }}
+          </template>
+          <template #append>
+            <v-chip
+              v-if="metadataStore.siteSignIns[item.id]?.status"
+              class="mr-2"
+              :color="
+                metadataStore.siteSignIns[item.id]?.status === 'success' ||
+                metadataStore.siteSignIns[item.id]?.status === 'alreadySigned'
+                  ? 'success'
+                  : 'warning'
+              "
+              size="small"
+              variant="tonal"
+              :title="metadataStore.siteSignIns[item.id]?.error ?? ''"
+            >
+              {{ signInStatusLabel(metadataStore.siteSignIns[item.id]?.status) }}
+            </v-chip>
+            <v-btn
+              v-if="item.supported"
+              :disabled="!metadataStore.sites[item.id].signInEnabled || signInBusy.has(item.id)"
+              icon="mdi-calendar-check"
+              :loading="signInBusy.has(item.id)"
+              size="small"
+              variant="text"
+              :title="t('SetBase.userInfo.siteSignInNow')"
+              @click="runSiteSignIn(item.id)"
+            />
+            <v-btn
+              icon="mdi-open-in-new"
+              size="small"
+              variant="text"
+              :title="t('SetBase.userInfo.siteSignInOpenSite')"
+              @click="openSite(item.id)"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
+      <v-alert v-else density="compact" type="warning" variant="tonal">
+        {{ t("SetBase.userInfo.siteSignInNoSites") }}
+      </v-alert>
     </SettingsSection>
   </div>
 </template>

@@ -30,6 +30,43 @@ export interface ISiteUserInputMeta {
   required: boolean; // 是否必填
 }
 
+export type TSiteSignInMethod = "get" | "post";
+export type TSiteSignInStatus = "idle" | "success" | "alreadySigned" | "notLoggedIn" | "failed" | "needsManual";
+
+/** A bounded HTML-form flow for sites whose sign-in form has per-session hidden fields. */
+export interface ISiteSignInFormDefinition {
+  submitPath: string;
+  hiddenFieldNames: string[];
+  submitSelector?: string;
+  extraData?: Record<string, string | number | boolean>;
+  randomSubmitOption?: boolean;
+}
+
+/**
+ * A deliberately static sign-in capability.  Site definitions may describe a
+ * relative endpoint and response markers, but cannot provide remote scripts,
+ * arbitrary headers or executable callbacks.
+ */
+export interface ISiteSignInDefinition {
+  enabled?: boolean;
+  /** Whether the rule is declared by the site or supplied by the NexusPHP fallback. */
+  source?: "site" | "generic";
+  path: string;
+  method?: TSiteSignInMethod;
+  responseType?: "document" | "text" | "json";
+  params?: Record<string, string | number | boolean>;
+  data?: Record<string, string | number | boolean>;
+  form?: ISiteSignInFormDefinition;
+  /** Retry the bounded request through a real browser tab when XHR is challenged. */
+  browserNavigation?: boolean;
+  success?: { statusCodes?: number[]; responseTextIncludes?: string[]; responseTextExcludes?: string[] };
+  alreadySigned?: { statusCodes?: number[]; responseTextIncludes?: string[]; responseTextExcludes?: string[] };
+  notLoggedIn?: { statusCodes?: number[]; responseTextIncludes?: string[]; responseTextExcludes?: string[] };
+  cooldownMinutes?: number;
+  requiresPageSession?: boolean;
+  requiresJavaScript?: boolean;
+}
+
 /**
  * 站点配置，这部分配置由系统提供，并随着每次插件更新而更新
  */
@@ -370,6 +407,9 @@ export interface ISiteMetadata {
     selectors?: { [userinfoKey in TUserInfoParseKey]?: IElementQuery }; // 用户信息相关选择器（全部步骤均可使用）
   };
 
+  /** Optional static site sign-in capability; disabled unless the user opts in. */
+  signIn?: ISiteSignInDefinition;
+
   /**
    * 站点用户等级定义
    */
@@ -413,6 +453,9 @@ export interface ISiteUserConfig {
    * 是否允许查询该站点个人信息，未指定时且存在 $.userInfo 配置项时默认为 true
    */
   allowQueryUserInfo?: boolean;
+
+  /** Whether the user explicitly enabled the declared sign-in capability for this site. */
+  signInEnabled?: boolean;
 
   // 分类信息，默认为 ISiteMetadata.tags，也允许用户自定义添加，相同的会被合并到一类中
   groups?: string[];

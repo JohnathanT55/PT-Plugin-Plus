@@ -17,6 +17,12 @@ export interface IAiAssistantConfig {
   model: string;
   timeoutMs: number;
 }
+
+export interface ISiteSignInConfig {
+  enabled: boolean;
+  paused: boolean;
+  intervalHours: number;
+}
 type UiTableBehaviorKey = "SetSite" | "SearchEntity" | "MyData" | "DownloadHistory" | "MyClient" | string;
 interface UiTableBehaviorItem<T = string> {
   itemsPerPage?: number;
@@ -197,6 +203,8 @@ export interface IConfigPiniaStorageSchema {
     // 是否在概览中展示已被标记为离线 （isOffline） 或不允许查询用户信息 （ allowQueryUserInfo === false ） 的站点
     showPassedSiteInOverview: boolean;
   };
+
+  signIn: ISiteSignInConfig;
 
   download: {
     // 是否保存下载记录

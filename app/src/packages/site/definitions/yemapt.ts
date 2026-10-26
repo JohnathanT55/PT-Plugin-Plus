@@ -141,6 +141,18 @@ export const siteMetadata: ISiteMetadata = {
 
   urls: ["https://www.yemapt.org/"],
 
+  // MoviePilot's YemaPT handler calls the JSON check-in endpoint.  This is a
+  // session keep-alive/check-in operation and does not submit credentials.
+  signIn: {
+    enabled: true,
+    path: "/api/consumer/checkIn",
+    method: "get",
+    responseType: "json",
+    success: { responseTextIncludes: ['"success":true'] },
+    alreadySigned: { responseTextIncludes: ["已经签到", "already"] },
+    notLoggedIn: { statusCodes: [401, 403], responseTextIncludes: ["login"] },
+  },
+
   category: [
     {
       name: "类目",

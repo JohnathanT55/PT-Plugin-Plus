@@ -136,6 +136,7 @@ function createEmptyMetadata(): IMetadataPiniaStorageSchema {
     siteDownloadProfiles: {},
     lastSearchFilter: "",
     lastUserInfo: {},
+    siteSignIns: {},
     lastDownloader: {},
     lastKeepUpload: {},
     lastUserInfoAutoFlushAt: 0,

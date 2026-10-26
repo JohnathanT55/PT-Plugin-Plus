@@ -25,6 +25,18 @@ export const siteMetadata: ISiteMetadata = {
   urls: ["uggcf://uqnern.pyho/"],
   legacyUrls: ["https://www.hdarea.co/"],
 
+  // MoviePilot autosignin: POST /sign_in.php?action=sign_in.
+  signIn: {
+    enabled: true,
+    path: "/sign_in.php",
+    method: "post",
+    responseType: "document",
+    data: { action: "sign_in" },
+    success: { responseTextIncludes: ["此次签到您获得"] },
+    alreadySigned: { responseTextIncludes: ["请不要重复签到哦"] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   category: [
     {
       name: "类型",

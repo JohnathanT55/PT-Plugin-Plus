@@ -30,6 +30,7 @@ import type {
   IBackupExportResult,
   IClassifiedBackupFile,
 } from "@foundation/backup/retention";
+import type { ISiteSignInResult } from "@/shared/siteSignIn.ts";
 
 // 可序列化的种子信息，用于辅种检测
 export interface ITorrentInfoForVerification {
@@ -197,6 +198,9 @@ interface ProtocolMap extends TMessageMap {
   cancelUserInfoQueue(): void;
   getSiteUserInfo(siteId: TSiteID): Record<string, IUserInfo>;
   removeSiteUserInfo(data: { siteId: TSiteID; date: string[] }): void;
+
+  // 2.4.1 静态、低频站点签到
+  runSiteSignIn(siteId: TSiteID): ISiteSignInResult;
 
   // 2.5 社交信息 ( utils/socialInformation )
   getSocialInformation(data: { site: TSupportSocialSite$1; sid: string }): ISocialInformation;

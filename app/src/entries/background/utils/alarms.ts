@@ -40,11 +40,13 @@ import {
   type IBackupCleanupResult,
   type IBackupExportResult,
 } from "@foundation/backup/retention";
+import { canRunSiteSignIn } from "@/shared/siteSignIn.ts";
 
 import { setupOffscreenDocument } from "./offscreen.ts";
 export enum EJobType {
   FlushUserInfo = "flushUserInfo",
   AutoBackup = "autoBackup",
+  AutoSignIn = "autoSignIn",
 }
 
 const DOWNLOAD_TASK_PREFIX = "download:";
@@ -189,6 +191,47 @@ jobs.scheduleJob({
   duration: 1000 * 60 * 10, // check every 10 minutes
   immediate: true,
   execute: autoFlushUserInfo(),
+});
+
+const activeSiteSignIns = new Set<string>();
+
+async function autoSignInTick(): Promise<void> {
+  const config = (await extStorage.getItem("config")) as IConfigPiniaStorageSchema | undefined;
+  if (!config?.signIn?.enabled || config.signIn.paused) return;
+  const metadata = (await extStorage.getItem("metadata")) as IMetadataPiniaStorageSchema | undefined;
+  if (!metadata) return;
+  const now = Date.now();
+  const cooldownMinutes = Math.max(360, (config.signIn.intervalHours || 24) * 60);
+  for (const [siteId, siteConfig] of Object.entries(metadata.sites ?? {})) {
+    if (siteConfig.signInEnabled !== true || activeSiteSignIns.has(siteId)) continue;
+    if (
+      !canRunSiteSignIn(metadata.siteSignIns?.[siteId], {
+        now,
+        cooldownMinutes,
+        enabled: config.signIn.enabled,
+        paused: config.signIn.paused,
+      })
+    ) {
+      continue;
+    }
+    activeSiteSignIns.add(siteId);
+    try {
+      await setupOffscreenDocument();
+      await sendMessage("runSiteSignIn", siteId);
+    } catch (error) {
+      sendMessage("logger", { level: "warn", msg: `Scheduled site sign-in failed: ${sanitizeDownloadErrorMessage(error)}` }).catch();
+    } finally {
+      activeSiteSignIns.delete(siteId);
+    }
+  }
+}
+
+jobs.scheduleJob({
+  id: EJobType.AutoSignIn,
+  type: "interval",
+  duration: 1000 * 60 * 10,
+  immediate: false,
+  execute: autoSignInTick,
 });
 
 const activeBackupRuns = new Map<string, Promise<unknown>>();

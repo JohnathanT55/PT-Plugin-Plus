@@ -14,6 +14,17 @@ export const siteMetadata: ISiteMetadata = {
 
   urls: ["https://club.hares.top/"],
 
+  // MoviePilot's Hares handler uses the site's JSON attendance endpoint.
+  signIn: {
+    enabled: true,
+    path: "/attendance.php?action=sign",
+    method: "get",
+    responseType: "json",
+    success: { responseTextIncludes: ['"code":0'] },
+    alreadySigned: { responseTextIncludes: ["您今天已经签到过了", '"code":1'] },
+    notLoggedIn: { responseTextIncludes: ["login.php"] },
+  },
+
   // refs: https://github.com/pt-plugins/PT-Plugin-Plus/commit/4371f6ebecf2743acb3817303fdcc36cf5b0118e
   isDead: true,
 
