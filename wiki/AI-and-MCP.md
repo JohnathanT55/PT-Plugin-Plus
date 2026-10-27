@@ -1,6 +1,6 @@
 # AI 助手与 MCP
 
-AI 助手是可选功能，PTPP 本身不保存 LLM API Key。需要单独运行并配置本机的 `PT-Plugin-Plus-MCP` 服务，然后在 PTPP 的 AI 设置中填写 bridge 地址和令牌。
+AI 助手是可选功能，PTPP 本身不保存 LLM API Key。需要单独运行并配置本机的 [`PT-Plugin-Plus-MCP`](https://github.com/JohnathanT55/PT-Plugin-Plus-MCP) 服务，然后在 PTPP 的 AI 设置中填写 bridge 地址和令牌。
 
 ## 使用方式
 
