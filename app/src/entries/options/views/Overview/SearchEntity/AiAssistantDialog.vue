@@ -1,415 +1,264 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-
 import { sendMessage } from "@/messages.ts";
-
+import type { IAiAssistRequest } from "@/shared/aiAssistant.ts";
+import { useAiSession } from "@/options/utils/aiSession.ts";
 import MarkdownContent from "./utils/MarkdownContent.vue";
 
-interface IAiSearchDraft {
-  keyword: string;
-  year?: string | number;
-  season?: string | number;
-  resolution?: string[];
-  codec?: string[];
-  audio?: string[];
-  subtitle?: string[];
-  sort?: string;
-  notes?: string[];
-}
-
-const searchDraftKeys = new Set([
-  "keyword",
-  "year",
-  "season",
-  "resolution",
-  "codec",
-  "audio",
-  "subtitle",
-  "sort",
-  "notes",
-]);
-
-function parseSearchDraft(text: string): IAiSearchDraft | undefined {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
-  const candidate = fenced || text.trim();
-  if (!candidate.startsWith("{") || !candidate.endsWith("}")) return undefined;
-
-  let value: unknown;
-  try {
-    value = JSON.parse(candidate);
-  } catch {
-    return undefined;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const object = value as Record<string, unknown>;
-  if (Object.keys(object).some((key) => !searchDraftKeys.has(key))) return undefined;
-  if (typeof object.keyword !== "string") return undefined;
-  const keyword = object.keyword.trim().slice(0, 240);
-  if (!keyword) return undefined;
-
-  const normalizeStringList = (input: unknown): string[] | undefined => {
-    if (typeof input === "string") return input.trim() ? [input.trim().slice(0, 80)] : undefined;
-    if (!Array.isArray(input)) return undefined;
-    const values = input
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim().slice(0, 80))
-      .filter(Boolean)
-      .slice(0, 12);
-    return values.length ? values : undefined;
-  };
-  const normalizeScalar = (input: unknown): string | number | undefined => {
-    if (typeof input === "number" && Number.isFinite(input)) return input;
-    if (typeof input === "string" && input.trim()) return input.trim().slice(0, 40);
-    return undefined;
-  };
-
-  const draft: IAiSearchDraft = { keyword };
-  for (const key of ["year", "season"] as const) {
-    const normalized = normalizeScalar(object[key]);
-    if (normalized !== undefined) draft[key] = normalized;
-  }
-  for (const key of ["resolution", "codec", "audio", "subtitle", "notes"] as const) {
-    const normalized = normalizeStringList(object[key]);
-    if (normalized) draft[key] = normalized;
-  }
-  const sort = normalizeScalar(object.sort);
-  if (typeof sort === "string") draft.sort = sort;
-  return draft;
-}
-
+type Context = NonNullable<IAiAssistRequest["context"]>;
 const props = defineProps<{
   modelValue: boolean;
   searchKey?: string;
-  torrentTitles?: string[];
-  torrentResults?: Array<{
-    site?: string;
-    title: string;
-    subTitle?: string;
-    category?: string | number;
-    size?: number;
-    seeders?: number;
-    leechers?: number;
-    completed?: number;
-    comments?: number;
-    tags?: string[];
-  }>;
-  siteSummary?: Array<{
-    site?: string;
-    level?: string;
-    ratio?: number;
-    uploaded?: number;
-    downloaded?: number;
-    seeding?: number;
-    seedingSize?: number;
-    bonus?: number;
-    hnr?: number;
-    updatedAt?: string;
-    nextLevel?: Record<string, string | number>;
-  }>;
-  initialMode?: "assist" | "search-draft" | "result-advice" | "site-summary";
-  conversation?: boolean;
+  torrentTitles?: Context["torrentTitles"];
+  torrentResults?: Context["torrentResults"];
+  siteSummary?: Context["siteSummary"];
   suggestions?: string[];
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();
 const { t } = useI18n();
-
-const prompt = ref("");
-const includeSearchContext = ref(true);
-const mode = ref<"assist" | "search-draft" | "result-advice" | "site-summary">(props.initialMode ?? "assist");
-const result = ref("");
+const session = useAiSession();
+const { prompt, messages: conversationMessages } = session;
 const errorMessage = ref("");
 const loading = ref(false);
-const conversationMessages = ref<Array<{ role: "user" | "assistant"; content: string }>>([]);
-const dialogModel = computed({
-  get: () => props.modelValue,
-  set: (value: boolean) => emit("update:modelValue", value),
-});
-const contextLabel = computed(() => {
-  const value = props.searchKey?.trim();
-  return value ? t("aiAssistant.searchContext", { value }) : "";
-});
-const modeItems = computed(() => {
-  const items = [
-    { value: "assist", title: t("aiAssistant.mode.assist"), subtitle: t("aiAssistant.mode.assistHint") },
-    {
-      value: "search-draft",
-      title: t("aiAssistant.mode.searchDraft"),
-      subtitle: t("aiAssistant.mode.searchDraftHint"),
-    },
-    {
-      value: "result-advice",
-      title: t("aiAssistant.mode.resultAdvice"),
-      subtitle: t("aiAssistant.mode.resultAdviceHint"),
-    },
-  ];
-  if ((props.siteSummary?.length ?? 0) > 0) {
-    items.push({
-      value: "site-summary",
-      title: t("aiAssistant.mode.siteSummary"),
-      subtitle: t("aiAssistant.mode.siteSummaryHint"),
-    });
-  }
-  return items;
-});
-const resultContextLabel = computed(() => {
-  const count = props.torrentResults?.length ?? 0;
-  return count > 0 ? t("aiAssistant.resultContext", { count }) : "";
-});
-const siteContextLabel = computed(() => {
-  const count = props.siteSummary?.length ?? 0;
-  return count > 0 ? t("aiAssistant.siteContext", { count }) : "";
-});
-const parsedSearchDraft = computed(() =>
-  mode.value === "search-draft" && result.value ? parseSearchDraft(result.value) : undefined,
-);
+const chatLog = ref<HTMLElement>();
+const input = ref<{ focus: () => void }>();
+let disposed = false;
 
-function promptForMode(value: typeof mode.value): string {
-  if (value === "search-draft") return t("aiAssistant.mode.searchDraftPrompt");
-  if (value === "result-advice") return t("aiAssistant.mode.resultAdvicePrompt");
-  if (value === "site-summary") return t("aiAssistant.mode.siteSummaryPrompt");
-  return t("aiAssistant.mode.assistPrompt");
+const contextLabel = computed(() => {
+  if (props.siteSummary?.length) return t("aiAssistant.siteContext", { count: props.siteSummary.length });
+  if (props.searchKey?.trim()) return t("aiAssistant.searchContext", { value: props.searchKey });
+  return "";
+});
+
+function close() {
+  emit("update:modelValue", false);
+}
+function clearConversation() {
+  session.clear();
+  errorMessage.value = "";
+  void nextTick(() => input.value?.focus());
+}
+function useSuggestion(suggestion: string) {
+  session.expireIfNeeded();
+  prompt.value = suggestion;
+  void nextTick(() => input.value?.focus());
 }
 
 watch(
   () => props.modelValue,
-  (open) => {
-    if (open) {
-      result.value = "";
-      errorMessage.value = "";
-      mode.value = props.initialMode ?? "assist";
-      prompt.value = promptForMode(mode.value);
-      conversationMessages.value = [];
+  async (open) => {
+    if (!open) return;
+    session.expireIfNeeded();
+    if (!conversationMessages.value.length && !prompt.value.trim() && props.suggestions?.[0]) {
+      prompt.value = props.suggestions[0];
     }
+    await nextTick();
+    input.value?.focus();
+    if (chatLog.value) chatLog.value.scrollTop = chatLog.value.scrollHeight;
+  },
+);
+watch(
+  () => conversationMessages.value.length,
+  async () => {
+    await nextTick();
+    if (chatLog.value) chatLog.value.scrollTop = chatLog.value.scrollHeight;
   },
 );
 
-watch(mode, (value) => {
-  prompt.value = promptForMode(value);
-});
-
 async function ask() {
-  if (!prompt.value.trim()) {
+  if (loading.value) return;
+  session.expireIfNeeded();
+  const userPrompt = prompt.value.trim();
+  if (!userPrompt) {
     errorMessage.value = t("aiAssistant.empty");
     return;
   }
+  const token = session.beginTurn();
   loading.value = true;
-  const userPrompt = prompt.value.trim();
-  if (!props.conversation) result.value = "";
   errorMessage.value = "";
   try {
-    const effectiveMode = props.conversation ? "assist" : mode.value;
     const response = await sendMessage("runAiAssistant", {
-      mode: effectiveMode,
+      mode: "assist",
       prompt: userPrompt,
-      history: props.conversation ? conversationMessages.value : undefined,
-      context: includeSearchContext.value
-        ? {
-            searchKey: props.searchKey,
-            torrentTitles: props.torrentTitles,
-            torrentResults: props.conversation || effectiveMode === "result-advice" ? props.torrentResults : undefined,
-            siteSummary: props.conversation || effectiveMode === "site-summary" ? props.siteSummary : undefined,
-          }
-        : undefined,
+      history: conversationMessages.value.map((message) => ({ ...message })),
+      context: {
+        searchKey: props.searchKey,
+        torrentTitles: props.torrentTitles,
+        torrentResults: props.torrentResults,
+        siteSummary: props.siteSummary,
+      },
     });
-    if (props.conversation) {
-      conversationMessages.value.push({ role: "user", content: userPrompt });
-      conversationMessages.value.push({ role: "assistant", content: response.text });
-      prompt.value = "";
-    } else {
-      result.value = response.text;
-    }
+    if (!disposed) session.completeTurn(token, userPrompt, response.text);
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("aiAssistant.testFailed");
+    if (!disposed && session.revision.value === token) {
+      errorMessage.value = error instanceof Error ? error.message : t("aiAssistant.testFailed");
+    }
   } finally {
     loading.value = false;
   }
 }
-
-async function copyResult() {
-  if (!result.value) return;
-  await navigator.clipboard.writeText(result.value);
-}
-
-async function copySearchDraftKeyword() {
-  const keyword = parsedSearchDraft.value?.keyword;
-  if (!keyword) return;
-  await navigator.clipboard.writeText(keyword);
-}
-
-function applySearchDraft() {
-  const keyword = parsedSearchDraft.value?.keyword;
-  if (!keyword) return;
-  if (!window.confirm(t("aiAssistant.applyDraftConfirm"))) return;
-  window.dispatchEvent(new CustomEvent("ptpp-ai-search-draft", { detail: { keyword } }));
-}
+onBeforeUnmount(() => {
+  disposed = true;
+  session.dispose();
+});
 </script>
 
 <template>
-  <v-dialog v-model="dialogModel" max-width="720">
-    <v-card>
-      <v-card-title class="d-flex align-center ga-2">
-        <v-icon icon="mdi-robot-outline" />
-        {{ t("aiAssistant.dialogTitle") }}
-      </v-card-title>
-      <v-card-text>
-        <p class="text-body-2 text-medium-emphasis mb-4">{{ t("aiAssistant.dialogDescription") }}</p>
-        <v-select
-          v-if="!conversation"
-          v-model="mode"
-          :items="modeItems"
-          item-title="title"
-          item-value="value"
-          :label="t('aiAssistant.mode.label')"
-          :messages="modeItems.find((item) => item.value === mode)?.subtitle"
-          density="compact"
-          hide-details="auto"
-        />
-        <v-alert v-if="contextLabel" class="mb-3" density="compact" type="info" variant="tonal">
-          {{ contextLabel }}
-        </v-alert>
-        <v-alert
-          v-if="mode === 'result-advice' && resultContextLabel"
-          class="mb-3"
-          density="compact"
-          type="info"
-          variant="tonal"
-        >
-          {{ resultContextLabel }}
-        </v-alert>
-        <v-alert
-          v-if="mode === 'site-summary' && siteContextLabel"
-          class="mb-3"
-          density="compact"
-          type="info"
-          variant="tonal"
-        >
-          {{ siteContextLabel }}
-        </v-alert>
-        <v-switch
-          v-if="
-            !conversation &&
-            mode !== 'site-summary' &&
-            (contextLabel ||
-              (props.torrentTitles?.length ?? 0) > 0 ||
-              (props.torrentResults?.length ?? 0) > 0 ||
-              (props.siteSummary?.length ?? 0) > 0)
-          "
-          v-model="includeSearchContext"
-          :label="t('aiAssistant.includeSearchContext')"
-          color="success"
-          density="compact"
-          hide-details
-        />
-        <v-textarea
-          v-if="!conversation"
-          v-model="prompt"
-          :label="t('aiAssistant.prompt')"
-          :placeholder="t('aiAssistant.promptPlaceholder')"
-          auto-grow
-          autofocus
-          class="mt-3"
-          counter="4000"
-          rows="4"
-          @keydown.ctrl.enter="ask"
-        />
-        <div v-if="conversation" class="ai-chat-log mb-3" aria-live="polite">
-          <div v-if="conversationMessages.length === 0" class="text-body-2 text-medium-emphasis">
-            {{ t("aiAssistant.conversationEmpty") }}
-          </div>
-          <div
-            v-for="(message, index) in conversationMessages"
-            :key="`${message.role}-${index}`"
-            class="ai-chat-message"
-            :class="`ai-chat-message--${message.role}`"
-          >
-            <div class="text-caption text-medium-emphasis mb-1">
-              {{ message.role === "user" ? t("aiAssistant.you") : t("aiAssistant.assistant") }}
-            </div>
-            <MarkdownContent :source="message.content" />
-          </div>
+  <v-card
+    v-if="modelValue"
+    id="ptpp-ai-panel"
+    class="ptpp-ai-panel"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="ptpp-ai-panel-title"
+    elevation="12"
+    @keydown.esc.stop="close"
+  >
+    <v-card-title class="d-flex align-center ga-2 ptpp-ai-panel__title">
+      <v-icon icon="mdi-robot-outline" size="22" />
+      <span id="ptpp-ai-panel-title" class="text-subtitle-1 text-truncate">{{ t("aiAssistant.dialogTitle") }}</span>
+      <v-spacer />
+      <v-btn
+        icon="mdi-chat-plus-outline"
+        size="small"
+        variant="text"
+        :disabled="loading"
+        :title="t('aiAssistant.clearConversation')"
+        :aria-label="t('aiAssistant.clearConversation')"
+        @click="clearConversation"
+      />
+      <v-btn icon="mdi-close" size="small" variant="text" :aria-label="t('aiAssistant.close')" @click="close" />
+    </v-card-title>
+    <div class="px-4 pb-2 text-caption text-medium-emphasis">{{ t("aiAssistant.sessionNotice") }}</div>
+    <v-divider />
+    <div ref="chatLog" class="ai-chat-log" role="log" aria-live="polite" :aria-label="t('aiAssistant.chatHistory')">
+      <p v-if="conversationMessages.length === 0" class="text-body-2 text-medium-emphasis">
+        {{ t("aiAssistant.conversationEmpty") }}
+      </p>
+      <div
+        v-for="(message, index) in conversationMessages"
+        :key="index"
+        class="ai-chat-message"
+        :class="'ai-chat-message--' + message.role"
+      >
+        <div class="text-caption text-medium-emphasis mb-1">
+          {{ message.role === "user" ? t("aiAssistant.you") : t("aiAssistant.assistant") }}
         </div>
-        <div v-if="conversation && suggestions?.length" class="d-flex flex-wrap ga-2 mt-2">
-          <v-chip
-            v-for="suggestion in suggestions"
-            :key="suggestion"
-            size="small"
-            variant="tonal"
-            @click="prompt = suggestion"
-          >
-            {{ suggestion }}
-          </v-chip>
-        </div>
-        <v-textarea
-          v-if="conversation"
-          v-model="prompt"
-          :label="t('aiAssistant.prompt')"
-          :placeholder="t('aiAssistant.promptPlaceholder')"
-          auto-grow
-          autofocus
-          class="mt-3"
-          counter="4000"
-          rows="3"
-          @keydown.ctrl.enter="ask"
-        />
-        <v-alert v-if="errorMessage" class="mt-3" density="compact" type="error" variant="tonal">
-          {{ errorMessage }}
-        </v-alert>
-        <v-card v-if="result" class="mt-4" variant="outlined">
-          <v-card-text class="ai-result">
-            <MarkdownContent :source="result" />
-          </v-card-text>
-          <v-card-actions class="justify-end">
-            <template v-if="parsedSearchDraft">
-              <v-chip class="mr-auto" color="primary" size="small" variant="tonal">
-                {{ parsedSearchDraft.keyword }}
-              </v-chip>
-              <v-btn prepend-icon="mdi-magnify" variant="text" @click="applySearchDraft">
-                {{ t("aiAssistant.applyDraft") }}
-              </v-btn>
-              <v-btn prepend-icon="mdi-content-copy" variant="text" @click="copySearchDraftKeyword">
-                {{ t("aiAssistant.copyKeyword") }}
-              </v-btn>
-            </template>
-            <v-btn prepend-icon="mdi-content-copy" variant="text" @click="copyResult">
-              {{ t("aiAssistant.copy") }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-card-text>
-      <v-card-actions class="justify-end">
-        <v-btn variant="text" @click="dialogModel = false">{{ t("common.dialog.cancel") }}</v-btn>
-        <v-btn :loading="loading" color="primary" prepend-icon="mdi-send" variant="elevated" @click="ask">
-          {{ t("aiAssistant.ask") }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        <MarkdownContent :source="message.content" />
+      </div>
+      <div v-if="loading" class="d-flex align-center ga-2 text-body-2" role="status">
+        <v-progress-circular indeterminate size="16" width="2" />{{ t("aiAssistant.thinking") }}
+      </div>
+      <v-alert v-if="errorMessage" density="compact" type="error" variant="tonal">{{ errorMessage }}</v-alert>
+    </div>
+    <div class="ptpp-ai-panel__composer">
+      <p v-if="contextLabel" class="text-caption text-medium-emphasis mb-2">{{ contextLabel }}</p>
+      <div v-if="suggestions?.length" class="ai-suggestions" :aria-label="t('aiAssistant.suggestionsLabel')">
+        <v-chip
+          v-for="suggestion in suggestions"
+          :key="suggestion"
+          size="small"
+          variant="tonal"
+          class="ai-suggestion"
+          @click="useSuggestion(suggestion)"
+          >{{ suggestion }}</v-chip
+        >
+      </div>
+      <v-textarea
+        ref="input"
+        v-model="prompt"
+        :label="t('aiAssistant.prompt')"
+        :placeholder="t('aiAssistant.promptPlaceholder')"
+        density="compact"
+        variant="outlined"
+        class="mt-3"
+        rows="3"
+        no-resize
+        counter="4000"
+        maxlength="4000"
+        @keydown.ctrl.enter.prevent="ask"
+        @keydown.meta.enter.prevent="ask"
+      />
+      <div class="d-flex justify-end">
+        <v-btn :loading="loading" :disabled="!prompt.trim()" color="primary" prepend-icon="mdi-send" @click="ask">{{
+          t("aiAssistant.ask")
+        }}</v-btn>
+      </div>
+    </div>
+  </v-card>
 </template>
 
 <style scoped lang="scss">
-.ai-result {
-  max-height: 360px;
-  overflow: auto;
+.ptpp-ai-panel {
+  position: fixed;
+  z-index: 1000;
+  right: 20px;
+  bottom: 88px;
+  width: min(420px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 108px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
-
+.ptpp-ai-panel__title {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+}
+.ptpp-ai-panel__composer {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
 .ai-chat-log {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 360px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
-
 .ai-chat-message {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 8px;
   padding: 8px 10px;
+  overflow-wrap: anywhere;
   background: rgba(var(--v-theme-on-surface), 0.06);
 }
-
 .ai-chat-message--user {
   align-self: flex-end;
   max-width: 90%;
   background: rgba(var(--v-theme-primary), 0.12);
+}
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 92px;
+  overflow-y: auto;
+}
+.ai-suggestion {
+  height: auto;
+  min-height: 28px;
+  padding-block: 4px;
+  white-space: normal;
+  :deep(.v-chip__content) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-height: 540px) {
+  .ptpp-ai-panel {
+    overflow-y: auto;
+  }
+  .ai-chat-log {
+    flex: 0 0 auto;
+    max-height: 160px;
+  }
 }
 </style>

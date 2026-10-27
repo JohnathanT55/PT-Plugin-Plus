@@ -86,6 +86,14 @@ assert(
   siteIndex.includes('path: "/attendance.php"'),
   "the generic NexusPHP rule uses the conventional attendance endpoint",
 );
+const alarmSource = readFileSync("app/src/entries/background/utils/alarms.ts", "utf8");
+const autoSignInScheduler = alarmSource.match(
+  /jobs\.scheduleJob\(\{[\s\S]*?id: EJobType\.AutoSignIn,[\s\S]*?execute: autoSignInTick,[\s\S]*?\}\);/,
+);
+assert(autoSignInScheduler, "automatic sign-in is registered with the browser alarm scheduler");
+assert(autoSignInScheduler[0].includes("duration: 1000 * 60 * 10"), "automatic sign-in is checked at the low-frequency ten-minute cadence");
+assert(autoSignInScheduler[0].includes("immediate: false"), "automatic sign-in waits for the first full scheduler interval");
+assert(autoSignInScheduler[0].includes("execute: autoSignInTick"), "the alarm scheduler invokes the guarded automatic sign-in tick");
 for (const [file, marker] of [
   ["btschool.ts", 'path: "/index.php?action=addbonus"'],
   ["hares.ts", 'path: "/attendance.php?action=sign"'],

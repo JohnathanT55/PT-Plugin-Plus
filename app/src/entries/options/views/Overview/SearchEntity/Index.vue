@@ -23,7 +23,6 @@ import SearchStatusDialog from "./SearchStatusDialog.vue";
 import SaveSnapshotDialog from "./SaveSnapshotDialog.vue";
 import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
 import MovieInfoCard from "./MovieInfoCard.vue";
-import AiAssistantDialog from "./AiAssistantDialog.vue";
 import { clearAiPageContext, setAiPageContext } from "@/options/utils/aiContext.ts";
 
 // 主要助手方法
@@ -48,7 +47,6 @@ const display = useDisplay();
 const showAdvanceFilterGenerateDialog = ref<boolean>(false);
 const showSearchStatusDialog = ref<boolean>(false);
 const showSaveSnapshotDialog = ref<boolean>(false);
-const showAiAssistantDialog = ref<boolean>(false);
 
 const fullTableHeader = computed(
   () =>
@@ -127,7 +125,7 @@ const aiTorrentResults = computed(() => {
 
 const aiContextKey = "SearchEntity";
 watch(
-  [() => runtimeStore.search.searchKey, selectedTorrentTitles, aiTorrentResults],
+  [() => runtimeStore.search.searchKey, selectedTorrentTitles, aiTorrentResults, () => configStore.lang],
   () => {
     setAiPageContext(aiContextKey, {
       context: {
@@ -136,7 +134,9 @@ watch(
         torrentResults: aiTorrentResults.value,
       },
       suggestions: [
-        t("aiAssistant.suggestions.searchResults"),
+        tableSelectedRaw.value.length
+          ? t("aiAssistant.suggestions.searchSelected", { count: tableSelectedRaw.value.length })
+          : t("aiAssistant.suggestions.searchResults"),
         t("aiAssistant.suggestions.searchResources"),
       ],
     });
@@ -374,19 +374,6 @@ const hiddenTagNamesText = computed({
       </template>
 
       <v-btn
-        :disabled="!configStore.mcp.enabled"
-        :title="configStore.mcp.enabled ? t('aiAssistant.dialogTitle') : t('aiAssistant.notConfigured')"
-        class="ptpp-batch-extra"
-        color="deep-purple"
-        prepend-icon="mdi-robot-outline"
-        size="small"
-        variant="elevated"
-        @click="showAiAssistantDialog = true"
-      >
-        {{ t("SearchEntity.index.action.aiAssistant") }}
-      </v-btn>
-
-      <v-btn
         :disabled="runtimeStore.search.isSearching || runtimeStore.search.searchResult.length === 0"
         :title="t('SearchEntity.index.action.saveSnapshot')"
         class="ptpp-batch-extra ptpp-snapshot-button"
@@ -543,12 +530,6 @@ const hiddenTagNamesText = computed({
   <AdvanceFilterGenerateDialog v-model="showAdvanceFilterGenerateDialog" />
   <SearchStatusDialog v-model="showSearchStatusDialog" />
   <SaveSnapshotDialog v-model="showSaveSnapshotDialog" />
-  <AiAssistantDialog
-    v-model="showAiAssistantDialog"
-    :search-key="runtimeStore.search.searchKey"
-    :torrent-titles="selectedTorrentTitles"
-    :torrent-results="aiTorrentResults"
-  />
 </template>
 
 <style scoped lang="scss">

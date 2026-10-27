@@ -124,7 +124,9 @@ const bridgeHandler = readFileSync("app/src/entries/offscreen/utils/mcpBridge.ts
 const bridgeTypes = readFileSync("app/src/entries/shared/mcpBridge.ts", "utf8");
 const pageContextPublisher = readFileSync("app/src/entries/options/utils/aiContext.ts", "utf8");
 const myDataView = readFileSync("app/src/entries/options/views/Overview/MyData/Index.vue", "utf8");
+const searchEntityView = readFileSync("app/src/entries/options/views/Overview/SearchEntity/Index.vue", "utf8");
 const aiDialog = readFileSync("app/src/entries/options/views/Overview/SearchEntity/AiAssistantDialog.vue", "utf8");
+const aiFab = readFileSync("app/src/entries/options/components/AiAssistantFab.vue", "utf8");
 assert(!storage.includes("aiAssistantSecret"), "AI secret storage key was removed from the extension schema");
 assert(!backup.includes("aiAssistantSecret"), "AI secret is excluded from backup storage keys");
 assert(bridgeHandler.includes('credentials: "omit"'), "MCP bridge requests omit site cookies");
@@ -160,13 +162,28 @@ assert(
   "My Data context retains next-level requirements needed for useful AI analysis",
 );
 assert(aiDialog.includes("MarkdownContent"), "AI responses use the Markdown renderer");
-assert(aiDialog.includes("promptForMode"), "AI dialog restores a default prompt when opened");
+assert(aiDialog.includes("useSuggestion(suggestion)"), "AI suggestions fill an editable draft before sending");
+assert(aiDialog.includes("useAiSession()"), "AI conversation restores its short-lived local session");
+assert(aiDialog.includes("session.expireIfNeeded()"), "AI conversation checks idle expiry before opening and sending");
+assert(
+  aiDialog.includes('class="ptpp-ai-panel"'),
+  "AI conversation uses a floating panel instead of a centered dialog",
+);
 assert(!aiDialog.includes("v-html"), "AI responses are not inserted as raw HTML");
+assert(!myDataView.includes("AiAssistantDialog"), "My Data no longer exposes a separate purple AI button");
+assert(!searchEntityView.includes("AiAssistantDialog"), "Search results no longer expose a separate purple AI button");
+assert(
+  aiFab.includes("bridgeConnected") && aiFab.includes('v-if="bridgeConnected"'),
+  "AI entry is hidden until MCP is connected",
+);
 const summaryProjection = myDataView.match(/const aiSiteSummaries[\s\S]*?async function initPtppTable/)?.[0] ?? "";
 assert(
   !/item\.(name|id|avatar|siteUserConfig)/.test(summaryProjection),
   "My Data projection excludes identity and site config",
 );
-assert(myDataView.includes('initial-mode="site-summary"'), "My Data summary uses the explicit site-summary mode");
+assert(
+  aiFab.includes("suggestions") && aiFab.includes("activeAiPageContext"),
+  "AI suggestions follow the active page context",
+);
 
 console.log("AI assistant endpoint, privacy, and response parsing tests passed.");

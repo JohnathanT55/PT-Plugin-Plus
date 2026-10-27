@@ -86,11 +86,10 @@ configStore.$onReady(() => {
         </router-view>
       </v-container>
     </v-main>
+    <AiAssistantFab />
   </v-app>
 
   <ReleaseNoteDialog v-model="showReleaseNoteDialog" />
-
-  <AiAssistantFab />
 
   <v-snackbar-queue v-model="runtimeStore.uiGlobalSnakebar" closable />
 </template>

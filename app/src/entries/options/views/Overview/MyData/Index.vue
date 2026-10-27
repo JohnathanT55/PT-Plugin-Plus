@@ -5,13 +5,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { isUndefined } from "es-toolkit/compat";
 import type { DataTableHeader } from "vuetify";
-import {
-  EResultParseStatus,
-  getNextLevelUnMet,
-  type ISiteUserConfig,
-  type IUserInfo,
-  type TSiteID,
-} from "@ptd/site";
+import { EResultParseStatus, getNextLevelUnMet, type ISiteUserConfig, type IUserInfo, type TSiteID } from "@ptd/site";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -28,19 +22,17 @@ import ResultParseStatus from "@/options/components/ResultParseStatus.vue";
 import NavButton from "@/options/components/NavButton.vue";
 import UserLevelRequirementsTd from "./UserLevelRequirementsTd.vue";
 import BonusFormatSpan from "./BonusFormatSpan.vue";
-import AiAssistantDialog from "../SearchEntity/AiAssistantDialog.vue";
 
 import { formatRatio } from "./utils/format.ts";
 import { tableData, initTableData, flushSiteLastUserInfo } from "./utils/lastUserData.ts";
 import { resolveOpenSiteIds, resolveRefreshSiteIds } from "./utils/siteActions.ts";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const router = useRouter();
 const configStore = useConfigStore();
 const runtimeStore = useRuntimeStore();
 const metadataStore = useMetadataStore();
 const tableSelected = ref<TSiteID[]>([]);
-const showAiSiteSummaryDialog = ref(false);
 
 type TExtendDataTableHeader = DataTableHeader & { props?: any };
 
@@ -108,6 +100,7 @@ const { tableWaitFilterRef, tableFilterRef, tableFilterFn, buildFilterDictFn } =
 
 const aiSiteSummaries = ref<IAiSiteSummaryContext[]>([]);
 let aiSummaryGeneration = 0;
+let aiContextAlive = true;
 
 async function refreshAiSiteSummaries() {
   const generation = ++aiSummaryGeneration;
@@ -144,24 +137,40 @@ async function refreshAiSiteSummaries() {
       };
     }),
   );
-  if (generation === aiSummaryGeneration) {
+  if (aiContextAlive && generation === aiSummaryGeneration) {
     aiSiteSummaries.value = summaries;
+    // Use public site identifiers, never the account's display name.
+    const sites =
+      selectedItems
+        .slice(0, 6)
+        .map((item) => item.site)
+        .join(", ") + (selectedItems.length > 6 ? "…" : "");
+    const summarySuggestion =
+      selectedItems.length === 0
+        ? t("aiAssistant.suggestions.siteSummary")
+        : selectedItems.length === 1
+          ? t("aiAssistant.suggestions.siteSelected", { sites })
+          : t("aiAssistant.suggestions.siteSelectedMany", { count: selectedItems.length, sites });
     setAiPageContext("MyData", {
       context: { siteSummary: summaries },
-      suggestions: [t("aiAssistant.suggestions.siteSummary")],
+      suggestions: [summarySuggestion],
     });
   }
 }
 
 watch(
-  [tableSelected, tableData],
+  [tableSelected, tableData, locale],
   () => {
     void refreshAiSiteSummaries();
   },
   { deep: true, immediate: true },
 );
 
-onBeforeUnmount(() => clearAiPageContext("MyData"));
+onBeforeUnmount(() => {
+  aiContextAlive = false;
+  ++aiSummaryGeneration;
+  clearAiPageContext("MyData");
+});
 
 async function initPtppTable() {
   const columns = configStore.tableBehavior.MyData.columns ?? [];
@@ -245,15 +254,6 @@ function viewStatistic() {
           :text="t('MyData.index.multiOpen')"
           :title="t('MyData.index.multiOpenHint')"
           @click="multiOpen"
-        />
-
-        <NavButton
-          color="deep-purple"
-          icon="mdi-robot-outline"
-          :text="t('MyData.index.aiSummary')"
-          :title="t('MyData.index.aiSummaryHint')"
-          :disabled="!configStore.mcp.enabled || aiSiteSummaries.length === 0"
-          @click="showAiSiteSummaryDialog = true"
         />
 
         <v-btn
@@ -617,7 +617,6 @@ function viewStatistic() {
       </template>
     </v-data-table>
   </v-card>
-  <AiAssistantDialog v-model="showAiSiteSummaryDialog" initial-mode="site-summary" :site-summary="aiSiteSummaries" />
 </template>
 
 <style scoped lang="scss">
