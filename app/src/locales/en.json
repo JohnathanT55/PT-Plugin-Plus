@@ -1634,7 +1634,7 @@
   "aiAssistant": {
     "title": "MCP AI assistant",
     "description": "The local MCP service handles LLM requests and tool orchestration; PTPP only provides the UI and redacted context.",
-    "privacyNotice": "The API key, model, and upstream LLM endpoint stay in the local MCP service instead of PTPP, Chrome Sync, or backups. PTPP only sends user-submitted, redacted content to the authenticated local bridge.",
+    "privacyNotice": "When enabled, authenticated MCP clients can query business data and invoke supported actions without opening the corresponding page. Usernames and credentials are excluded; statistics and level requirements are retained. The MCP service manages the LLM API key, model, and endpoint.",
     "enabled": "Enable MCP AI assistant",
     "bridgeUrl": "MCP bridge URL",
     "bridgeUrlHint": "Use only a local or trusted HTTP(S) bridge. Do not put credentials in the URL.",

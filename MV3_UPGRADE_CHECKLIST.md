@@ -340,7 +340,7 @@ A、B、C 以及本机全部技术门禁均已完成；Chrome Stable、最终 ZI
 
 本批只增加三个明确范围，不恢复 PTD 独有产品入口。每项完成后单独进行自动验证和 Chrome 实机检查，创建独立 commit，等待维护者审核后再继续；不在本地执行 push。
 
-### 10.1 外部 MCP 与 AI 请求迁移（1–3 已完成，业务工具下一批接入）
+### 10.1 外部 MCP 与 AI 请求迁移（第一阶段业务接口）
 
 目标是把 LLM 请求、模型配置和 API Key 移到外部 `PT-Plugin-Plus-MCP` 服务；PTPP 只保留 AI 界面、脱敏上下文和可选 bridge 连接。Chrome CDP、computer-use 不属于 MCP 实现。
 
@@ -350,9 +350,14 @@ A、B、C 以及本机全部技术门禁均已完成；Chrome Stable、最终 ZI
 - [x] PTPP 增加默认关闭的 MCP bridge 配置、握手状态和连接测试；bridge 不可用时不影响 PTPP 普通启动。
 - [x] PTPP 继续在扩展侧进行上下文字段白名单和长度限制，MCP 服务端再次脱敏，避免 URL、密码等未知字段进入 LLM 请求。
 - [x] 移除扩展内旧 AI API 请求模块和 `aiAssistantSecret` 使用；旧配置仅作迁移读取，LLM 凭据需在 MCP 服务端配置。
-- [x] MCP 服务端类型检查、AI 协议测试、bridge 鉴权/握手测试，以及 PTPP 类型检查和 AI 回归测试通过。
-
-下一批再接入站点、搜索、用户数据、下载器、备份等 MCP 工具，不在本阶段宣称已完成。
+- [x] 增加 PTPP capability registry 与独立会话通道：扩展通过 `extension_info`、`page_context` 等显式 descriptor 注册能力，MCP 使用 `session/open`、长轮询 `poll`、`response` 和 `close` 完成双向请求/结果回传；查询与后续动作的确认级别、输入/输出 schema、单次结果字节上限和会话 TTL 均进入协议。
+- [x] `page_context` 只返回用户当前主动展示页面的安全投影；搜索结果保留标题、分类、大小、做种/下载统计和失败阶段，我的数据保留等级、分享率、上传/下载量、做种数、魔力值、H&R、更新时间及 `nextLevel` 缺口字段，使 MCP 能够计算下一等级差额，而不是只看到当前数值。
+- [x] PTPP 在扩展边界保留字段白名单、未知字段丢弃、URL/Cookie/密码/下载器凭据拒绝、条目/字符/字节上限；语义筛选、排序、聚合、提示词组装、token 预算、会话历史和 LLM 请求由 MCP 负责。任何未来 capability 也必须复用此硬边界，不能开放原始 storage、HTML 或任意 DOM。
+- [x] MCP 服务端类型检查、AI 协议测试、bridge 鉴权/握手/会话测试，以及 PTPP 类型检查和 AI/capability 回归测试通过；真实 Chrome 扩展页面已验证配置保存、bridge 鉴权、握手和 capability session 建立，offscreen 版本读取兼容性问题已修复。
+- [x] 增加业务 capability：站点列表、用户数据/下一等级要求与差额、用户数据刷新、下载器列表/状态、异步搜索任务与分页结果、签到状态/单站签到、备份服务/历史摘要；所有数据均通过字段白名单投影，操作不要求先打开页面。
+- [x] 新增标准 MCP 工具适配和 profile 隔离：MCP 客户端可发现 capability、显式选择会话并调用查询/受控操作；多个扩展会话不会静默串数据，session 过期、服务重启和配置禁用会自动恢复或停止。
+- [x] 内置 AI 可在有限轮次内按用户问题查询只读站点/用户数据并执行明确的资源搜索；无法使用工具的模型明确降级，不虚构已查询结果。删除/恢复备份和实际推送下载不开放给模型。
+- [x] 真实 Chrome 完整业务往返验收：使用真实备份恢复后验证 MCP 站点列表、用户等级差额、下载器摘要、搜索进度/结果、签到状态和备份历史；搜索结果只保留字段白名单且不返回站点 URL。多个同时连接的 profile 必须显式选择 session；临时 bridge 重启后扩展自动建立新 session，并在新 session 上再次完成站点列表与用户数据调用。真实测试未把站点名称、地址、令牌、Cookie 或备份内容写入仓库。
 
 ### 10.2 站点签到助手（MoviePilot 规则复用已实现，真实站点部分验收完成）
 

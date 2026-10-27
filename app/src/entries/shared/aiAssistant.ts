@@ -1,4 +1,5 @@
 import type { IAiAssistantConfig } from "./types/storages/config.ts";
+import { projectLevelStats, redactMcpText } from "./mcpRedaction.ts";
 
 /** Legacy config type kept only for old backup parsing; runtime AI config now lives in MCP. */
 export type { IAiAssistantConfig } from "./types/storages/config.ts";
@@ -68,7 +69,7 @@ export function sanitizeAiHistory(history?: IAiAssistRequest["history"]): NonNul
 
 function clampString(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
-  const normalized = value.trim().slice(0, maxLength);
+  const normalized = redactMcpText(value, maxLength);
   return normalized || undefined;
 }
 
@@ -82,7 +83,7 @@ function sanitizeTorrentResult(item: IAiTorrentContext): IAiTorrentContext | und
   const title = clampString(item.title, 180);
   if (!title) return undefined;
   const tags = Array.isArray(item.tags)
-    ? item.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().slice(0, 60)).filter(Boolean).slice(0, 12)
+    ? item.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => redactMcpText(tag, 60)).filter(Boolean).slice(0, 12)
     : undefined;
   return {
     ...(clampString(item.site, 80) ? { site: clampString(item.site, 80) } : {}),
@@ -102,16 +103,7 @@ function sanitizeSiteSummary(item: IAiSiteSummaryContext): IAiSiteSummaryContext
   if (!item || typeof item !== "object") return undefined;
   const site = clampString(item.site, 80);
   if (!site) return undefined;
-  const nextLevelEntries: Array<[string, string | number]> = [];
-  if (item.nextLevel && typeof item.nextLevel === "object") {
-    for (const [key, value] of Object.entries(item.nextLevel).slice(0, 12)) {
-      const safeKey = clampString(key, 60);
-      if (!safeKey) continue;
-      if (typeof value === "number" && Number.isFinite(value)) nextLevelEntries.push([safeKey, value]);
-      else if (typeof value === "string" && value.trim()) nextLevelEntries.push([safeKey, value.trim().slice(0, 120)]);
-    }
-  }
-  const nextLevel = nextLevelEntries.length ? Object.fromEntries(nextLevelEntries) : undefined;
+  const nextLevel = projectLevelStats(item.nextLevel);
   return {
     site,
     ...(clampString(item.level, 80) ? { level: clampString(item.level, 80) } : {}),
@@ -139,8 +131,8 @@ function sanitizeFailure(item: IAiFailureContext): IAiFailureContext | undefined
 
 export function sanitizeAiContext(context?: IAiAssistRequest["context"]): IAiAssistRequest["context"] | undefined {
   if (!context) return undefined;
-  const searchKey = typeof context.searchKey === "string" ? context.searchKey.trim().slice(0, 240) : "";
-  const torrentTitles = Array.isArray(context.torrentTitles) ? context.torrentTitles.filter((value): value is string => typeof value === "string").map((value) => value.trim().slice(0, 180)).filter(Boolean).slice(0, 20) : [];
+  const searchKey = typeof context.searchKey === "string" ? redactMcpText(context.searchKey, 240) : "";
+  const torrentTitles = Array.isArray(context.torrentTitles) ? context.torrentTitles.filter((value): value is string => typeof value === "string").map((value) => redactMcpText(value, 180)).filter(Boolean).slice(0, 20) : [];
   const torrentResults = Array.isArray(context.torrentResults) ? context.torrentResults.map(sanitizeTorrentResult).filter((item): item is IAiTorrentContext => Boolean(item)).slice(0, 30) : [];
   const siteSummary = Array.isArray(context.siteSummary) ? context.siteSummary.map(sanitizeSiteSummary).filter((item): item is IAiSiteSummaryContext => Boolean(item)).slice(0, 20) : [];
   const failures = Array.isArray(context.failures) ? context.failures.map(sanitizeFailure).filter((item): item is IAiFailureContext => Boolean(item)).slice(0, 30) : [];

@@ -223,6 +223,8 @@ interface ProtocolMap extends TMessageMap {
   runAiAssistant(data: IAiAssistRequest): IAiAssistResponse;
   getMcpBridgeStatus(): IMcpBridgeStatus;
   testMcpBridge(): IMcpBridgeStatus;
+  syncMcpBridgeConfig(): void;
+  setMcpPageContext(data: { page: "search" | "my-data"; context?: IAiAssistRequest["context"] }): void;
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: {

@@ -1,6 +1,7 @@
 import { stringify } from "urlencode";
-import { onMessage } from "@/messages.ts";
+import { onMessage, sendMessage } from "@/messages.ts";
 import { extStorage } from "@/storage.ts";
+import type { IConfigPiniaStorageSchema } from "@/shared/types.ts";
 
 const PAGE_CAPTURE_MESSAGE = "PTPP_CAPTURE_NAVIGATION_DOCUMENT";
 let captureQueue = Promise.resolve();
@@ -102,4 +103,14 @@ onMessage("getExtStorage", async ({ data: key }) => {
 
 onMessage("setExtStorage", async ({ data: { key, value } }) => {
   await extStorage.setItem(key, value);
+});
+
+// All writers (settings, restore, migration) use storage; do not rely on one
+// settings component to stop an authenticated session after disabling it.
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes.config) return;
+  const oldValue = changes.config.oldValue as IConfigPiniaStorageSchema | undefined;
+  const newValue = changes.config.newValue as IConfigPiniaStorageSchema | undefined;
+  if (JSON.stringify(oldValue?.mcp) === JSON.stringify(newValue?.mcp)) return;
+  void sendMessage("syncMcpBridgeConfig", undefined).catch(() => undefined);
 });

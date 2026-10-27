@@ -1630,8 +1630,8 @@
   },
   "aiAssistant": {
     "title": "MCP AI 助手",
-    "description": "AI 请求和工具编排由本机 MCP 服务负责，PTPP 只提供界面和脱敏上下文。",
-    "privacyNotice": "API Key、模型和上游 LLM 地址不会保存在 PTPP、Chrome Sync 或备份中，而是由本机 MCP 服务管理。PTPP 只向已认证的本地 bridge 发送用户主动提交的脱敏内容。",
+    "description": "AI 请求和工具编排由本机 MCP 服务负责，PTPP 提供助手界面和业务接口。",
+    "privacyNotice": "启用后，已认证的 MCP 客户端可查询业务数据并调用已开放的操作，无需先打开对应页面。用户名与凭据不对外提供，等级要求和统计数据会保留。LLM API Key、模型和上游地址仅由 MCP 服务管理。",
     "enabled": "启用 MCP AI 助手",
     "bridgeUrl": "MCP bridge 地址",
     "bridgeUrlHint": "仅允许本机或受信任的 HTTP(S) bridge 地址；不要在 URL 中填写凭据。",
