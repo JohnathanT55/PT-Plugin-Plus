@@ -54,6 +54,6 @@ AI 不能直接读取原始浏览器存储、Cookies、密码或完整页面 DOM
 ## 相关文档
 
 - [用户 README](../README.md)
-- [用户帮助首页](../wiki/Home.md)
+- [用户帮助首页](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki)
 - [隐私政策](../PRIVACY.md)
 - [更新记录](../CHANGELOG.md)

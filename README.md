@@ -39,13 +39,13 @@ PT-Plugin-Plus（PTPP）是面向 PT 用户的 Chrome 扩展：把多个站点�
 
 ## 常用帮助
 
-- [快速开始](./wiki/Quick-Start.md)
-- [站点、下载器和目录设置](./wiki/Sites-and-Downloaders.md)
-- [备份与恢复](./wiki/Backup-and-Restore.md)
-- [签到助手](./wiki/Sign-in.md)
-- [搜索、收藏和辅种](./wiki/Search-and-Tasks.md)
-- [AI 助手与 MCP](./wiki/AI-and-MCP.md)
-- [常见问题](./wiki/FAQ.md)
+- [快速开始](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/Quick-Start)
+- [站点、下载器和目录设置](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/Sites-and-Downloaders)
+- [备份与恢复](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/Backup-and-Restore)
+- [签到助手](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/Sign-in)
+- [搜索、收藏和辅种](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/Search-and-Tasks)
+- [AI 助手与 MCP](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/AI-and-MCP)
+- [常见问题](https://github.com/JohnathanT55/PT-Plugin-Plus/wiki/FAQ)
 
 ## 隐私与数据
 
