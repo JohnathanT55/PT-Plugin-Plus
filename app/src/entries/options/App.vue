@@ -10,6 +10,7 @@ import { vuetifyLangMap } from "@/options/plugins/vuetify.ts";
 import Navigation from "./views/Layout/Navigation.vue";
 import Topbar from "./views/Layout/Topbar.vue";
 import ReleaseNoteDialog from "./views/Layout/ReleaseNoteDialog.vue";
+import AiAssistantFab from "./components/AiAssistantFab.vue";
 
 const { current: currentVuetifyLocal } = useVuetifyLocal();
 const { locale: currentVueI18nLocal } = useI18n({ useScope: "global" });
@@ -88,6 +89,8 @@ configStore.$onReady(() => {
   </v-app>
 
   <ReleaseNoteDialog v-model="showReleaseNoteDialog" />
+
+  <AiAssistantFab />
 
   <v-snackbar-queue v-model="runtimeStore.uiGlobalSnakebar" closable />
 </template>

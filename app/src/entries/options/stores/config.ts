@@ -200,37 +200,46 @@ export const useConfigStore = defineStore("config", {
         }
       }
 
-      const aiAssistantDefaults = {
+      const mcpDefaults = {
         enabled: false,
-        endpoint: "",
-        model: "",
+        bridgeUrl: "http://127.0.0.1:19799",
+        bridgeToken: "",
         timeoutMs: 30_000,
       };
-      const previousAiAssistant = state.aiAssistant;
-      state.aiAssistant = {
-        ...aiAssistantDefaults,
-        ...(previousAiAssistant ?? {}),
+      const previousMcp = state.mcp;
+      const legacyAiAssistant = state.aiAssistant;
+      state.mcp = {
+        ...mcpDefaults,
+        ...(previousMcp ?? {}),
       };
-      if (
-        typeof state.aiAssistant.enabled !== "boolean" ||
-        typeof state.aiAssistant.endpoint !== "string" ||
-        typeof state.aiAssistant.model !== "string"
-      ) {
-        state.aiAssistant = { ...aiAssistantDefaults };
+      if (!previousMcp && legacyAiAssistant) {
+        state.mcp.enabled = legacyAiAssistant.enabled === true;
         needsSave = true;
       }
-      const normalizedAiTimeout = Math.round(Number(state.aiAssistant.timeoutMs));
-      if (!Number.isFinite(normalizedAiTimeout)) {
-        state.aiAssistant.timeoutMs = aiAssistantDefaults.timeoutMs;
+      if (
+        typeof state.mcp.enabled !== "boolean" ||
+        typeof state.mcp.bridgeUrl !== "string" ||
+        typeof state.mcp.bridgeToken !== "string"
+      ) {
+        state.mcp = { ...mcpDefaults };
+        needsSave = true;
+      }
+      const normalizedMcpTimeout = Math.round(Number(state.mcp.timeoutMs));
+      if (!Number.isFinite(normalizedMcpTimeout)) {
+        state.mcp.timeoutMs = mcpDefaults.timeoutMs;
         needsSave = true;
       } else {
-        const clampedAiTimeout = Math.min(60_000, Math.max(1_000, normalizedAiTimeout));
-        if (state.aiAssistant.timeoutMs !== clampedAiTimeout) {
-          state.aiAssistant.timeoutMs = clampedAiTimeout;
+        const clampedMcpTimeout = Math.min(60_000, Math.max(1_000, normalizedMcpTimeout));
+        if (state.mcp.timeoutMs !== clampedMcpTimeout) {
+          state.mcp.timeoutMs = clampedMcpTimeout;
           needsSave = true;
         }
       }
-      if (!previousAiAssistant) needsSave = true;
+      if (!previousMcp) needsSave = true;
+      if (Object.hasOwn(state, "aiAssistant")) {
+        delete state.aiAssistant;
+        needsSave = true;
+      }
 
       state.contentScript ??= {};
       const normalizedToolbarPlacement = normalizeToolbarPlacement({
@@ -516,10 +525,10 @@ export const useConfigStore = defineStore("config", {
       movieInfoCardEnabled: true,
     },
 
-    aiAssistant: {
+    mcp: {
       enabled: false,
-      endpoint: "",
-      model: "",
+      bridgeUrl: "http://127.0.0.1:19799",
+      bridgeToken: "",
       timeoutMs: 30_000,
     },
 

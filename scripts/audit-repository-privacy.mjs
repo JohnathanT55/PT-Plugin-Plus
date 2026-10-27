@@ -39,7 +39,11 @@ const repositoryFiles = execFileSync("git", ["ls-files", "-z", "--cached", "--ot
 
 const findings = [];
 for (const relativePath of repositoryFiles) {
-  const buffer = fs.readFileSync(path.join(root, relativePath));
+  const absolutePath = path.join(root, relativePath);
+  // `git ls-files --cached --others` includes tracked files that are staged
+  // for deletion. They are no longer part of the repository contents to audit.
+  if (!fs.existsSync(absolutePath)) continue;
+  const buffer = fs.readFileSync(absolutePath);
   if (buffer.includes(0)) continue;
   const source = buffer.toString("utf8");
   for (const rule of rules) {

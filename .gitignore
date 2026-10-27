@@ -9,6 +9,13 @@ _mv3_stage/
 usable_function/
 app/public/_locales/
 
+# Local fixtures and generated browser/CDP output
+.tmp/
+dist-chrome-cdp/
+coverage/
+test-results/
+playwright-report/
+
 .env.local
 .env.*.local
 

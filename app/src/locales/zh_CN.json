@@ -1629,15 +1629,16 @@
     "tmdbCredentialMessage": "支持 TMDb API Key 或以 eyJ 开头的 Read Access Token；留空时不会请求 TMDb。"
   },
   "aiAssistant": {
-    "title": "OpenAI-compatible 轻量助手",
-    "description": "只在你主动点击时发送搜索辅助请求，不包含 Agent 工具调用，也不会自动执行下载或站点操作。",
-    "privacyNotice": "请求只发送到你填写的 endpoint。不会发送 Cookies、Passkey、下载器凭据或完整站点响应；API Key 只保存在当前浏览器，不进入备份、WebDAV 或日志。第三方服务仍可能保存请求内容。",
-    "enabled": "启用 AI 助手",
-    "endpoint": "Chat Completions endpoint",
-    "endpointHint": "可填写服务根地址、/v1 地址或完整 /chat/completions 地址；只允许 HTTP(S)，不支持在 URL 查询参数中填写凭据。",
-    "model": "模型名称",
-    "apiKey": "API Key（可选）",
-    "apiKeyHint": "使用本地模型时可以留空；密钥不会写入任何备份。",
+    "title": "MCP AI 助手",
+    "description": "AI 请求和工具编排由本机 MCP 服务负责，PTPP 只提供界面和脱敏上下文。",
+    "privacyNotice": "API Key、模型和上游 LLM 地址不会保存在 PTPP、Chrome Sync 或备份中，而是由本机 MCP 服务管理。PTPP 只向已认证的本地 bridge 发送用户主动提交的脱敏内容。",
+    "enabled": "启用 MCP AI 助手",
+    "bridgeUrl": "MCP bridge 地址",
+    "bridgeUrlHint": "仅允许本机或受信任的 HTTP(S) bridge 地址；不要在 URL 中填写凭据。",
+    "bridgeToken": "MCP bridge 令牌",
+    "bridgeTokenHint": "用于认证本机 MCP 服务，不是 LLM API Key；不会进入备份。",
+    "bridgeConnected": "MCP 已连接",
+    "bridgeDisconnected": "MCP 未连接",
     "timeout": "请求超时（毫秒）",
     "test": "测试连接",
     "testSuccess": "连接成功",
@@ -1671,7 +1672,7 @@
     "applyDraftConfirm": "确定将此关键词填入搜索框吗？不会自动开始搜索。",
     "copySuccess": "已复制到剪贴板",
     "empty": "请输入内容",
-    "notConfigured": "请先在常规设置 → AI 助手中配置 endpoint 和模型。"
+    "notConfigured": "请先在常规设置 → AI 助手中启用并连接 MCP bridge。"
   },
   "torrent": {
     "status": {

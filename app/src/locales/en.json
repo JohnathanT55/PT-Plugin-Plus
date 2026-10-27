@@ -1632,15 +1632,16 @@
     "tmdbCredentialMessage": "Accepts a TMDb API key or an eyJ-prefixed Read Access Token. Leave blank to disable TMDb."
   },
   "aiAssistant": {
-    "title": "OpenAI-compatible lightweight assistant",
-    "description": "Only sends a search-assistance request after you click. It has no Agent tools and never performs downloads or site actions automatically.",
-    "privacyNotice": "Requests are sent only to the endpoint you enter. Cookies, passkeys, downloader credentials, and complete site responses are not sent; the API key stays in this browser and is not included in backups, WebDAV, or logs. The third-party service may still retain request content.",
-    "enabled": "Enable AI assistant",
-    "endpoint": "Chat Completions endpoint",
-    "endpointHint": "Enter a service root, /v1 URL, or full /chat/completions URL. Only HTTP(S) is allowed; credentials in URL query parameters are rejected.",
-    "model": "Model name",
-    "apiKey": "API key (optional)",
-    "apiKeyHint": "Local models may leave this blank; the key is never written to backups.",
+    "title": "MCP AI assistant",
+    "description": "The local MCP service handles LLM requests and tool orchestration; PTPP only provides the UI and redacted context.",
+    "privacyNotice": "The API key, model, and upstream LLM endpoint stay in the local MCP service instead of PTPP, Chrome Sync, or backups. PTPP only sends user-submitted, redacted content to the authenticated local bridge.",
+    "enabled": "Enable MCP AI assistant",
+    "bridgeUrl": "MCP bridge URL",
+    "bridgeUrlHint": "Use only a local or trusted HTTP(S) bridge. Do not put credentials in the URL.",
+    "bridgeToken": "MCP bridge token",
+    "bridgeTokenHint": "Authenticates the local MCP service; it is not an LLM API key and is excluded from backups.",
+    "bridgeConnected": "MCP connected",
+    "bridgeDisconnected": "MCP disconnected",
     "timeout": "Request timeout (milliseconds)",
     "test": "Test connection",
     "testSuccess": "Connection succeeded",
@@ -1674,7 +1675,7 @@
     "applyDraftConfirm": "Fill this keyword into the search box? This will not start a search automatically.",
     "copySuccess": "Copied to clipboard",
     "empty": "Enter a request",
-    "notConfigured": "Configure an endpoint and model in General → AI Assistant first."
+    "notConfigured": "Enable and connect the MCP bridge in General → AI Assistant first."
   },
   "torrent": {
     "status": {

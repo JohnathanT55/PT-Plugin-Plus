@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { isUndefined } from "es-toolkit/compat";
 import type { DataTableHeader } from "vuetify";
-import { EResultParseStatus, type ISiteUserConfig, type IUserInfo, type TSiteID } from "@ptd/site";
+import {
+  EResultParseStatus,
+  getNextLevelUnMet,
+  type ISiteUserConfig,
+  type IUserInfo,
+  type TSiteID,
+} from "@ptd/site";
 
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
@@ -13,6 +19,8 @@ import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useTableCustomFilter } from "@/options/directives/useAdvanceFilter.ts";
 import { formatDate, formatSize, formatTimeAgo } from "@/options/utils.ts";
 import { sendMessage } from "@/messages.ts";
+import type { IAiSiteSummaryContext } from "@/shared/aiAssistant.ts";
+import { clearAiPageContext, setAiPageContext } from "@/options/utils/aiContext.ts";
 
 import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -98,26 +106,62 @@ const { tableWaitFilterRef, tableFilterRef, tableFilterFn, buildFilterDictFn } =
   },
 });
 
-const aiSiteSummaries = computed(() =>
-  tableData.value
-    .filter((item) => tableSelected.value.includes(item.site))
-    .map((item) => ({
-      // Only site-level aggregates are sent. User identity, URL, cookies and raw site data stay local.
-      site: item.site,
-      level: item.levelName,
-      ratio: item.ratio,
-      uploaded: item.uploaded,
-      downloaded: item.downloaded,
-      seeding: item.seeding,
-      seedingSize: item.seedingSize,
-      bonus: typeof item.bonus === "number" ? item.bonus : undefined,
-      hnr:
-        typeof item.hnrUnsatisfied === "number" || typeof item.hnrPreWarning === "number"
-          ? (item.hnrUnsatisfied ?? 0) + (item.hnrPreWarning ?? 0)
-          : undefined,
-      updatedAt: item.updateAt ? new Date(item.updateAt).toISOString() : undefined,
-    })),
+const aiSiteSummaries = ref<IAiSiteSummaryContext[]>([]);
+let aiSummaryGeneration = 0;
+
+async function refreshAiSiteSummaries() {
+  const generation = ++aiSummaryGeneration;
+  const selectedItems = tableData.value.filter((item) => tableSelected.value.includes(item.site));
+  const summaries = await Promise.all(
+    selectedItems.map(async (item): Promise<IAiSiteSummaryContext> => {
+      const requirements = await metadataStore.getSiteMergedMetadata(item.site, "levelRequirements", []);
+      const unmet = requirements?.length ? getNextLevelUnMet(item, requirements) : {};
+      const nextLevel: Record<string, string | number> = {};
+      for (const [key, value] of Object.entries(unmet ?? {})) {
+        if (key === "level" || (typeof value !== "number" && typeof value !== "string")) continue;
+        if (typeof value === "number" && !Number.isFinite(value)) continue;
+        nextLevel[key] = value;
+      }
+      if (unmet?.level?.name) nextLevel.levelName = unmet.level.name;
+
+      // Only site-level aggregates and locally computed next-level gaps are sent.
+      // User identity, URL, cookies and raw site data stay local.
+      return {
+        site: item.site,
+        level: item.levelName,
+        ratio: item.ratio,
+        uploaded: item.uploaded,
+        downloaded: item.downloaded,
+        seeding: item.seeding,
+        seedingSize: item.seedingSize,
+        bonus: typeof item.bonus === "number" ? item.bonus : undefined,
+        hnr:
+          typeof item.hnrUnsatisfied === "number" || typeof item.hnrPreWarning === "number"
+            ? (item.hnrUnsatisfied ?? 0) + (item.hnrPreWarning ?? 0)
+            : undefined,
+        updatedAt: item.updateAt ? new Date(item.updateAt).toISOString() : undefined,
+        ...(Object.keys(nextLevel).length ? { nextLevel } : {}),
+      };
+    }),
+  );
+  if (generation === aiSummaryGeneration) {
+    aiSiteSummaries.value = summaries;
+    setAiPageContext("MyData", {
+      context: { siteSummary: summaries },
+      suggestions: [t("aiAssistant.suggestions.siteSummary")],
+    });
+  }
+}
+
+watch(
+  [tableSelected, tableData],
+  () => {
+    void refreshAiSiteSummaries();
+  },
+  { deep: true, immediate: true },
 );
+
+onBeforeUnmount(() => clearAiPageContext("MyData"));
 
 async function initPtppTable() {
   const columns = configStore.tableBehavior.MyData.columns ?? [];
@@ -208,7 +252,7 @@ function viewStatistic() {
           icon="mdi-robot-outline"
           :text="t('MyData.index.aiSummary')"
           :title="t('MyData.index.aiSummaryHint')"
-          :disabled="!configStore.aiAssistant.enabled || aiSiteSummaries.length === 0"
+          :disabled="!configStore.mcp.enabled || aiSiteSummaries.length === 0"
           @click="showAiSiteSummaryDialog = true"
         />
 

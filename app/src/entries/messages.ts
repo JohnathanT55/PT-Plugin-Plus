@@ -31,6 +31,7 @@ import type {
   IClassifiedBackupFile,
 } from "@foundation/backup/retention";
 import type { ISiteSignInResult } from "@/shared/siteSignIn.ts";
+import type { IMcpBridgeStatus } from "@/shared/mcpBridge.ts";
 
 // 可序列化的种子信息，用于辅种检测
 export interface ITorrentInfoForVerification {
@@ -218,8 +219,10 @@ interface ProtocolMap extends TMessageMap {
   clearMovieEntityCache(): void;
   getMovieEntityCacheStats(): IMovieEntityCacheStats;
 
-  // 2.5 AI 辅助：只执行用户主动触发的 OpenAI-compatible 文本请求，不开放工具调用。
+  // 2.5 AI 辅助：通过外部 MCP bridge 执行用户主动触发的请求。
   runAiAssistant(data: IAiAssistRequest): IAiAssistResponse;
+  getMcpBridgeStatus(): IMcpBridgeStatus;
+  testMcpBridge(): IMcpBridgeStatus;
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: {

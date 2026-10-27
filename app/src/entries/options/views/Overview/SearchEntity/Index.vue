@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useDisplay, type DataTableHeader } from "vuetify";
@@ -24,6 +24,7 @@ import SaveSnapshotDialog from "./SaveSnapshotDialog.vue";
 import AdvanceFilterGenerateDialog from "./AdvanceFilterGenerateDialog.vue";
 import MovieInfoCard from "./MovieInfoCard.vue";
 import AiAssistantDialog from "./AiAssistantDialog.vue";
+import { clearAiPageContext, setAiPageContext } from "@/options/utils/aiContext.ts";
 
 // 主要助手方法
 import { tableCustomFilter } from "./utils/filter";
@@ -123,6 +124,26 @@ const aiTorrentResults = computed(() => {
     tags: item.tags?.map((tag) => tag.name).slice(0, 12),
   }));
 });
+
+const aiContextKey = "SearchEntity";
+watch(
+  [() => runtimeStore.search.searchKey, selectedTorrentTitles, aiTorrentResults],
+  () => {
+    setAiPageContext(aiContextKey, {
+      context: {
+        searchKey: runtimeStore.search.searchKey,
+        torrentTitles: selectedTorrentTitles.value,
+        torrentResults: aiTorrentResults.value,
+      },
+      suggestions: [
+        t("aiAssistant.suggestions.searchResults"),
+        t("aiAssistant.suggestions.searchResources"),
+      ],
+    });
+  },
+  { deep: true, immediate: true },
+);
+onBeforeUnmount(() => clearAiPageContext(aiContextKey));
 function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
   const selected = selectedTorrentIds.value.has(item.uniqueId);
   return {
@@ -353,8 +374,8 @@ const hiddenTagNamesText = computed({
       </template>
 
       <v-btn
-        :disabled="!configStore.aiAssistant.enabled"
-        :title="configStore.aiAssistant.enabled ? t('aiAssistant.dialogTitle') : t('aiAssistant.notConfigured')"
+        :disabled="!configStore.mcp.enabled"
+        :title="configStore.mcp.enabled ? t('aiAssistant.dialogTitle') : t('aiAssistant.notConfigured')"
         class="ptpp-batch-extra"
         color="deep-purple"
         prepend-icon="mdi-robot-outline"

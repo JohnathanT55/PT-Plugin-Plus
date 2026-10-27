@@ -4,6 +4,8 @@ import { useI18n } from "vue-i18n";
 
 import { sendMessage } from "@/messages.ts";
 
+import MarkdownContent from "./utils/MarkdownContent.vue";
+
 interface IAiSearchDraft {
   keyword: string;
   year?: string | number;
@@ -106,6 +108,8 @@ const props = defineProps<{
     nextLevel?: Record<string, string | number>;
   }>;
   initialMode?: "assist" | "search-draft" | "result-advice" | "site-summary";
+  conversation?: boolean;
+  suggestions?: string[];
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: boolean] }>();
 const { t } = useI18n();
@@ -116,6 +120,7 @@ const mode = ref<"assist" | "search-draft" | "result-advice" | "site-summary">(p
 const result = ref("");
 const errorMessage = ref("");
 const loading = ref(false);
+const conversationMessages = ref<Array<{ role: "user" | "assistant"; content: string }>>([]);
 const dialogModel = computed({
   get: () => props.modelValue,
   set: (value: boolean) => emit("update:modelValue", value),
@@ -159,6 +164,13 @@ const parsedSearchDraft = computed(() =>
   mode.value === "search-draft" && result.value ? parseSearchDraft(result.value) : undefined,
 );
 
+function promptForMode(value: typeof mode.value): string {
+  if (value === "search-draft") return t("aiAssistant.mode.searchDraftPrompt");
+  if (value === "result-advice") return t("aiAssistant.mode.resultAdvicePrompt");
+  if (value === "site-summary") return t("aiAssistant.mode.siteSummaryPrompt");
+  return t("aiAssistant.mode.assistPrompt");
+}
+
 watch(
   () => props.modelValue,
   (open) => {
@@ -166,18 +178,14 @@ watch(
       result.value = "";
       errorMessage.value = "";
       mode.value = props.initialMode ?? "assist";
+      prompt.value = promptForMode(mode.value);
+      conversationMessages.value = [];
     }
   },
 );
 
 watch(mode, (value) => {
-  if (value === "search-draft") {
-    prompt.value = t("aiAssistant.mode.searchDraftPrompt");
-  } else if (value === "result-advice") {
-    prompt.value = t("aiAssistant.mode.resultAdvicePrompt");
-  } else if (value === "site-summary") {
-    prompt.value = t("aiAssistant.mode.siteSummaryPrompt");
-  }
+  prompt.value = promptForMode(value);
 });
 
 async function ask() {
@@ -186,22 +194,31 @@ async function ask() {
     return;
   }
   loading.value = true;
-  result.value = "";
+  const userPrompt = prompt.value.trim();
+  if (!props.conversation) result.value = "";
   errorMessage.value = "";
   try {
+    const effectiveMode = props.conversation ? "assist" : mode.value;
     const response = await sendMessage("runAiAssistant", {
-      mode: mode.value,
-      prompt: prompt.value,
+      mode: effectiveMode,
+      prompt: userPrompt,
+      history: props.conversation ? conversationMessages.value : undefined,
       context: includeSearchContext.value
         ? {
             searchKey: props.searchKey,
             torrentTitles: props.torrentTitles,
-            torrentResults: mode.value === "result-advice" ? props.torrentResults : undefined,
-            siteSummary: mode.value === "site-summary" ? props.siteSummary : undefined,
+            torrentResults: props.conversation || effectiveMode === "result-advice" ? props.torrentResults : undefined,
+            siteSummary: props.conversation || effectiveMode === "site-summary" ? props.siteSummary : undefined,
           }
         : undefined,
     });
-    result.value = response.text;
+    if (props.conversation) {
+      conversationMessages.value.push({ role: "user", content: userPrompt });
+      conversationMessages.value.push({ role: "assistant", content: response.text });
+      prompt.value = "";
+    } else {
+      result.value = response.text;
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : t("aiAssistant.testFailed");
   } finally {
@@ -238,6 +255,7 @@ function applySearchDraft() {
       <v-card-text>
         <p class="text-body-2 text-medium-emphasis mb-4">{{ t("aiAssistant.dialogDescription") }}</p>
         <v-select
+          v-if="!conversation"
           v-model="mode"
           :items="modeItems"
           item-title="title"
@@ -270,6 +288,7 @@ function applySearchDraft() {
         </v-alert>
         <v-switch
           v-if="
+            !conversation &&
             mode !== 'site-summary' &&
             (contextLabel ||
               (props.torrentTitles?.length ?? 0) > 0 ||
@@ -283,6 +302,7 @@ function applySearchDraft() {
           hide-details
         />
         <v-textarea
+          v-if="!conversation"
           v-model="prompt"
           :label="t('aiAssistant.prompt')"
           :placeholder="t('aiAssistant.promptPlaceholder')"
@@ -293,11 +313,52 @@ function applySearchDraft() {
           rows="4"
           @keydown.ctrl.enter="ask"
         />
+        <div v-if="conversation" class="ai-chat-log mb-3" aria-live="polite">
+          <div v-if="conversationMessages.length === 0" class="text-body-2 text-medium-emphasis">
+            {{ t("aiAssistant.conversationEmpty") }}
+          </div>
+          <div
+            v-for="(message, index) in conversationMessages"
+            :key="`${message.role}-${index}`"
+            class="ai-chat-message"
+            :class="`ai-chat-message--${message.role}`"
+          >
+            <div class="text-caption text-medium-emphasis mb-1">
+              {{ message.role === "user" ? t("aiAssistant.you") : t("aiAssistant.assistant") }}
+            </div>
+            <MarkdownContent :source="message.content" />
+          </div>
+        </div>
+        <div v-if="conversation && suggestions?.length" class="d-flex flex-wrap ga-2 mt-2">
+          <v-chip
+            v-for="suggestion in suggestions"
+            :key="suggestion"
+            size="small"
+            variant="tonal"
+            @click="prompt = suggestion"
+          >
+            {{ suggestion }}
+          </v-chip>
+        </div>
+        <v-textarea
+          v-if="conversation"
+          v-model="prompt"
+          :label="t('aiAssistant.prompt')"
+          :placeholder="t('aiAssistant.promptPlaceholder')"
+          auto-grow
+          autofocus
+          class="mt-3"
+          counter="4000"
+          rows="3"
+          @keydown.ctrl.enter="ask"
+        />
         <v-alert v-if="errorMessage" class="mt-3" density="compact" type="error" variant="tonal">
           {{ errorMessage }}
         </v-alert>
         <v-card v-if="result" class="mt-4" variant="outlined">
-          <v-card-text class="ai-result">{{ result }}</v-card-text>
+          <v-card-text class="ai-result">
+            <MarkdownContent :source="result" />
+          </v-card-text>
           <v-card-actions class="justify-end">
             <template v-if="parsedSearchDraft">
               <v-chip class="mr-auto" color="primary" size="small" variant="tonal">
@@ -330,6 +391,25 @@ function applySearchDraft() {
 .ai-result {
   max-height: 360px;
   overflow: auto;
-  white-space: pre-wrap;
+}
+
+.ai-chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ai-chat-message {
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.ai-chat-message--user {
+  align-self: flex-end;
+  max-width: 90%;
+  background: rgba(var(--v-theme-primary), 0.12);
 }
 </style>

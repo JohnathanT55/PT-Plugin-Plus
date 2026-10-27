@@ -2,7 +2,9 @@
 
 PT-Plugin-Plus 的 Chrome Manifest V3 延续版本。仓库根目录保存新版代码，归档时的 Manifest V2 源码完整保存在 [`legacy-mv2/`](./legacy-mv2/) 中，作为功能、交互和数据迁移基准。
 
-当前版本以归档版 PT-Plugin-Plus 为产品模板。PT-depiler 提供与 PTPP 功能重合的 MV3 底层、站点定义和下载器适配器；媒体服务器、原生通信桥和 Ask AI 等 PTD 独有功能不进入生产界面。“我的下载器”只使用本项目已经支持的下载服务，不开放其他 PTD 产品入口。
+当前版本以归档版 PT-Plugin-Plus 为产品模板。PT-depiler 提供与 PTPP 功能重合的 MV3 底层、站点定义和下载器适配器；媒体服务器和 PTD 专属入口不进入生产界面。AI 助手的 LLM 请求由独立的 `PT-Plugin-Plus-MCP` 本机服务负责，PTPP 只保留界面和可选连接。
+
+如果希望快速了解项目动机、关键难题、AI 协作方式、验证证据和演示顺序，请阅读[项目案例说明](./docs/PROJECT_SHOWCASE.md)。
 
 ## 当前状态
 

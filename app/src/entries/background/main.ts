@@ -14,6 +14,9 @@ import "./utils/legacyBackup.ts";
 
 initializePtppRuntimeMigration()
   .then((report) => {
+    // AI credentials now belong to the external MCP service. Remove the old
+    // extension-local secret instead of carrying it into future backups.
+    chrome.storage.local.remove("aiAssistantSecret").catch(() => undefined);
     console.info("[PTPP MV3] Runtime migration ready", {
       schemaVersion: report.schemaVersion,
       importedCounts: report.importedCounts,

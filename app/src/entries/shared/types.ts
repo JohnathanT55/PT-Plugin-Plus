@@ -10,6 +10,7 @@ export * from "./types/common/download.ts";
 export * from "./types/common/durableTasks.ts";
 export * from "./types/common/ptpp.ts";
 export * from "./types/common/nativeBridge.ts";
+export * from "./mcpBridge.ts";
 export * from "./types/storages/config.ts";
 export * from "./types/storages/indexdb.ts";
 export * from "./types/storages/metadata.ts";

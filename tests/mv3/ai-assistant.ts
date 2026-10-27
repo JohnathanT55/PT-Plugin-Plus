@@ -2,23 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
-  buildAiUserMessage,
-  extractAiText,
-  normalizeAiEndpoint,
-  normalizeAiTimeout,
   sanitizeAiContext,
 } from "../../app/src/entries/shared/aiAssistant.ts";
-
-assert.equal(normalizeAiEndpoint("https://example.test"), "https://example.test/v1/chat/completions");
-assert.equal(normalizeAiEndpoint("https://example.test/v1/"), "https://example.test/v1/chat/completions");
-assert.equal(
-  normalizeAiEndpoint("https://example.test/v1/chat/completions"),
-  "https://example.test/v1/chat/completions",
-);
-assert.throws(() => normalizeAiEndpoint("file:///tmp/ai"), /HTTP 或 HTTPS/);
-assert.throws(() => normalizeAiEndpoint("https://example.test/v1?api_key=secret"), /查询参数/);
-assert.equal(normalizeAiTimeout(900), 1_000);
-assert.equal(normalizeAiTimeout(80_000), 60_000);
 
 const context = sanitizeAiContext({
   searchKey: "  一部电影 ".repeat(100),
@@ -26,7 +11,6 @@ const context = sanitizeAiContext({
 });
 assert(context?.searchKey && context.searchKey.length <= 240, "search context is bounded");
 assert.deepEqual(context?.torrentTitles, ["保留标题", "x".repeat(180)]);
-assert(buildAiUserMessage("整理关键词", context).includes("整理关键词"));
 const projected = sanitizeAiContext({
   torrentResults: [
     {
@@ -54,37 +38,26 @@ const projected = sanitizeAiContext({
 assert.equal(projected?.torrentResults?.[0].title, "电影标题");
 assert(!JSON.stringify(projected).includes("private.example"), "AI projections never include URLs");
 assert(!JSON.stringify(projected).includes("must-not-leak"), "AI projections never include unknown private fields");
-assert(buildAiUserMessage("生成搜索草稿", projected, "search-draft").includes("search-draft") === false);
-assert(buildAiUserMessage("生成搜索草稿", projected, "search-draft").includes("JSON"));
-assert(buildAiUserMessage("分析结果", projected, "result-advice").includes("不要执行下载"));
-assert(buildAiUserMessage("总结站点", projected, "site-summary").includes("下一等级"));
-assert.throws(() => buildAiUserMessage("   "), /请输入想让 AI/);
-
-assert.deepEqual(extractAiText({ choices: [{ message: { content: "建议关键词" } }], model: "local-model" }), {
-  text: "建议关键词",
-  model: "local-model",
-});
-assert.equal(
-  extractAiText({ choices: [{ message: { content: [{ type: "text", text: "第一段" }, { text: "第二段" }] } }] }).text,
-  "第一段第二段",
-);
-assert.throws(() => extractAiText({ choices: [] }), /没有可显示/);
 
 const storage = readFileSync("app/src/entries/storage.ts", "utf8");
 const backup = readFileSync("app/src/entries/offscreen/utils/backup.ts", "utf8");
-const aiHandler = readFileSync("app/src/entries/offscreen/utils/aiAssistant.ts", "utf8");
+const bridgeHandler = readFileSync("app/src/entries/offscreen/utils/mcpBridge.ts", "utf8");
 const myDataView = readFileSync("app/src/entries/options/views/Overview/MyData/Index.vue", "utf8");
-assert(storage.includes("aiAssistantSecret"), "AI secret has a dedicated local storage key");
+const aiDialog = readFileSync("app/src/entries/options/views/Overview/SearchEntity/AiAssistantDialog.vue", "utf8");
+assert(!storage.includes("aiAssistantSecret"), "AI secret storage key was removed from the extension schema");
 assert(!backup.includes("aiAssistantSecret"), "AI secret is excluded from backup storage keys");
-assert(aiHandler.includes('credentials: "omit"'), "AI requests omit site cookies");
-assert(aiHandler.includes("max_tokens: 700"), "AI output has a bounded token budget");
-assert(!aiHandler.includes("logger("), "AI prompts and responses are not written to logs");
-assert(aiHandler.includes('data.mode !== "test"'), "all user-triggered AI modes require opt-in");
+assert(bridgeHandler.includes('credentials: "omit"'), "MCP bridge requests omit site cookies");
+assert(bridgeHandler.includes("/v1/assistant"), "AI requests are sent through the MCP bridge");
+assert(!bridgeHandler.includes("aiAssistantSecret"), "MCP bridge never reads the old extension-local AI secret");
+assert(!bridgeHandler.includes("logger("), "AI prompts and responses are not written to logs");
 assert(
-  aiHandler.includes('buildAiUserMessage(data.prompt ?? "", data.context, data.mode)'),
-  "AI mode instructions are explicit",
+  bridgeHandler.includes("sanitizeAiContext(data.context)"),
+  "AI context is sanitized before it reaches the MCP bridge",
 );
 assert(myDataView.includes("aiSiteSummaries"), "My Data uses a dedicated redacted summary projection");
+assert(aiDialog.includes("MarkdownContent"), "AI responses use the Markdown renderer");
+assert(aiDialog.includes("promptForMode"), "AI dialog restores a default prompt when opened");
+assert(!aiDialog.includes("v-html"), "AI responses are not inserted as raw HTML");
 const summaryProjection = myDataView.match(/const aiSiteSummaries[\s\S]*?async function initPtppTable/)?.[0] ?? "";
 assert(
   !/item\.(name|id|avatar|siteUserConfig)/.test(summaryProjection),

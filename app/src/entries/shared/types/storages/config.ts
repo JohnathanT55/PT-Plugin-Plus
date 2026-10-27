@@ -5,6 +5,7 @@ import type { TLangCode } from "@/options/plugins/i18n.ts";
 import type { ITimelineUserInfoField } from "@/options/views/Overview/MyData/UserDataTimeline/utils.ts";
 
 import type { TDownloadSizeUnit, TLocalDownloadMethod } from "../common/download.ts";
+import type { IMcpBridgeConfig } from "../../mcpBridge.ts";
 
 export const supportTheme = ["auto", "light", "dark"] as const;
 export type supportThemeType = (typeof supportTheme)[number];
@@ -269,8 +270,10 @@ export interface IConfigPiniaStorageSchema {
     movieInfoCardEnabled: boolean;
   };
 
-  // 可选的 OpenAI-compatible 轻量助手配置；API Key 单独保存在 aiAssistantSecret 中。
-  aiAssistant: IAiAssistantConfig;
+  // MCP bridge configuration. LLM endpoint/model/API key are kept by the external MCP service.
+  mcp: IMcpBridgeConfig;
+  // Legacy field retained only for reading old backups; it is removed during config migration.
+  aiAssistant?: IAiAssistantConfig;
 
   // 配置同样在 searchEntity 页面（偷懒下）
   mediaServerEntity: {

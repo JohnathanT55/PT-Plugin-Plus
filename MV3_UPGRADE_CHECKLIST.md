@@ -340,22 +340,19 @@ A、B、C 以及本机全部技术门禁均已完成；Chrome Stable、最终 ZI
 
 本批只增加三个明确范围，不恢复 PTD 独有产品入口。每项完成后单独进行自动验证和 Chrome 实机检查，创建独立 commit，等待维护者审核后再继续；不在本地执行 push。
 
-### 10.1 OpenAI-compatible 轻量助手（已实现，实机验收通过）
+### 10.1 外部 MCP 与 AI 请求迁移（1–3 已完成，业务工具下一批接入）
 
-目标是提供用户主动触发、无 Agent 工具调用的轻量辅助，不把 MoviePilot 的 LangChain/LangGraph 或 MCP 直接嵌入扩展。
+目标是把 LLM 请求、模型配置和 API Key 移到外部 `PT-Plugin-Plus-MCP` 服务；PTPP 只保留 AI 界面、脱敏上下文和可选 bridge 连接。Chrome CDP、computer-use 不属于 MCP 实现。
 
-- [x] 只支持用户自有 OpenAI-compatible Chat Completions endpoint、模型和 API Key；不增加其他模型的专属适配器。
-- [x] 设置默认关闭；API 地址只允许 HTTP(S)，支持填写服务根地址、`/v1` 地址或完整 `/chat/completions` 地址并统一规范化。
-- [x] 请求经 offscreen document 发出，使用超时、大小限制和 `credentials: omit`；API Key 只保存在当前浏览器本地，不进入 ZIP、WebDAV、Chrome Sync、日志或备份预览。
-- [x] 首批只提供搜索辅助：根据用户输入生成/改写关键词、解释搜索条件或结果；返回建议文本，不自动搜索、下载、签到、收藏、删除或修改站点设置。
-- [x] 搜索页提供“生成搜索条件”模式：只接受白名单字段的 JSON 草稿，展示关键词/条件预览；用户二次确认后仅填入现有搜索框并聚焦，不自动提交搜索。
-- [x] 搜索页提供“分析当前搜索结果”模式：无选中项时最多发送当前结果前 30 条，选中项时优先发送用户选中结果；仅发送站点名称、标题、分类、大小、做种等有限字段，排除 URL、链接、ID、Cookie、Passkey、下载器凭据和原始响应。
-- [x] “我的数据”提供“总结站点数据”模式：只有用户主动选中站点且 AI 已启用时可用，仅发送等级、分享率、上传/下载、做种、积分、H&R 和更新时间等聚合字段；不触发刷新、不发送用户名、UID、站点 URL 或原始页面内容。
-- [x] 搜索结果和站点摘要上下文均经过字段白名单、条目数量、字符串/数值和总长度限制；普通搜索词、AI prompt、搜索结果和站点摘要不写入长期缓存。
-- [x] 请求失败、超时、无效 JSON 或服务端错误只显示脱敏原因，不影响原有搜索/我的数据流程；提供复制结果，不自动执行后续动作。
-- [x] 增加 API 连通性测试、三种模式提示词、结构化搜索草稿解析、确认填入、上下文投影、超时/取消、敏感字段排除和配置迁移测试；类型检查、完整自动测试、生产构建、MV3 校验和隐私审计均通过。
+- [x] 在独立 MCP 仓库定义 PTPP-MCP v1 握手协议、AI 请求结构、bridge 状态和能力声明。
+- [x] 外部 MCP bridge 使用本机回环 HTTP，令牌认证、请求体大小限制、超时、错误脱敏和 `credentials: omit` 已实现。
+- [x] MCP 服务端接管 OpenAI-compatible endpoint、模型和 API Key；扩展不再直接发起 LLM 请求。
+- [x] PTPP 增加默认关闭的 MCP bridge 配置、握手状态和连接测试；bridge 不可用时不影响 PTPP 普通启动。
+- [x] PTPP 继续在扩展侧进行上下文字段白名单和长度限制，MCP 服务端再次脱敏，避免 URL、密码等未知字段进入 LLM 请求。
+- [x] 移除扩展内旧 AI API 请求模块和 `aiAssistantSecret` 使用；旧配置仅作迁移读取，LLM 凭据需在 MCP 服务端配置。
+- [x] MCP 服务端类型检查、AI 协议测试、bridge 鉴权/握手测试，以及 PTPP 类型检查和 AI 回归测试通过。
 
-验收证据：测试覆盖 endpoint 规范化、凭据查询参数拒绝、上下文截断、结果投影、搜索草稿白名单解析、站点摘要脱敏、响应解析、密钥不进入备份、Cookie 不随请求发送和错误脱敏；`pnpm test`、`pnpm exec vue-tsc --noEmit`、`pnpm build`、`pnpm validate` 与 `pnpm audit:privacy` 已通过。真实隔离 Chrome 实机检查已完成：扩展身份为名称 `PT-Plugin-Plus`、版本 `2.1.0`、Manifest V3；设置页可启用 AI 助手并通过用户提供的 OpenAI-compatible endpoint 连通性测试，搜索页可打开三种模式并完成搜索草稿返回、白名单 JSON 解析和确认前仅预览；“我的数据”无选中站点时摘要按钮保持禁用。关闭 AI 后入口置灰，不会自动触发请求。测试 key 只写入隔离测试 profile，未写入仓库、备份、日志或公开验收记录。
+下一批再接入站点、搜索、用户数据、下载器、备份等 MCP 工具，不在本阶段宣称已完成。
 
 ### 10.2 站点签到助手（MoviePilot 规则复用已实现，真实站点部分验收完成）
 
