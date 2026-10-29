@@ -20,6 +20,9 @@ import type {
 } from "@/shared/mcpBridge.ts";
 import { executeBoundedCapability, McpSessionManager } from "./mcpSession.ts";
 import { createMcpBusinessCapabilities } from "./mcpBusinessCapabilities.ts";
+import { createMcpSearchCapabilities } from "./mcpSearchCapabilities.ts";
+import { createMcpSettingsCapabilities } from "./mcpSettingsCapabilities.ts";
+import { McpConfirmationStore } from "./mcpConfirmation.ts";
 
 const PROTOCOL_VERSION = 1 as const;
 
@@ -66,10 +69,17 @@ const capabilityDescriptors: IMcpCapabilityDescriptor[] = [
   },
 ];
 const mcpBusiness = createMcpBusinessCapabilities((type, data) => sendMessage(type as any, data as any));
-capabilityDescriptors.push(...mcpBusiness.descriptors);
+const mcpSearch = createMcpSearchCapabilities((type, data) => sendMessage(type as any, data as any));
+const confirmationStore = new McpConfirmationStore();
+const mcpSettings = createMcpSettingsCapabilities((type, data) => sendMessage(type as any, data as any), { confirmationStore });
+const replacedCapabilities = new Set(["ptpp.search.start", "ptpp.search.status", "ptpp.search.results"]);
+capabilityDescriptors.push(...mcpBusiness.descriptors.filter((descriptor) => !replacedCapabilities.has(descriptor.id)));
+capabilityDescriptors.push(...mcpSearch.descriptors, ...mcpSettings.descriptors);
 
-const capabilityHandlers = new Map<TMcpCapabilityName, (input: unknown) => Promise<unknown>>();
+const capabilityHandlers = new Map<TMcpCapabilityName, (input: unknown, request?: import("@/shared/mcpBridge.ts").IMcpToolRequest) => Promise<unknown>>();
 mcpBusiness.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
+mcpSearch.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
+mcpSettings.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
 
 function parsePageContextInput(input: unknown): IMcpPageContextRequest {
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -334,15 +344,45 @@ async function handshake(allowDisabled = false): Promise<IMcpBridgeStatus> {
 async function requestAiAssistant(data: IAiAssistRequest): Promise<IAiAssistResponse> {
   const session = await syncSessionConfig();
   if (!session) throw safeError("MCP bridge 会话暂不可用，请检查连接后重试");
-  const response = await requestBridge<{ ok: true; text: string; model?: string }>("/v1/assistant", {
+  const response = await requestBridge<{ ok: true; text: string; model?: string; pendingConfirmations?: unknown }>("/v1/assistant", {
     ...bridgeRequest(data),
     sessionId: session.sessionId,
   });
   if (!response.text?.trim()) throw safeError("MCP bridge 没有返回可显示的内容");
-  return { text: response.text.trim().slice(0, 12_000), model: response.model };
+  const pendingConfirmations = Array.isArray(response.pendingConfirmations)
+    ? response.pendingConfirmations
+        .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        .slice(0, 5)
+        .map((item) => ({
+          confirmationId: typeof item.confirmationId === "string" ? item.confirmationId.slice(0, 200) : "",
+          capability: typeof item.capability === "string" ? item.capability.slice(0, 100) : "",
+          input: item.input && typeof item.input === "object" && !Array.isArray(item.input) ? item.input as Record<string, unknown> : {},
+          summary: typeof item.summary === "string" ? item.summary.slice(0, 500) : "",
+          diff: item.diff,
+          expiresAt: typeof item.expiresAt === "number" ? item.expiresAt : 0,
+        }))
+        .filter((item) => item.confirmationId && item.capability && (!item.expiresAt || item.expiresAt > Date.now()))
+    : undefined;
+  return { text: response.text.trim().slice(0, 12_000), model: response.model, ...(pendingConfirmations?.length ? { pendingConfirmations } : {}) };
 }
 
 onMessage("runAiAssistant", async ({ data }) => requestAiAssistant(data));
+onMessage("confirmMcpAction", async ({ data }) => {
+  try {
+    const token = confirmationStore.approve(data.confirmationId);
+    if (!token) return { ok: false, error: "确认请求已过期、已取消或不再匹配" };
+    const session = await syncSessionConfig();
+    if (!session) return { ok: false, error: "MCP bridge 会话暂不可用" };
+    const response = await requestBridge<{ ok?: boolean; result?: unknown; error?: { message?: string } }>(
+      `/v1/session/${encodeURIComponent(session.sessionId)}/request`,
+      { capability: data.capability, input: data.input, confirmationToken: token },
+    );
+    return { ok: response.ok === true, result: response.result, ...(response.error?.message ? { error: response.error.message } : {}) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "确认操作失败" };
+  }
+});
+onMessage("cancelMcpAction", async ({ data }) => confirmationStore.revoke(data.confirmationId));
 onMessage("getMcpBridgeStatus", async () => handshake(false));
 onMessage("testMcpBridge", async () => handshake(true));
 onMessage("syncMcpBridgeConfig", async () => {

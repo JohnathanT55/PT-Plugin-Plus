@@ -56,6 +56,15 @@ export interface IAiAssistRequest {
 export interface IAiAssistResponse {
   text: string;
   model?: string;
+  /** Human approval requests returned out-of-band from the model/tool history. */
+  pendingConfirmations?: Array<{
+    confirmationId: string;
+    capability: string;
+    input: Record<string, unknown>;
+    summary: string;
+    diff: unknown;
+    expiresAt?: number;
+  }>;
 }
 
 export function sanitizeAiHistory(history?: IAiAssistRequest["history"]): NonNullable<IAiAssistRequest["history"]> {

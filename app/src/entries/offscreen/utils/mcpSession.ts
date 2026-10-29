@@ -151,7 +151,7 @@ export function jsonUtf8Bytes(value: unknown): number {
 
 export async function executeBoundedCapability(
   request: IMcpToolRequest,
-  handler: ((input: unknown) => Promise<unknown>) | undefined,
+  handler: ((input: unknown, request?: IMcpToolRequest) => Promise<unknown>) | undefined,
   maxResultBytes: number | undefined,
 ): Promise<IMcpToolResult> {
   const fail = (code: string, message: string): IMcpToolResult => ({
@@ -163,7 +163,7 @@ export async function executeBoundedCapability(
     return fail("unsupported_capability", "PTPP 不支持此 capability");
   }
   try {
-    const result = await handler(request.input);
+    const result = await handler(request.input, request);
     if (jsonUtf8Bytes(result) > maxResultBytes!) {
       return fail("result_too_large", "结果超过接口大小限制，请缩小请求范围或分批读取");
     }

@@ -221,6 +221,8 @@ interface ProtocolMap extends TMessageMap {
 
   // 2.5 AI 辅助：通过外部 MCP bridge 执行用户主动触发的请求。
   runAiAssistant(data: IAiAssistRequest): IAiAssistResponse;
+  confirmMcpAction(data: { confirmationId: string; capability: string; input: Record<string, unknown> }): { ok: boolean; result?: unknown; error?: string };
+  cancelMcpAction(data: { confirmationId: string }): boolean;
   getMcpBridgeStatus(): IMcpBridgeStatus;
   testMcpBridge(): IMcpBridgeStatus;
   syncMcpBridgeConfig(): void;

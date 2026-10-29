@@ -23,7 +23,29 @@ export interface IMcpBridgeStatus {
  * tool adapters so a tool can request useful fields without receiving raw
  * storage records.
  */
-export type TMcpCapabilityName = "ptpp.extension_info" | "ptpp.page_context" | "ptpp.sites.list" | "ptpp.user_data.get" | "ptpp.user_data.refresh" | "ptpp.downloaders.list" | "ptpp.downloaders.status" | "ptpp.search.start" | "ptpp.search.status" | "ptpp.search.results" | "ptpp.signin.status" | "ptpp.signin.run" | "ptpp.backups.list" | "ptpp.backups.history";
+export type TMcpCapabilityName =
+  | "ptpp.extension_info"
+  | "ptpp.page_context"
+  | "ptpp.sites.list"
+  | "ptpp.user_data.get"
+  | "ptpp.user_data.refresh"
+  | "ptpp.downloaders.list"
+  | "ptpp.downloaders.status"
+  | "ptpp.movies.search"
+  | "ptpp.movies.get"
+  | "ptpp.search.plans"
+  | "ptpp.search.start"
+  | "ptpp.search.status"
+  | "ptpp.search.results"
+  | "ptpp.search.cancel"
+  | "ptpp.signin.status"
+  | "ptpp.signin.run"
+  | "ptpp.backups.list"
+  | "ptpp.backups.history"
+  | "ptpp.settings.get"
+  | "ptpp.settings.validate"
+  | "ptpp.settings.propose_patch"
+  | "ptpp.settings.apply_patch";
 
 export type TMcpCapabilityKind = "query" | "action";
 export type TMcpCapabilitySensitivity = "public" | "account" | "private";
@@ -50,6 +72,8 @@ export interface IMcpToolRequest {
   requestId: string;
   capability: TMcpCapabilityName;
   input?: unknown;
+  /** One-time user approval minted by PTPP for a confirmation-required action. */
+  confirmationToken?: string;
 }
 
 export interface IMcpToolResult {

@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { sendMessage } from "@/messages.ts";
-import type { IAiAssistRequest } from "@/shared/aiAssistant.ts";
+import type { IAiAssistRequest, IAiAssistResponse } from "@/shared/aiAssistant.ts";
 import { useAiSession } from "@/options/utils/aiSession.ts";
 import MarkdownContent from "./utils/MarkdownContent.vue";
 
@@ -21,6 +21,10 @@ const session = useAiSession();
 const { prompt, messages: conversationMessages } = session;
 const errorMessage = ref("");
 const loading = ref(false);
+const pendingConfirmations = ref<NonNullable<IAiAssistResponse["pendingConfirmations"]>>([]);
+function diffChanges(item: NonNullable<IAiAssistResponse["pendingConfirmations"]>[number]): Array<{ path: string; before?: unknown; after?: unknown }> {
+  return Array.isArray(item.diff) ? item.diff.filter((change): change is { path: string; before?: unknown; after?: unknown } => Boolean(change && typeof change === "object" && typeof (change as any).path === "string")) : [];
+}
 const chatLog = ref<HTMLElement>();
 const input = ref<{ focus: () => void }>();
 let disposed = false;
@@ -43,6 +47,22 @@ function useSuggestion(suggestion: string) {
   session.expireIfNeeded();
   prompt.value = suggestion;
   void nextTick(() => input.value?.focus());
+}
+
+async function confirmChange(item: NonNullable<IAiAssistResponse["pendingConfirmations"]>[number]) {
+  const result = await sendMessage("confirmMcpAction", {
+    confirmationId: item.confirmationId,
+    capability: item.capability,
+    input: item.input,
+  });
+  pendingConfirmations.value = pendingConfirmations.value.filter((candidate) => candidate.confirmationId !== item.confirmationId);
+  if (!result.ok) errorMessage.value = result.error || "设置修改未能应用";
+  else errorMessage.value = "设置修改已应用";
+}
+
+async function cancelChange(item: NonNullable<IAiAssistResponse["pendingConfirmations"]>[number]) {
+  await sendMessage("cancelMcpAction", { confirmationId: item.confirmationId });
+  pendingConfirmations.value = pendingConfirmations.value.filter((candidate) => candidate.confirmationId !== item.confirmationId);
 }
 
 watch(
@@ -89,7 +109,10 @@ async function ask() {
         siteSummary: props.siteSummary,
       },
     });
-    if (!disposed) session.completeTurn(token, userPrompt, response.text);
+    if (!disposed) {
+      session.completeTurn(token, userPrompt, response.text);
+      pendingConfirmations.value = response.pendingConfirmations ?? [];
+    }
   } catch (error) {
     if (!disposed && session.revision.value === token) {
       errorMessage.value = error instanceof Error ? error.message : t("aiAssistant.testFailed");
@@ -151,6 +174,23 @@ onBeforeUnmount(() => {
         <v-progress-circular indeterminate size="16" width="2" />{{ t("aiAssistant.thinking") }}
       </div>
       <v-alert v-if="errorMessage" density="compact" type="error" variant="tonal">{{ errorMessage }}</v-alert>
+      <v-alert
+        v-for="item in pendingConfirmations"
+        :key="item.confirmationId"
+        class="ai-confirmation"
+        density="compact"
+        type="warning"
+        variant="tonal"
+      >
+        <div class="font-weight-medium mb-2">{{ item.summary }}</div>
+        <div v-for="change in diffChanges(item)" :key="change.path" class="text-caption mb-1">
+          <code>{{ change.path }}</code>：{{ String(change.before ?? "未设置") }} → {{ String(change.after ?? "未设置") }}
+        </div>
+        <div class="d-flex ga-2 mt-2">
+          <v-btn size="small" color="primary" @click="confirmChange(item)">确认应用</v-btn>
+          <v-btn size="small" variant="text" @click="cancelChange(item)">取消</v-btn>
+        </div>
+      </v-alert>
     </div>
     <div class="ptpp-ai-panel__composer">
       <p v-if="contextLabel" class="text-caption text-medium-emphasis mb-2">{{ contextLabel }}</p>

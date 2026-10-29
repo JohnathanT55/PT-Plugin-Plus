@@ -1,6 +1,7 @@
 import { getDefinedSiteMetadata, getNextLevelUnMet, type IUserInfo, type ILevelRequirement } from "@ptd/site";
 
 import type { IMcpCapabilityDescriptor, TMcpCapabilityName } from "@/shared/mcpBridge.ts";
+import type { IMcpToolRequest } from "@/shared/mcpBridge.ts";
 import type { IMetadataPiniaStorageSchema } from "@/shared/types.ts";
 
 /**
@@ -13,7 +14,7 @@ export type TMcpMessage = (type: string, data?: unknown) => Promise<any>;
 
 export interface IMcpBusinessRegistry {
   descriptors: IMcpCapabilityDescriptor[];
-  handlers: Map<TMcpCapabilityName, (input: unknown) => Promise<unknown>>;
+  handlers: Map<TMcpCapabilityName, (input: unknown, request?: IMcpToolRequest) => Promise<unknown>>;
 }
 
 type TPage = { offset: number; limit: number };
