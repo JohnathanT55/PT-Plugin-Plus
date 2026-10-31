@@ -1,11 +1,12 @@
 import PQueue from "p-queue";
 import { EResultParseStatus } from "../../../packages/site/types/base.ts";
+import { ETorrentStatus } from "../../../packages/site/types/torrent.ts";
 import type { ISiteMetadata } from "@ptd/site";
 import { createMovieIdentityFromSuggestion, normalizeMovieExternalIds, parseDirectMovieIdentity } from "../../../packages/social/movieEntity.ts";
 import type { ISocialMovieSuggestion } from "../../../packages/social/movieSuggestions.ts";
 import { redactMcpText } from "../../shared/mcpRedaction.ts";
 import { resolveSearchSolution } from "../../shared/searchPlan.ts";
-import type { IMcpCapabilityDescriptor, TMcpCapabilityName } from "../../shared/mcpBridge.ts";
+import type { IMcpCapabilityDescriptor, IMcpSearchPresentationPayload, TMcpCapabilityName } from "../../shared/mcpBridge.ts";
 import type { IMetadataPiniaStorageSchema } from "../../shared/types.ts";
 import type { IMcpBusinessRegistry, TMcpMessage } from "./mcpBusinessCapabilities.ts";
 
@@ -19,7 +20,9 @@ type SearchFilters = {
 interface SearchJob {
   jobId: string; keyword: string; solutionId: string; status: SearchStatus;
   createdAt: number; expiresAt: number; completedEntries: number; totalEntries: number;
-  results: JsonObject[]; failures: JsonObject[]; seen: Set<string>; filters: SearchFilters; sort: SearchSort;
+  results: JsonObject[]; internalResults: Array<{ raw: JsonObject; siteId: string; entryId: string }>;
+  entries: Array<{ siteId: string; entryId: string; settings: JsonObject }>;
+  failures: JsonObject[]; seen: Set<string>; filters: SearchFilters; sort: SearchSort;
   truncated: boolean; queue: PQueue; startedEntries: number;
 }
 interface SearchOptions {
@@ -87,7 +90,8 @@ function sort(value: unknown): SearchSort {
 }
 const normalized = (value: string) => value.normalize("NFKC").toLowerCase();
 function matches(item: JsonObject, filter: SearchFilters): boolean {
-  const haystack = normalized([item.title, item.subTitle, item.category, ...(Array.isArray(item.tags) ? item.tags : [])].join(" "));
+  const tags = Array.isArray(item.tags) ? item.tags.map((tag) => typeof tag === "string" ? tag : tag?.name) : [];
+  const haystack = normalized([item.title, item.subTitle, item.category, ...tags].join(" "));
   const contains = (value: string) => normalized(value).split(/\s+/).every((word) => haystack.includes(word));
   if (filter.text && !contains(filter.text)) return false;
   if (filter.excludeText && normalized(filter.excludeText).split(/\s+/).some((word) => haystack.includes(word))) return false;
@@ -145,6 +149,7 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
   const ttl = options.ttlMs ?? 30 * 60_000;
   const maxJobs = options.maxJobs ?? 8;
   const maxResults = options.maxResults ?? 2_000;
+  const presentations = new Map<string, { jobId: string; filters: SearchFilters; sort: SearchSort; createdAt: number; expiresAt: number }>();
   // One request queue across all assistant jobs: starting another conversation
   // must not multiply the user's configured per-site request concurrency.
   const requestQueue = new PQueue({ concurrency: 3 });
@@ -158,10 +163,11 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
   function prune() {
     for (const [id, job] of jobs) if (job.expiresAt <= now()) { job.status = "cancelled"; job.queue.clear(); jobs.delete(id); }
     for (const [id, candidate] of candidates) if (candidate.expiresAt <= now()) candidates.delete(id);
+    for (const [id, presentation] of presentations) if (presentation.expiresAt <= now()) presentations.delete(id);
   }
   function scheduleExpiry() {
     if (expirationTimer) clearTimeout(expirationTimer);
-    const expiryDates = [...jobs.values(), ...candidates.values()].map((value) => value.expiresAt);
+    const expiryDates = [...jobs.values(), ...candidates.values(), ...presentations.values()].map((value) => value.expiresAt);
     if (!expiryDates.length) return;
     expirationTimer = setTimeout(() => { prune(); scheduleExpiry(); }, Math.max(1, Math.min(...expiryDates) - now()));
     // Browser timers need no special handling; deterministic Node tests should
@@ -267,7 +273,8 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
     const queue = new PQueue({ concurrency });
     const jobId = createId();
     const job: SearchJob = { jobId, keyword, solutionId: plan.id, status: "running", createdAt: now(), expiresAt: now() + ttl,
-      completedEntries: 0, startedEntries: 0, totalEntries: entries.length, results: [], failures: [], seen: new Set(), filters: initialFilters, sort: initialSort, truncated: false, queue };
+      completedEntries: 0, startedEntries: 0, totalEntries: entries.length, results: [], internalResults: [],
+      entries: entries.map(({ siteId, entryId, settings }) => ({ siteId, entryId, settings: settings as JsonObject })), failures: [], seen: new Set(), filters: initialFilters, sort: initialSort, truncated: false, queue };
     jobs.set(jobId, job);
     scheduleExpiry();
     for (const entry of entries) {
@@ -295,6 +302,7 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
             if (imdb && config?.searchEntity?.forceImdbIdMatchFilter && raw.ext_imdb && String(raw.ext_imdb).match(/tt\d{7,10}/)?.[0] !== imdb) continue;
             if (job.results.length >= maxResults) { job.truncated = true; break; }
             job.seen.add(key);
+            job.internalResults.push({ raw: raw as JsonObject, siteId: entry.siteId, entryId: entry.entryId });
             job.results.push(publicTorrent(raw, entry.siteId, `${jobId}:${job.results.length + 1}`));
           }
         } catch (error) {
@@ -309,6 +317,30 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
       if (job.status === "running") job.status = job.failures.length === job.totalEntries ? "failed" : job.failures.length ? "partial" : "completed";
     });
     return summary(job);
+  });
+  register("ptpp.search.present", "action", "将已有搜索任务展示到 PTPP 搜索结果页；只在用户明确要求查看结果时调用，不会重新请求站点。", objectSchema({ jobId: idSchema, filters: filtersSchema, sort: sortSchema }, ["jobId"]), async (input) => {
+    prune();
+    const value = record(input, ["jobId", "filters", "sort"]);
+    const job = jobById(value.jobId);
+    const createdAt = now();
+    const expiresAt = createdAt + Math.min(ttl, 5 * 60_000);
+    const presentationId = createId();
+    presentations.set(presentationId, {
+      jobId: job.jobId,
+      filters: value.filters === undefined ? job.filters : filters(value.filters),
+      sort: value.sort === undefined ? job.sort : sort(value.sort),
+      createdAt,
+      expiresAt,
+    });
+    while (presentations.size > 16) presentations.delete(presentations.keys().next().value!);
+    scheduleExpiry();
+    try {
+      await sendMessage("openOptionsPage", { path: "/search-entity", query: { mcpPresentation: presentationId } });
+    } catch (error) {
+      presentations.delete(presentationId);
+      throw error;
+    }
+    return { status: job.status === "running" ? "staged" : "opened", presentationId, jobId: job.jobId, keyword: job.keyword, solutionId: job.solutionId, expiresAt, resultCount: job.results.length };
   });
   register("ptpp.search.status", "query", "读取搜索进度；running 表示仍在检索，不能将暂时无结果当作最终无结果。", objectSchema({ jobId: idSchema }, ["jobId"]), async (input) => {
     const value = record(input, ["jobId"]);
@@ -338,5 +370,57 @@ export function createMcpSearchCapabilities(sendMessage: TMcpMessage, options: S
     if (job.status === "running") { job.status = "cancelled"; job.queue.clear(); }
     return { ...summary(job), inFlightMayComplete };
   });
-  return { descriptors, handlers };
+  const consumePresentation = async (token: string): Promise<IMcpSearchPresentationPayload | { status: "pending" | "expired" } | undefined> => {
+    prune();
+    const presentation = presentations.get(token);
+    if (!presentation) return { status: "expired" };
+    const job = jobs.get(presentation.jobId);
+    if (!job) { presentations.delete(token); return { status: "expired" }; }
+    if (job.status === "running") return { status: "pending" };
+    presentations.delete(token);
+    const filtered: JsonObject[] = job.internalResults
+      .map((entry): JsonObject => ({
+        ...entry.raw,
+        site: entry.siteId,
+        uniqueId: `${entry.siteId}-${entry.raw.id ?? entry.raw.title}`,
+        solutionId: entry.entryId,
+        solutionKey: `${entry.siteId}|$|${entry.entryId}`,
+        status: entry.raw.status ?? ETorrentStatus.unknown,
+      }))
+      .filter((item) => matches(item, presentation.filters));
+    const sorted = filtered.sort((a, b) => {
+      const field = presentation.sort.field;
+      if (a[field] === undefined) return b[field] === undefined ? 0 : 1;
+      if (b[field] === undefined) return -1;
+      const comparison = field === "title" ? String(a[field]).localeCompare(String(b[field])) : Number(a[field]) - Number(b[field]);
+      return presentation.sort.direction === "asc" ? comparison : -comparison;
+    });
+    const searchPlan: Record<string, Record<string, unknown>> = {};
+    for (const entry of job.entries) {
+      const key = `${entry.siteId}|$|${entry.entryId}`;
+      const hasResult = job.internalResults.some((item) => item.siteId === entry.siteId && item.entryId === entry.entryId);
+      const failure = job.failures.find((item) => item.siteId === entry.siteId && item.entryId === entry.entryId);
+      searchPlan[key] = {
+        siteId: entry.siteId,
+        searchEntryName: entry.entryId,
+        searchEntry: entry.settings,
+        status: failure ? (EResultParseStatus[failure.status as keyof typeof EResultParseStatus] ?? EResultParseStatus.unknownError) : hasResult ? EResultParseStatus.success : EResultParseStatus.noResults,
+        count: job.internalResults.filter((item) => item.siteId === entry.siteId && item.entryId === entry.entryId).length,
+        ...(failure?.message ? { statusMsg: failure.message } : {}),
+      };
+    }
+    return {
+      presentationId: token,
+      jobId: job.jobId,
+      keyword: job.keyword,
+      solutionId: job.solutionId,
+      createdAt: job.createdAt,
+      filters: presentation.filters,
+      sort: presentation.sort,
+      searchResult: sorted.slice(0, maxResults),
+      searchPlan,
+      failures: job.failures,
+    };
+  };
+  return { descriptors, handlers, consumePresentation };
 }

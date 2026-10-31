@@ -55,17 +55,17 @@ async function captureNavigationDocument(url: string, timeoutMs = 30_000) {
   }
 }
 
-export function openOptionsPage(url?: string | { path: string; query?: Record<string, any> }) {
+export async function openOptionsPage(url?: string | { path: string; query?: Record<string, any> }) {
   if (url && typeof url !== "string") {
     url = url.path + (url.query ? "?" + stringify(url.query) : "");
   }
   url ??= "/";
 
-  chrome.tabs.create({ url: "/src/entries/options/index.html#" + url }).catch();
+  await chrome.tabs.create({ url: "/src/entries/options/index.html#" + url });
 }
 
 onMessage("openOptionsPage", async ({ data: url }) => {
-  openOptionsPage(url);
+  await openOptionsPage(url);
 });
 
 onMessage("openSiteTabs", async ({ data: urls }) => {

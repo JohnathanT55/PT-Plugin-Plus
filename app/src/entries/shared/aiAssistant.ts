@@ -22,6 +22,9 @@ export interface IAiTorrentContext {
 export interface IAiSiteSummaryContext {
   site?: string;
   level?: string;
+  /** Join date is a timestamp-derived ISO string, never a username or URL. */
+  joinedAt?: string;
+  joinedAtStatus?: "available" | "unavailable";
   ratio?: number;
   uploaded?: number;
   downloaded?: number;
@@ -113,9 +116,13 @@ function sanitizeSiteSummary(item: IAiSiteSummaryContext): IAiSiteSummaryContext
   const site = clampString(item.site, 80);
   if (!site) return undefined;
   const nextLevel = projectLevelStats(item.nextLevel);
+  const joinedAt = clampString(item.joinedAt, 48);
+  const joinedAtStatus = item.joinedAtStatus === "available" || item.joinedAtStatus === "unavailable" ? item.joinedAtStatus : undefined;
   return {
     site,
     ...(clampString(item.level, 80) ? { level: clampString(item.level, 80) } : {}),
+    ...(joinedAt ? { joinedAt } : {}),
+    ...(joinedAtStatus ? { joinedAtStatus } : {}),
     ...(clampNumber(item.ratio) !== undefined ? { ratio: clampNumber(item.ratio) } : {}),
     ...(clampNumber(item.uploaded) !== undefined ? { uploaded: clampNumber(item.uploaded) } : {}),
     ...(clampNumber(item.downloaded) !== undefined ? { downloaded: clampNumber(item.downloaded) } : {}),

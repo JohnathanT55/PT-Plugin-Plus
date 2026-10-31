@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, markRaw, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useDisplay, type DataTableHeader } from "vuetify";
@@ -8,8 +8,10 @@ import { EResultParseStatus, ETorrentStatus } from "@ptd/site";
 import { useMetadataStore } from "@/options/stores/metadata.ts";
 import { useConfigStore } from "@/options/stores/config.ts";
 import { useRuntimeStore } from "@/options/stores/runtime.ts";
+import { sendMessage } from "@/messages.ts";
 import { formatDate, formatSize, formatTimeAgo } from "@/options/utils.ts";
 import type { ISearchResultTorrent } from "@/shared/types.ts";
+import type { IMcpSearchPresentationPayload } from "@/shared/mcpBridge.ts";
 
 import SiteName from "@/options/components/SiteName.vue";
 import SiteFavicon from "@/options/components/SiteFavicon/Index.vue";
@@ -47,6 +49,9 @@ const display = useDisplay();
 const showAdvanceFilterGenerateDialog = ref<boolean>(false);
 const showSearchStatusDialog = ref<boolean>(false);
 const showSaveSnapshotDialog = ref<boolean>(false);
+const presentationSort = ref<Array<{ key: string; order: "asc" | "desc" }> | undefined>();
+let presentationTimer: ReturnType<typeof setTimeout> | undefined;
+let presentationGeneration = 0;
 
 const fullTableHeader = computed(
   () =>
@@ -90,7 +95,7 @@ const tableHeader = computed(() => {
   ) as DataTableHeader[];
 });
 
-const { tableFilterRef, tableWaitFilterRef, tableFilterFn, buildAdvanceItemPropsFn, buildFilterDictFn } =
+const { tableFilterRef, tableWaitFilterRef, tableFilterFn, buildAdvanceItemPropsFn, buildFilterDictFn, clearTableFilterFn } =
   tableCustomFilter;
 
 // 使用 shallowRef 优化：种子对象数组不需要深度响应式，提升性能
@@ -144,6 +149,76 @@ watch(
   { deep: true, immediate: true },
 );
 onBeforeUnmount(() => clearAiPageContext(aiContextKey));
+onBeforeUnmount(() => {
+  presentationGeneration++;
+  if (presentationTimer) clearTimeout(presentationTimer);
+});
+
+async function consumeMcpPresentation(token: string, attempt = 0) {
+  const generation = attempt === 0 ? ++presentationGeneration : presentationGeneration;
+  if (attempt === 0) {
+    if (presentationTimer) clearTimeout(presentationTimer);
+  }
+  let result;
+  try {
+    result = await sendMessage("consumeMcpSearchPresentation", token);
+  } catch {
+    if (generation !== presentationGeneration) return;
+    runtimeStore.showSnakebar("无法读取 AI 搜索结果，请重试", { color: "warning" });
+    await router.replace({ name: "SearchEntity" });
+    return;
+  }
+  if (generation !== presentationGeneration) return;
+  if (result && typeof result === "object" && "status" in result && result.status === "pending") {
+    if (attempt < 580) presentationTimer = setTimeout(() => void consumeMcpPresentation(token, attempt + 1), 500);
+    else {
+      runtimeStore.showSnakebar("AI 搜索尚未完成，请稍后重新展示结果", { color: "warning" });
+      await router.replace({ name: "SearchEntity" });
+    }
+    return;
+  }
+  if (!result || typeof result !== "object" || !Array.isArray((result as IMcpSearchPresentationPayload).searchResult)) {
+    runtimeStore.showSnakebar("AI 搜索结果已过期或已展示，请重新搜索", { color: "warning" });
+    await router.replace({ name: "SearchEntity" });
+    return;
+  }
+  const payload = result as IMcpSearchPresentationPayload;
+  beginSearchRun();
+  clearTableFilterFn();
+  const searchResult = payload.searchResult.map((raw, index) => {
+    const item = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    const site = typeof item.site === "string" ? item.site : "unknown";
+    const id = typeof item.id === "string" || typeof item.id === "number" ? item.id : `${index}`;
+    const solutionId = typeof item.solutionId === "string" ? item.solutionId : payload.solutionId;
+    return {
+      ...item,
+      site,
+      id,
+      uniqueId: `${site}-${id}`,
+      solutionId,
+      solutionKey: typeof item.solutionKey === "string" ? item.solutionKey : `${site}|$|${solutionId}`,
+      status: item.status ?? ETorrentStatus.unknown,
+    } as ISearchResultTorrent;
+  });
+  runtimeStore.search = {
+    isSearching: false,
+    startAt: payload.createdAt,
+    endAt: Date.now(),
+    searchKey: payload.keyword,
+    searchPlanKey: payload.solutionId,
+    searchPlan: (payload.searchPlan ?? {}) as any,
+    searchResult: searchResult.map((item) => markRaw(item)),
+  };
+  tableSelectedRaw.value = [];
+  presentationSort.value = payload.sort?.field
+    ? [{ key: payload.sort.field, order: payload.sort.direction ?? "desc" }]
+    : undefined;
+  buildAdvanceItemPropsFn();
+  // Clear the one-time token only after the in-memory result is installed.
+  // The route watcher may invalidate the presentation generation while the
+  // URL changes, but it must not race the state assignment above.
+  if (route.query.mcpPresentation === token) await router.replace({ name: "SearchEntity" });
+}
 function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
   const selected = selectedTorrentIds.value.has(item.uniqueId);
   return {
@@ -155,7 +230,12 @@ function searchResultRowProps({ item }: { item: ISearchResultTorrent }) {
 watch(
   () => route.query,
   (newParams, oldParams) => {
-    if (newParams.snapshot) {
+    if (newParams.mcpPresentation) {
+      void consumeMcpPresentation(String(newParams.mcpPresentation));
+    } else if (newParams.snapshot) {
+      presentationSort.value = undefined;
+      presentationGeneration++;
+      if (presentationTimer) clearTimeout(presentationTimer);
       const snapshotRunId = beginSearchRun();
       tableSelectedRaw.value = [];
       metadataStore.getSearchSnapshotData(newParams.snapshot as string).then((data) => {
@@ -167,12 +247,15 @@ watch(
         }
       });
     } else {
+      presentationGeneration++;
+      if (presentationTimer) clearTimeout(presentationTimer);
       if (
         newParams.flush ||
         (newParams.search && newParams.search != oldParams?.search) ||
         (newParams.plan && newParams.plan != oldParams?.plan)
       ) {
         const searchKey = (newParams.search as string) ?? "";
+        presentationSort.value = undefined;
         const searchPlanKey = (newParams.plan as string) ?? "default";
         // 清理已选择项 （ #622 ）
         tableSelectedRaw.value = [];
@@ -223,6 +306,11 @@ const filteredTableBooleanControlKeys = computed(() => {
     (key) => tableNonBooleanControlKey.indexOf(key) === -1,
   ) as (keyof typeof configStore.searchEntifyControl)[];
 });
+
+function updateSearchSort(value: any[]) {
+  presentationSort.value = undefined;
+  configStore.updateTableBehavior("SearchEntity", "sortBy", value);
+}
 
 const hiddenTagNamesText = computed({
   get: () => configStore.searchEntifyControl.hiddenTagNames.join("\n"),
@@ -459,7 +547,7 @@ const hiddenTagNamesText = computed({
       :items-per-page-options="[10, 25, 50]"
       :multi-sort="configStore.enableTableMultiSort"
       :search="tableFilterRef"
-      :sort-by="configStore.tableBehavior.SearchEntity.sortBy"
+      :sort-by="presentationSort ?? configStore.tableBehavior.SearchEntity.sortBy"
       class="ptpp-search-entity-table table-header-no-wrap"
       hover
       item-value="uniqueId"
@@ -468,7 +556,7 @@ const hiddenTagNamesText = computed({
       show-select
       :top-scrollbar-label="t('SearchEntity.index.horizontalScroll')"
       @update:itemsPerPage="(value: number) => configStore.updateTableBehavior('SearchEntity', 'itemsPerPage', value)"
-      @update:sortBy="(value: any[]) => configStore.updateTableBehavior('SearchEntity', 'sortBy', value)"
+      @update:sortBy="updateSearchSort"
     >
       <template #item.site="{ item }">
         <div class="d-flex flex-column align-center">

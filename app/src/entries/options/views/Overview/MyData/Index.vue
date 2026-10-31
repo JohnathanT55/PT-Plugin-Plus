@@ -14,6 +14,7 @@ import { useTableCustomFilter } from "@/options/directives/useAdvanceFilter.ts";
 import { formatDate, formatSize, formatTimeAgo } from "@/options/utils.ts";
 import { sendMessage } from "@/messages.ts";
 import type { IAiSiteSummaryContext } from "@/shared/aiAssistant.ts";
+import { normalizeJoinTime, projectRegistrationProgress } from "@/shared/mcpRedaction.ts";
 import { clearAiPageContext, setAiPageContext } from "@/options/utils/aiContext.ts";
 
 import SiteName from "@/options/components/SiteName.vue";
@@ -108,7 +109,8 @@ async function refreshAiSiteSummaries() {
   const summaries = await Promise.all(
     selectedItems.map(async (item): Promise<IAiSiteSummaryContext> => {
       const requirements = await metadataStore.getSiteMergedMetadata(item.site, "levelRequirements", []);
-      const unmet = requirements?.length ? getNextLevelUnMet(item, requirements) : {};
+      const joinTimestamp = normalizeJoinTime(item.joinTime);
+      const unmet = requirements?.length ? getNextLevelUnMet({ ...item, joinTime: joinTimestamp }, requirements) : {};
       const nextLevel: Record<string, string | number> = {};
       for (const [key, value] of Object.entries(unmet ?? {})) {
         if (key === "level" || (typeof value !== "number" && typeof value !== "string")) continue;
@@ -116,12 +118,17 @@ async function refreshAiSiteSummaries() {
         nextLevel[key] = value;
       }
       if (unmet?.level?.name) nextLevel.levelName = unmet.level.name;
+      const registration = projectRegistrationProgress(unmet?.level?.interval, joinTimestamp, unmet?.interval);
+      Object.assign(nextLevel, registration);
+      if (registration.registrationStatus === "unavailable") delete nextLevel.interval;
 
-      // Only site-level aggregates and locally computed next-level gaps are sent.
-      // User identity, URL, cookies and raw site data stay local.
+      // Only site-level aggregates, registration metadata and locally computed
+      // next-level gaps are sent. User identity, URL, cookies and raw site data
+      // stay local.
       return {
         site: item.site,
         level: item.levelName,
+        ...(joinTimestamp ? { joinedAt: new Date(joinTimestamp).toISOString(), joinedAtStatus: "available" as const } : { joinedAtStatus: "unavailable" as const }),
         ratio: item.ratio,
         uploaded: item.uploaded,
         downloaded: item.downloaded,

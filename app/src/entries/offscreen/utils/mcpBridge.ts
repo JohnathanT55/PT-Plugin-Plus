@@ -22,6 +22,8 @@ import { executeBoundedCapability, McpSessionManager } from "./mcpSession.ts";
 import { createMcpBusinessCapabilities } from "./mcpBusinessCapabilities.ts";
 import { createMcpSearchCapabilities } from "./mcpSearchCapabilities.ts";
 import { createMcpSettingsCapabilities } from "./mcpSettingsCapabilities.ts";
+import { createMcpReadCapabilities } from "./mcpReadCapabilities.ts";
+import { createMcpActionCapabilities } from "./mcpActionCapabilities.ts";
 import { McpConfirmationStore } from "./mcpConfirmation.ts";
 
 const PROTOCOL_VERSION = 1 as const;
@@ -72,14 +74,21 @@ const mcpBusiness = createMcpBusinessCapabilities((type, data) => sendMessage(ty
 const mcpSearch = createMcpSearchCapabilities((type, data) => sendMessage(type as any, data as any));
 const confirmationStore = new McpConfirmationStore();
 const mcpSettings = createMcpSettingsCapabilities((type, data) => sendMessage(type as any, data as any), { confirmationStore });
+const mcpRead = createMcpReadCapabilities((type, data) => sendMessage(type as any, data as any));
+const mcpActions = createMcpActionCapabilities((type, data) => sendMessage(type as any, data as any), { confirmationStore });
 const replacedCapabilities = new Set(["ptpp.search.start", "ptpp.search.status", "ptpp.search.results"]);
 capabilityDescriptors.push(...mcpBusiness.descriptors.filter((descriptor) => !replacedCapabilities.has(descriptor.id)));
 capabilityDescriptors.push(...mcpSearch.descriptors, ...mcpSettings.descriptors);
+capabilityDescriptors.push(...mcpRead.descriptors);
+capabilityDescriptors.push(...mcpActions.descriptors);
 
 const capabilityHandlers = new Map<TMcpCapabilityName, (input: unknown, request?: import("@/shared/mcpBridge.ts").IMcpToolRequest) => Promise<unknown>>();
 mcpBusiness.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
 mcpSearch.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
 mcpSettings.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
+mcpRead.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
+mcpActions.handlers.forEach((handler, id) => capabilityHandlers.set(id, handler));
+
 
 function parsePageContextInput(input: unknown): IMcpPageContextRequest {
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -396,6 +405,10 @@ onMessage("setMcpPageContext", async ({ data }) => {
   } else {
     pageContexts.delete(data.page);
   }
+});
+onMessage("consumeMcpSearchPresentation", async ({ data }) => {
+  if (!mcpSearch.consumePresentation) return { status: "expired" as const };
+  return await mcpSearch.consumePresentation(data);
 });
 
 // The background storage-change notification is immediate. A low-frequency

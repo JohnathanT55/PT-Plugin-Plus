@@ -37,6 +37,31 @@ const projected = sanitizeAiContext({
 assert.equal(projected?.torrentResults?.[0].title, "电影标题");
 assert(!JSON.stringify(projected).includes("private.example"), "AI projections never include URLs");
 assert(!JSON.stringify(projected).includes("must-not-leak"), "AI projections never include unknown private fields");
+const registrationProjection = sanitizeAiContext({
+  siteSummary: [
+    {
+      site: "kamept",
+      joinedAt: "2025-08-24T18:43:10.000Z",
+      joinedAtStatus: "available",
+      nextLevel: {
+        levelName: "Ultimate User",
+        registrationStatus: "incomplete",
+        intervalRequirement: "P80W",
+        intervalRemaining: "P18W",
+        expectedAt: 1_800_000_000_000,
+      },
+    },
+  ],
+});
+assert.equal(registrationProjection?.siteSummary?.[0].joinedAt, "2025-08-24T18:43:10.000Z");
+assert.equal(registrationProjection?.siteSummary?.[0].joinedAtStatus, "available");
+assert.deepEqual(registrationProjection?.siteSummary?.[0].nextLevel, {
+  levelName: "Ultimate User",
+  registrationStatus: "incomplete",
+  intervalRequirement: "P80W",
+  intervalRemaining: "P18W",
+  expectedAt: 1_800_000_000_000,
+});
 
 const nextLevel = {
   levelName: "PowerUser",

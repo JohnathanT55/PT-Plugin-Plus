@@ -31,7 +31,7 @@ import type {
   IClassifiedBackupFile,
 } from "@foundation/backup/retention";
 import type { ISiteSignInResult } from "@/shared/siteSignIn.ts";
-import type { IMcpBridgeStatus } from "@/shared/mcpBridge.ts";
+import type { IMcpBridgeStatus, IMcpSearchPresentationPayload } from "@/shared/mcpBridge.ts";
 
 // 可序列化的种子信息，用于辅种检测
 export interface ITorrentInfoForVerification {
@@ -227,6 +227,7 @@ interface ProtocolMap extends TMessageMap {
   testMcpBridge(): IMcpBridgeStatus;
   syncMcpBridgeConfig(): void;
   setMcpPageContext(data: { page: "search" | "my-data"; context?: IAiAssistRequest["context"] }): void;
+  consumeMcpSearchPresentation(token: string): IMcpSearchPresentationPayload | { status: "pending" | "expired" } | undefined;
 
   // 2.6 备份/恢复 ( utils/backup )
   exportBackupData(data: {

@@ -31,10 +31,20 @@ export type TMcpCapabilityName =
   | "ptpp.user_data.refresh"
   | "ptpp.downloaders.list"
   | "ptpp.downloaders.status"
+  | "ptpp.downloaders.torrents"
+  | "ptpp.downloaders.pause"
+  | "ptpp.downloaders.resume"
+  | "ptpp.collections.list"
+  | "ptpp.download_history.list"
+  | "ptpp.reseed.list"
+  | "ptpp.snapshots.list"
+  | "ptpp.snapshots.get"
+  | "ptpp.snapshots.delete"
   | "ptpp.movies.search"
   | "ptpp.movies.get"
   | "ptpp.search.plans"
   | "ptpp.search.start"
+  | "ptpp.search.present"
   | "ptpp.search.status"
   | "ptpp.search.results"
   | "ptpp.search.cancel"
@@ -74,6 +84,25 @@ export interface IMcpToolRequest {
   input?: unknown;
   /** One-time user approval minted by PTPP for a confirmation-required action. */
   confirmationToken?: string;
+}
+
+/**
+ * A short-lived, extension-internal handoff from an MCP search job to the
+ * options page.  The result array is never returned by the MCP server; it is
+ * consumed through the extension message bus after the opaque token is
+ * removed from the URL.
+ */
+export interface IMcpSearchPresentationPayload {
+  presentationId: string;
+  jobId: string;
+  keyword: string;
+  solutionId: string;
+  createdAt: number;
+  filters?: Record<string, unknown>;
+  sort?: { field: "seeders" | "size" | "time" | "title"; direction: "asc" | "desc" };
+  searchResult: unknown[];
+  searchPlan: Record<string, unknown>;
+  failures: unknown[];
 }
 
 export interface IMcpToolResult {

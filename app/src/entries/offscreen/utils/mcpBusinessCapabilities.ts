@@ -1,6 +1,7 @@
 import { getDefinedSiteMetadata, getNextLevelUnMet, type IUserInfo, type ILevelRequirement } from "@ptd/site";
+import { normalizeJoinTime, projectLevelStats, projectRegistrationProgress } from "@/shared/mcpRedaction.ts";
 
-import type { IMcpCapabilityDescriptor, TMcpCapabilityName } from "@/shared/mcpBridge.ts";
+import type { IMcpCapabilityDescriptor, IMcpSearchPresentationPayload, TMcpCapabilityName } from "@/shared/mcpBridge.ts";
 import type { IMcpToolRequest } from "@/shared/mcpBridge.ts";
 import type { IMetadataPiniaStorageSchema } from "@/shared/types.ts";
 
@@ -15,6 +16,9 @@ export type TMcpMessage = (type: string, data?: unknown) => Promise<any>;
 export interface IMcpBusinessRegistry {
   descriptors: IMcpCapabilityDescriptor[];
   handlers: Map<TMcpCapabilityName, (input: unknown, request?: IMcpToolRequest) => Promise<unknown>>;
+  consumePresentation?: (
+    token: string,
+  ) => Promise<IMcpSearchPresentationPayload | { status: "pending" | "expired" } | undefined>;
 }
 
 type TPage = { offset: number; limit: number };
@@ -162,15 +166,21 @@ async function projectUser(siteId: string, userInfo: IUserInfo | undefined): Pro
   if (!userInfo || typeof userInfo !== "object") return { siteId, available: false };
   const metadata = await getDefinedSiteMetadata(siteId);
   const levelRequirements = (metadata.levelRequirements ?? []) as ILevelRequirement[];
-  const cloned = { ...userInfo };
+  const cloned = { ...userInfo, joinTime: normalizeJoinTime(userInfo.joinTime) };
   const unmet = getNextLevelUnMet(cloned, levelRequirements);
   const nextLevel = unmet.level as ILevelRequirement | undefined;
   const { level, levelName, status, updateAt, joinTime } = userInfo as Record<string, unknown>;
+  const registration = projectRegistrationProgress(nextLevel?.interval, joinTime, unmet.interval);
+  const unmetStats = projectLevelStats(unmet) ?? {};
+  if (registration.registrationStatus === "unavailable") delete unmetStats.interval;
   const next = nextLevel
     ? {
         status: Object.keys(unmet).filter((key) => key !== "level").length ? "incomplete" : "met",
         requirements: requirementProjection(nextLevel),
-        unmet: numericProjection(unmet as Record<string, unknown>),
+        unmet: {
+          ...unmetStats,
+        },
+        ...registration,
       }
     : { status: "max-or-unknown" };
   return {
@@ -178,7 +188,7 @@ async function projectUser(siteId: string, userInfo: IUserInfo | undefined): Pro
     available: true,
     status,
     updatedAt: typeof updateAt === "number" ? updateAt : undefined,
-    joinedAt: typeof joinTime === "number" ? joinTime : undefined,
+    joinedAt: normalizeJoinTime(joinTime),
     statistics: { level: levelName ?? level, ...numericProjection(userInfo as Record<string, unknown>) },
     nextLevel: next,
   };

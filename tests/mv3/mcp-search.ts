@@ -43,6 +43,7 @@ function createHarness(options: Record<string, unknown> = {}, search?: (input: a
     ], failed: false };
     if (type === "getMovieSuggestionDetails") return { item: { ...(data as any).item, imdbId: "tt1234567", searchTerm: "imdb|tt1234567" } };
     if (type === "getMovieEntity") return { entity: { ids: { imdb: "tt1234567", douban: "1234567" }, title: { value: "Same Title", source: "douban" }, ratings: { imdb: { source: "imdb", score: 8, scale: 10, url: "https://fixture.invalid/secret" } }, poster: { value: "https://fixture.invalid/poster" } }, providers: { imdb: { provider: "imdb", state: "success", errorMessage: "cookie=secret" } } };
+    if (type === "openOptionsPage") return true;
     throw new Error(`Unexpected message ${type}`);
   }, { now: () => clock, createId: () => `fixture-job-${++id}`, readSite, ...options });
   return {
@@ -102,6 +103,17 @@ function createHarness(options: Record<string, unknown> = {}, search?: (input: a
   await assert.rejects(h.call("ptpp.search.start", { keyword: "Film", siteIds: ["not-configured"] }), /not configured/);
   await assert.rejects(h.call("ptpp.search.start", { keyword: "Film", solutionId: "disabledPlan" }), /disabled/);
   await assert.rejects(h.call("ptpp.search.start", { keyword: "Film", siteIds: ["offline"] }), /No enabled/);
+  const staged = await h.call("ptpp.search.present", { jobId: started.jobId, filters: { source: "蓝光" }, sort: { field: "size", direction: "desc" } });
+  assert.equal(staged.status, "opened");
+  assert.ok(staged.presentationId);
+  assert.ok(h.calls.some((call) => call.type === "openOptionsPage"));
+  assert(!JSON.stringify(staged).includes("fixture.invalid"), "presentation response keeps raw links inside the extension");
+  const internal = await h.registry.consumePresentation!(staged.presentationId);
+  assert.equal((internal as any).searchResult.length, 2, "presentation applies the requested filter internally");
+  assert.equal((internal as any).searchResult[0].link, "https://fixture.invalid/download?passkey=do-not-export");
+  assert.equal((internal as any).searchResult[0].solutionKey, "alpha|$|default");
+  assert.equal((internal as any).searchPlan["alpha|$|default"].status, EResultParseStatus.success);
+  assert.deepEqual(await h.registry.consumePresentation!(staged.presentationId), { status: "expired" }, "presentation token is one-time");
 }
 
 {
@@ -117,6 +129,23 @@ function createHarness(options: Record<string, unknown> = {}, search?: (input: a
   assert.equal(result.failureCount, 1);
   assert.equal(result.failures[0].status, "needLogin", "parse failures are not misreported as empty success");
   assert.equal(result.total, 1);
+}
+
+{
+  const pending = deferred<any>();
+  const h = createHarness({}, () => pending.promise);
+  const started = await h.call("ptpp.search.start", { keyword: "Film" });
+  await sleep();
+  const staged = await h.call("ptpp.search.present", { jobId: started.jobId });
+  assert.equal(staged.status, "staged", "presentation can open before a slow site search finishes");
+  assert.deepEqual(await h.registry.consumePresentation!(staged.presentationId), { status: "pending" });
+  pending.resolve({ status: EResultParseStatus.success, data: [fixture(9, "Late Film", 2)] });
+  for (let i = 0; i < 150; i++) {
+    if ((await h.call("ptpp.search.status", { jobId: started.jobId })).status !== "running") break;
+    await sleep(2);
+  }
+  const presented = await h.registry.consumePresentation!(staged.presentationId);
+  assert.equal((presented as any).searchResult[0].title, "Late Film");
 }
 
 {
